@@ -840,6 +840,7 @@ fi
 
 echo ""
 echo "→ Pushing..."
+git pull --rebase --quiet 2>&1 || true
 if ! git push; then
     echo "ERROR: Push failed. This session's commits will be lost."
     exit 1
