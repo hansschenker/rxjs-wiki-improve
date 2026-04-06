@@ -1,5 +1,9 @@
 # Growth Journal
 
+## 2026-04-06 10:40 — Graph view, cross-ref fixes, and URL ingestion
+
+Added an interactive wiki graph view at `/wiki/graph` using D3 force simulation so users can visually explore how pages connect, then fixed cross-reference detection in lint to use word-boundary matching and deduplicated the `LintIssue` type that had drifted between files. Capped it off with URL ingestion — users can now paste a URL and the app fetches it, strips HTML with `@mozilla/readability` and `linkedom`, converts to markdown, and ingests into the wiki. Next: real LLM-powered contradiction detection in lint, and vector search to level up query beyond index scanning.
+
 ## 2026-04-06 10:24 — Vercel AI SDK migration and ingest hardening
 
 Migrated the entire LLM layer from `@anthropic-ai/sdk` to Vercel AI SDK's `generateText`, making the app provider-agnostic — users can now swap in OpenAI, Google, Ollama, etc. via env vars. Fixed slug deduplication so re-ingesting the same content updates the existing page instead of creating duplicates, and made summary extraction resilient to varied LLM output formats. Also added a proper LLM provider integration test and updated README docs for the new env config. Next: graph view for browse, real LLM-powered contradiction detection in lint, and maybe vector search for query.
