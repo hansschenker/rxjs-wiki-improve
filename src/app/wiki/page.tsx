@@ -8,12 +8,20 @@ export default async function WikiIndex() {
     <main className="mx-auto max-w-3xl px-6 py-12">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Wiki</h1>
-        <Link
-          href="/"
-          className="text-sm text-foreground/60 hover:text-foreground transition-colors"
-        >
-          ← Home
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/ingest"
+            className="text-sm text-foreground/60 hover:text-foreground transition-colors"
+          >
+            Ingest
+          </Link>
+          <Link
+            href="/"
+            className="text-sm text-foreground/60 hover:text-foreground transition-colors"
+          >
+            ← Home
+          </Link>
+        </div>
       </div>
 
       {pages.length === 0 ? (
