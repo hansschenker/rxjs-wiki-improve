@@ -1,5 +1,9 @@
 # Growth Journal
 
+## 2026-04-06 10:24 — Vercel AI SDK migration and ingest hardening
+
+Migrated the entire LLM layer from `@anthropic-ai/sdk` to Vercel AI SDK's `generateText`, making the app provider-agnostic — users can now swap in OpenAI, Google, Ollama, etc. via env vars. Fixed slug deduplication so re-ingesting the same content updates the existing page instead of creating duplicates, and made summary extraction resilient to varied LLM output formats. Also added a proper LLM provider integration test and updated README docs for the new env config. Next: graph view for browse, real LLM-powered contradiction detection in lint, and maybe vector search for query.
+
 ## 2026-04-06 09:07 — Lint operation and persistent navigation
 
 Built the lint system end-to-end: core library detecting orphan pages, missing cross-references, and short stubs, plus an API route and a UI page at `/lint` that displays issues by severity. Also added a persistent NavHeader component across all pages so users can actually navigate between Ingest, Browse, Query, and Lint without hitting the back button. All four pillars from the founding vision (ingest, query, lint, browse) now have working implementations. Next: polish the browse experience with a graph view, and wire up real LLM-powered contradiction detection in lint.
