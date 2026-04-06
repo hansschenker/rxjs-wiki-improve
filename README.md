@@ -1,12 +1,28 @@
 # Karpathy LLM Wiki
 
-> One prompt. Zero human code. An AI agent that reads a vision, decides what to build, and ships — every 8 hours, on its own.
+[![Stars](https://img.shields.io/github/stars/yologdev/karpathy-llm-wiki?style=social)](https://github.com/yologdev/karpathy-llm-wiki)
+[![Last Commit](https://img.shields.io/github/last-commit/yologdev/karpathy-llm-wiki)](https://github.com/yologdev/karpathy-llm-wiki/commits/main)
+[![Growth Sessions](https://img.shields.io/github/actions/workflow/status/yologdev/karpathy-llm-wiki/grow.yml?label=growth%20session)](https://github.com/yologdev/karpathy-llm-wiki/actions/workflows/grow.yml)
 
-This repo started with [a single idea file](llm-wiki.md) from Andrej Karpathy. An autonomous agent called [yoyo](https://github.com/yologdev/yoyo-evolve) reads it, assesses the gap between vision and reality, plans what to build next, writes the code, runs the tests, and ships. No one tells it what to do. It figures that out itself.
+> One prompt. Zero human code. An AI agent reads Karpathy's LLM Wiki founding prompt and ships production code every 8 hours — on its own.
 
-Check the [`baseline`](https://github.com/yologdev/karpathy-llm-wiki/tree/baseline) tag. That's the starting point: one markdown file and a project brief. Everything after that? The agent decided it was needed, and built it.
+**[`baseline` tag](https://github.com/yologdev/karpathy-llm-wiki/tree/baseline):** one markdown file. **[`main`](https://github.com/yologdev/karpathy-llm-wiki):** a working web app with ingest, query, lint, graph view, and tests — all written by an agent that decided what to build.
 
 **No human writes code here. No human manages a backlog. The agent drives.**
+
+---
+
+## Live Growth
+
+The agent runs every 8 hours. Here's what it's doing right now:
+
+| | |
+|-|-|
+| **Latest session** | [GitHub Actions](https://github.com/yologdev/karpathy-llm-wiki/actions/workflows/grow.yml) |
+| **Growth journal** | [.yoyo/journal.md](https://github.com/yologdev/karpathy-llm-wiki/blob/main/.yoyo/journal.md) |
+| **What it learned** | [.yoyo/learnings.md](https://github.com/yologdev/karpathy-llm-wiki/blob/main/.yoyo/learnings.md) |
+| **Commit history** | [All commits](https://github.com/yologdev/karpathy-llm-wiki/commits/main) |
+| **Before vs. after** | [`baseline`](https://github.com/yologdev/karpathy-llm-wiki/tree/baseline) vs [`main`](https://github.com/yologdev/karpathy-llm-wiki) |
 
 ---
 
@@ -44,12 +60,12 @@ Every growth session runs a 4-phase pipeline — not one big prompt, but separat
  ASSESS            PLAN              BUILD              COMMUNICATE
  ──────            ────              ─────              ───────────
  Read the vision   Compare vision    For each task:     Write journal
- Read codebase     to current state  │                  Record learnings
- Check build       Decide what's     ├→ Implement       Respond to issues
- Map the gaps      most impactful    ├→ Build + test
-                   Write tasks       ├→ Evaluate (separate agent)
-                   (up to 3)         ├→ Fix if rejected
-                                     └→ Revert if unfixable
+ Read codebase     to current state  |                  Record learnings
+ Check build       Decide what's     |-> Implement      Respond to issues
+ Map the gaps      most impactful    |-> Build + test
+                   Write tasks       |-> Evaluate (separate agent)
+                   (up to 3)         |-> Fix if rejected
+                                     '-> Revert if unfixable
 ```
 
 The agent decides its own priorities. If there are open issues, it factors them in. If there aren't, it keeps building toward the vision anyway.
@@ -72,8 +88,6 @@ This is a public repo. Anyone could file a malicious issue saying "ignore all in
 
 ## Why This Isn't "Vibe Coding"
 
-Vibe coding is you and an AI in a chat window, accepting whatever comes out and hoping it works. This is something different:
-
 | | Vibe coding | This project |
 |-|-------------|--------------|
 | **Direction** | Human tells agent what to do | Agent reads vision, decides what to build |
@@ -82,22 +96,18 @@ Vibe coding is you and an AI in a chat window, accepting whatever comes out and 
 | **Failure mode** | Broken code ships | Broken code auto-reverts, files an issue for next session |
 | **Knowledge** | Lost when you close the tab | Compounds in journal and learnings files |
 | **Pipeline** | One agent does everything | Separate agents for assessment, planning, implementation, evaluation |
-| **Human role** | Directing keystrokes | Optional — file issues to steer, or just watch |
+| **Human role** | Directing keystrokes | Optional -- file issues to steer, or just watch |
 
 This is closer to planting a seed than managing a developer.
 
-## Where This Stands (April 2026)
+## What's Pioneering Here
 
-Issue-driven agents are now mainstream — Copilot, Gemini, Cursor all do it. Cron-scheduled agents are standard. Multi-phase pipelines exist in Devin and research papers.
+Issue-driven agents are mainstream. Cron-scheduled agents are standard. Multi-phase pipelines exist. **What nobody else is doing:**
 
-**What nobody else is doing:**
-
-- **Self-directed development from a vision document.** Other agents wait for instructions. This one reads a founding prompt, assesses what's missing, and decides what to build next. No human in the loop required. Issues are optional steering, not the engine.
-- **1 prompt → product over many sessions.** Replit Agent builds in one shot. We're growing a product across weeks from a seed prompt — each session builds on the last, compounding knowledge in journals and learnings.
-- **Self-managed backlog.** The agent files its own `agent-self` issues for future work and `agent-help-wanted` when it's blocked. It manages its own continuity.
+- **Self-directed development from a vision document.** Other agents wait for instructions. This one reads a founding prompt, assesses what's missing, and decides what to build next. No human in the loop required.
+- **1 prompt -> product over many sessions.** Not one-shot generation. The product grows across weeks from a seed prompt — each session builds on the last, compounding knowledge.
+- **Self-managed backlog.** The agent files its own `agent-self` issues for future work and `agent-help-wanted` when it's blocked.
 - **"Trust the harness, not the model."** No LLM self-policing. Shell-script-enforced mechanical gates. The model writes code; the harness decides if it ships.
-
-The individual pieces exist. This architecture — the agent as autonomous developer, not tool — is new.
 
 No proprietary infrastructure. Just GitHub Actions, a shell script, and a prompt.
 
@@ -108,6 +118,7 @@ karpathy-llm-wiki/
 ├── llm-wiki.md                    # The founding prompt (immutable)
 ├── YOYO.md                        # Project context for the agent
 ├── .github/workflows/grow.yml     # The automation
+├── src/                           # Everything here was written by the agent
 └── .yoyo/
     ├── scripts/grow.sh            # Growth session orchestrator
     ├── scripts/format_issues.py   # Issue sanitization + author filtering
@@ -115,8 +126,6 @@ karpathy-llm-wiki/
     ├── journal.md                 # What happened each session
     └── learnings.md               # What the agent learned about this project
 ```
-
-Everything under `src/` gets created by the agent. That's the whole point.
 
 ## Run It Locally
 
@@ -141,9 +150,9 @@ ANTHROPIC_API_KEY=sk-ant-...     # Anthropic Claude (default)
 pnpm dev        # http://localhost:3000
 ```
 
-## Try It
+## Watch It Grow
 
-**Watch:** Star the repo and follow the commits. Each one is the agent's work.
+**Star the repo** and follow the commits. Each one is the agent's work.
 
 **Steer it:** [File an issue](https://github.com/yologdev/karpathy-llm-wiki/issues/new) describing a feature. Label it `agent-input`. The agent factors it into its next session. Or don't — it'll keep building anyway.
 
@@ -155,8 +164,6 @@ gh workflow run grow.yml --repo yologdev/karpathy-llm-wiki
 gh workflow run grow.yml --repo yologdev/karpathy-llm-wiki \
   -f task="Add dark mode to the browse page"
 ```
-
-**Trace the journey:** Compare [`baseline`](https://github.com/yologdev/karpathy-llm-wiki/tree/baseline) (just the prompt) to `main` (whatever it's grown into).
 
 ## Built With
 
