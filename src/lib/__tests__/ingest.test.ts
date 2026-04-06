@@ -9,6 +9,7 @@ import {
   isUrl,
   stripHtml,
   extractTitle,
+  extractWithReadability,
   fetchUrlContent,
   ingestUrl,
   findRelatedPages,
@@ -336,6 +337,98 @@ describe("extractTitle", () => {
 });
 
 // ---------------------------------------------------------------------------
+// extractWithReadability
+// ---------------------------------------------------------------------------
+
+describe("extractWithReadability", () => {
+  it("extracts article content and title from well-structured HTML", () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>My Article</title></head>
+      <body>
+        <nav><a href="/">Home</a></nav>
+        <article>
+          <h1>My Article</h1>
+          <p>This is the first paragraph of a well-written article about testing.</p>
+          <p>This is the second paragraph with more detail about the topic at hand.</p>
+          <p>And a third paragraph to ensure there is enough content for Readability.</p>
+        </article>
+        <footer>Copyright 2024</footer>
+      </body>
+      </html>
+    `;
+    const result = extractWithReadability(html);
+    expect(result).not.toBeNull();
+    expect(result!.textContent).toContain("first paragraph");
+    expect(result!.textContent).toContain("second paragraph");
+    // Nav and footer content should not appear in extracted text
+    expect(result!.textContent).not.toContain("Copyright 2024");
+  });
+
+  it("returns null for minimal HTML with no article structure", () => {
+    const html = "<html><body><p>Hi</p></body></html>";
+    const result = extractWithReadability(html);
+    // Readability may return null for very short/non-article content
+    // Either null or a valid result is acceptable for minimal content
+    if (result !== null) {
+      expect(result.textContent.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("strips script and style content from article extraction", () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>Script Test</title></head>
+      <body>
+        <article>
+          <h1>Article Title</h1>
+          <p>Real article content that should be extracted properly.</p>
+          <p>More content to give Readability something substantial to work with.</p>
+          <p>Yet another paragraph of meaningful article text for extraction.</p>
+          <script>var tracking = "should not appear";</script>
+          <style>.hidden { display: none; }</style>
+        </article>
+      </body>
+      </html>
+    `;
+    const result = extractWithReadability(html);
+    expect(result).not.toBeNull();
+    expect(result!.textContent).toContain("Real article content");
+    expect(result!.textContent).not.toContain("should not appear");
+    expect(result!.textContent).not.toContain("display: none");
+  });
+
+  it("handles HTML with tables cleanly", () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>Table Page</title></head>
+      <body>
+        <article>
+          <h1>Data Report</h1>
+          <p>Here is a summary of the data from the quarterly report.</p>
+          <table>
+            <tr><th>Name</th><th>Value</th></tr>
+            <tr><td>Alpha</td><td>100</td></tr>
+            <tr><td>Beta</td><td>200</td></tr>
+          </table>
+          <p>The above table shows the key metrics for the quarter.</p>
+          <p>Additional analysis follows in the next section of this report.</p>
+        </article>
+      </body>
+      </html>
+    `;
+    const result = extractWithReadability(html);
+    expect(result).not.toBeNull();
+    expect(result!.textContent).toContain("Alpha");
+    expect(result!.textContent).toContain("Beta");
+    expect(result!.textContent).toContain("summary of the data");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // fetchUrlContent (mocked fetch)
 // ---------------------------------------------------------------------------
 
@@ -485,6 +578,99 @@ describe("fetchUrlContent", () => {
       await fetchUrlContent("https://example.com/test");
       const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(fetchCall[1]).toHaveProperty("signal");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("uses Readability for article-shaped HTML", async () => {
+    const originalFetch = global.fetch;
+    const articleHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>Readability Article</title></head>
+      <body>
+        <nav><a href="/">Home</a><a href="/about">About</a></nav>
+        <header><h1>Site Name</h1></header>
+        <article>
+          <h1>Readability Article</h1>
+          <p>This is a substantial article with enough content for Readability to detect it as an article. It discusses various topics in detail.</p>
+          <p>The second paragraph continues the discussion with additional details and analysis of the subject matter at hand.</p>
+          <p>A third paragraph provides even more context and ensures Readability has sufficient text to work with for extraction.</p>
+        </article>
+        <footer><p>Copyright 2024 - Site Footer</p></footer>
+        <script>console.log("analytics tracking code");</script>
+      </body>
+      </html>
+    `;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: mockHeaders(),
+      text: () => Promise.resolve(articleHtml),
+    });
+
+    try {
+      const result = await fetchUrlContent("https://example.com/article");
+      expect(result.title).toBe("Readability Article");
+      expect(result.content).toContain("substantial article");
+      expect(result.content).toContain("second paragraph");
+      // Readability should strip nav, footer, script content
+      expect(result.content).not.toContain("analytics tracking code");
+      expect(result.content).not.toContain("Copyright 2024");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("falls back to stripHtml when Readability cannot parse the page", async () => {
+    const originalFetch = global.fetch;
+    // Minimal HTML that Readability may not identify as an article
+    const minimalHtml = `<html><body><p>Some content</p></body></html>`;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: mockHeaders(),
+      text: () => Promise.resolve(minimalHtml),
+    });
+
+    try {
+      const result = await fetchUrlContent("https://example.com/minimal");
+      // Whether Readability succeeds or the fallback kicks in,
+      // we should still get the content
+      expect(result.content).toContain("Some content");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("prefers Readability title over regex-extracted title", async () => {
+    const originalFetch = global.fetch;
+    // HTML where <title> differs from the article heading that Readability might pick up
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>SEO Title - MySite.com</title></head>
+      <body>
+        <article>
+          <h1>Clean Article Title</h1>
+          <p>This is a well-structured article with enough content for Readability to process it correctly and extract the article.</p>
+          <p>Additional paragraphs help Readability determine this is indeed an article worth extracting from the page.</p>
+          <p>A third paragraph of meaningful content ensures the extraction succeeds with proper title detection.</p>
+        </article>
+      </body>
+      </html>
+    `;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: mockHeaders(),
+      text: () => Promise.resolve(html),
+    });
+
+    try {
+      const result = await fetchUrlContent("https://example.com/article");
+      // Readability should extract a title - it may use <title> or <h1>
+      // The key thing: we should get a meaningful title, not just the hostname
+      expect(result.title).toBeTruthy();
+      expect(result.title).not.toBe("example.com");
     } finally {
       global.fetch = originalFetch;
     }

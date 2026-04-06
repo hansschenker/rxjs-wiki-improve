@@ -7,6 +7,8 @@ import {
   appendToLog,
 } from "./wiki";
 import { callLLM, hasLLMKey } from "./llm";
+import { Readability } from "@mozilla/readability";
+import { parseHTML } from "linkedom";
 import type { IngestResult, IndexEntry } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -89,9 +91,35 @@ const MAX_CONTENT_LENGTH = 100_000;
 const FETCH_TIMEOUT_MS = 15_000;
 
 /**
+ * Extract article content from HTML using @mozilla/readability + linkedom.
+ * Returns `null` when Readability cannot identify an article in the page.
+ */
+export function extractWithReadability(
+  html: string,
+): { title: string; textContent: string } | null {
+  try {
+    const { document } = parseHTML(html);
+    const reader = new Readability(document);
+    const article = reader.parse();
+
+    if (article && article.textContent && article.textContent.trim().length > 0) {
+      return {
+        title: article.title || "",
+        textContent: article.textContent.trim(),
+      };
+    }
+    return null;
+  } catch {
+    // If linkedom/Readability throws, fall back to regex stripping
+    return null;
+  }
+}
+
+/**
  * Fetch a URL and extract its text content and title.
  *
- * Uses Node.js native `fetch()` and regex-based HTML stripping.
+ * Uses @mozilla/readability + linkedom for robust HTML-to-text extraction.
+ * Falls back to regex-based `stripHtml()` when Readability can't parse the page.
  * Applies a 15-second timeout and a 5 MB response size limit for safety.
  */
 export async function fetchUrlContent(
@@ -128,8 +156,19 @@ export async function fetchUrlContent(
     );
   }
 
-  const title = extractTitle(html) || new URL(url).hostname;
-  let content = stripHtml(html);
+  let title: string;
+  let content: string;
+
+  // Try Readability first for proper article extraction
+  const article = extractWithReadability(html);
+  if (article) {
+    title = article.title || extractTitle(html) || new URL(url).hostname;
+    content = article.textContent;
+  } else {
+    // Fallback to regex-based stripping for non-article pages
+    title = extractTitle(html) || new URL(url).hostname;
+    content = stripHtml(html);
+  }
 
   if (!content) {
     throw new Error("No text content could be extracted from the URL");
