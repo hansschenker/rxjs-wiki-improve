@@ -19,3 +19,9 @@ export interface IngestResult {
   wikiPages: string[];
   indexUpdated: boolean;
 }
+
+/** Result from a query against the wiki. */
+export interface QueryResult {
+  answer: string; // Markdown-formatted answer with citations
+  sources: string[]; // slugs of wiki pages used as sources
+}

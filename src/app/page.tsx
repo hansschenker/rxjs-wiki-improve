@@ -10,12 +10,18 @@ export default function Home() {
           questions, and browse an ever-growing wiki of interlinked markdown
           pages.
         </p>
-        <div className="mt-8 flex items-center justify-center gap-4">
+        <div className="mt-8 flex items-center justify-center gap-4 flex-wrap">
           <Link
             href="/ingest"
             className="inline-block rounded-lg border border-foreground/20 px-6 py-3 text-sm font-medium hover:bg-foreground/5 transition-colors"
           >
             Ingest Content
+          </Link>
+          <Link
+            href="/query"
+            className="inline-block rounded-lg border border-foreground/20 px-6 py-3 text-sm font-medium hover:bg-foreground/5 transition-colors"
+          >
+            Ask a Question
           </Link>
           <Link
             href="/wiki"
