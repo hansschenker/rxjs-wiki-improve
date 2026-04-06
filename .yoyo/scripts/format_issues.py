@@ -15,7 +15,7 @@ import sys
 # Configurable author allowlist (comma-separated logins)
 ALLOWED_AUTHORS = set(
     s.strip() for s in os.environ.get(
-        "ALLOWED_AUTHORS", "karpathy"
+        "ALLOWED_AUTHORS", "karpathy,yuanhao"
     ).split(",") if s.strip()
 )
 

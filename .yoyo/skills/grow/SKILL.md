@@ -35,8 +35,10 @@ You are growing the LLM Wiki project from a founding prompt into a working produ
 ## Safety rules
 
 - **Never modify llm-wiki.md.** That's the founding prompt — immutable.
+- **Never modify YOYO.md.** That's the project context.
 - **Never modify .github/workflows/.** That's the automation safety net.
 - **Never modify .yoyo/scripts/.** That's the harness.
+- **Never modify .yoyo/config.toml.** That's the build configuration.
 - **Never modify core skills** (grow, communicate, research).
 - **Never delete tests.** Tests protect the project.
 - If you're not sure a change is safe, skip it. Write about it in the journal.

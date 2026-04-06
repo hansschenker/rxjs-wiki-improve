@@ -10,10 +10,10 @@
 # Environment:
 #   ANTHROPIC_API_KEY  — required
 #   REPO               — GitHub repo (default: auto-detect from git remote)
-#   MODEL              — LLM model (default: claude-sonnet-4-6)
+#   MODEL              — LLM model (default: claude-opus-4-6)
 #   TIMEOUT            — Total planning phase budget in seconds (default: 1200)
 #   FORCE_RUN          — Set to "true" to bypass the run-frequency gate
-#   ALLOWED_AUTHORS    — Comma-separated GitHub logins for agent-input issues (default: karpathy)
+#   ALLOWED_AUTHORS    — Comma-separated GitHub logins for agent-input issues (default: karpathy,yuanhao)
 #   BOT_LOGIN          — Bot login for issue filtering (default: yoyo[bot])
 
 set -euo pipefail
@@ -73,7 +73,7 @@ run_agent() {
 }
 
 # Protected files for this project
-PROTECTED_PATHS="llm-wiki.md .github/workflows/ .yoyo/scripts/ .yoyo/skills/grow/ .yoyo/skills/communicate/ .yoyo/skills/research/"
+PROTECTED_PATHS="llm-wiki.md YOYO.md .github/workflows/ .yoyo/scripts/ .yoyo/config.toml .yoyo/.gitignore .yoyo/skills/grow/ .yoyo/skills/communicate/ .yoyo/skills/research/"
 
 check_protected_files() {
     local base_sha="$1"
