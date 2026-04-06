@@ -120,6 +120,23 @@ Vibe coding is a human prompting an AI in a loop, accepting whatever comes out. 
 
 The founding prompt is the seed. The harness is the soil. The issues are water and sunlight. The product grows.
 
+## Where This Stands in the Industry
+
+As of early 2026, the individual pieces of what we're doing exist elsewhere. Issue-driven agents are now mainstream — GitHub Copilot, Gemini CLI, and Cursor Automations all let you assign an issue to an AI and get a PR back. Cron-scheduled agents are a standard feature (Claude Code and Cursor both added this in March 2026). Multi-phase planning pipelines appear in Devin and academic research.
+
+**What's uncommon — and where this project is pioneering — is the combination:**
+
+| Pattern | Industry status | This project |
+|---------|----------------|--------------|
+| Agent reads issue, ships PR | Mainstream (Copilot, Gemini, Cursor) | Yes, plus self-filed issues |
+| Cron-scheduled autonomous sessions | Standard since March 2026 | Yes, every 8 hours |
+| Multi-phase pipeline (plan → implement → eval) | Devin, academic papers | Yes, with mechanical gates between phases |
+| **1 prompt → product over many sessions** | **Nobody else does this.** Replit Agent builds in one shot. | Sustained evolution from a seed prompt across days/weeks. |
+| **Self-managed backlog** | **Not a standard pattern anywhere.** | Agent files `agent-self` tasks for future sessions and `agent-help-wanted` when blocked. |
+| **"Trust the harness, not the model"** | **Rare.** Most tools use LLM self-checking or human approval. | Shell-script-enforced gates: protected files, build gate, separate eval agent, automatic revert. The LLM doesn't police itself — the harness does. |
+
+The individual pieces exist. The architecture of putting them together — and the philosophy of "humans write issues, agents write code" as a sustained development model — is still new territory. No proprietary infrastructure required. Just GitHub Actions, a shell script, and a prompt.
+
 ## Project Structure
 
 ```
