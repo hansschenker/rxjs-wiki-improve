@@ -22,7 +22,7 @@ jobs:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
           echo "→ Testing read access to yoyo-evolve..."
-          CURRENT=$(gh api repos/yologdev/yoyo-evolve/contents/JOURNAL-llm-wiki.md 2>&1 || true)
+          CURRENT=$(gh api repos/yologdev/yoyo-evolve/contents/journals/llm-wiki.md 2>&1 || true)
           if echo "$CURRENT" | grep -q '"sha"'; then
             echo "  File exists — can read."
             echo "$CURRENT" | python3 -c "import sys,json,base64; print(base64.b64decode(json.load(sys.stdin)['content']).decode()[:200])"
@@ -44,7 +44,7 @@ jobs:
             SHA_FIELD="\"sha\":\"$SHA\","
           fi
 
-          RESULT=$(gh api repos/yologdev/yoyo-evolve/contents/JOURNAL-llm-wiki.md \
+          RESULT=$(gh api repos/yologdev/yoyo-evolve/contents/journals/llm-wiki.md \
             -X PUT \
             --input - <<EOF 2>&1
           {"message":"test: journal sync from karpathy-llm-wiki","content":"$TEST_CONTENT",${SHA_FIELD}"branch":"main"}

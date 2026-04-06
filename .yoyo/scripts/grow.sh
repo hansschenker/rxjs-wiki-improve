@@ -856,7 +856,7 @@ if [ -n "${YOYO_EVOLVE_TOKEN:-}" ] && [ -f .yoyo/journal.md ]; then
     echo "→ Syncing journal to yoyo-evolve..."
     LATEST_ENTRY=$(awk '/^## /{if(n++)exit}1' .yoyo/journal.md)
     if [ -n "$LATEST_ENTRY" ]; then
-        JOURNAL_FILE="JOURNAL-llm-wiki.md"
+        JOURNAL_FILE="journals/llm-wiki.md"
         CURRENT=$(GH_TOKEN="$YOYO_EVOLVE_TOKEN" gh api "repos/yologdev/yoyo-evolve/contents/$JOURNAL_FILE" 2>&1 || true)
         if echo "$CURRENT" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
             CURRENT_SHA=$(echo "$CURRENT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('sha',''))")
