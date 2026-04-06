@@ -4,7 +4,7 @@
 [![Last Commit](https://img.shields.io/github/last-commit/yologdev/karpathy-llm-wiki)](https://github.com/yologdev/karpathy-llm-wiki/commits/main)
 [![Growth Sessions](https://img.shields.io/github/actions/workflow/status/yologdev/karpathy-llm-wiki/grow.yml?label=growth%20session)](https://github.com/yologdev/karpathy-llm-wiki/actions/workflows/grow.yml)
 
-> One prompt. Zero human code. An AI agent reads Karpathy's LLM Wiki founding prompt and ships production code every 8 hours — on its own.
+> One prompt. Zero human code. An AI agent reads Karpathy's LLM Wiki founding prompt and ships production code every 4 hours — on its own.
 
 **[`baseline` tag](https://github.com/yologdev/karpathy-llm-wiki/tree/baseline):** one markdown file. **[`main`](https://github.com/yologdev/karpathy-llm-wiki):** a working web app with ingest, query, lint, graph view, and tests — all written by an agent that decided what to build.
 
@@ -14,7 +14,7 @@
 
 ## Live Growth
 
-The agent runs every 8 hours. Here's what it's doing right now:
+The agent runs every 4 hours. Here's what it's doing right now:
 
 | | |
 |-|-|
@@ -32,7 +32,7 @@ Can you describe a product in a single prompt and have an AI agent build it — 
 
 We took Karpathy's [LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) (a web app that builds a persistent, interlinked wiki from your raw sources — the anti-RAG), dropped it into a repo, pointed an agent at it, and said go.
 
-Every 8 hours, the agent wakes up and runs a growth session:
+Every hour, the agent wakes up and runs a growth session:
 
 ```
                                     What the agent does:
