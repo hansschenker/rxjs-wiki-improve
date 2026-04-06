@@ -1,5 +1,12 @@
 import { callLLM, hasLLMKey } from "./llm";
-import { listWikiPages, readWikiPage } from "./wiki";
+import {
+  listWikiPages,
+  readWikiPage,
+  writeWikiPage,
+  updateIndex,
+  appendToLog,
+} from "./wiki";
+import { slugify } from "./ingest";
 import type { IndexEntry, QueryResult } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -271,4 +278,61 @@ export async function query(question: string): Promise<QueryResult> {
   const sources = extractCitedSlugs(answer, allSlugs);
 
   return { answer, sources };
+}
+
+// ---------------------------------------------------------------------------
+// Save answer to wiki
+// ---------------------------------------------------------------------------
+
+/**
+ * Save a query answer as a new wiki page.
+ *
+ * Unlike the full `ingest()` pipeline, this writes the answer markdown
+ * directly — it's already a well-formatted page with citations.
+ *
+ * Returns the slug of the newly created wiki page.
+ */
+export async function saveAnswerToWiki(
+  title: string,
+  content: string,
+): Promise<{ slug: string }> {
+  const slug = slugify(title);
+
+  if (!slug) {
+    throw new Error("Title must produce a valid slug");
+  }
+
+  // Prepend a heading if the content doesn't already start with one
+  const pageContent = content.trimStart().startsWith("# ")
+    ? content
+    : `# ${title}\n\n${content}`;
+
+  // Write the wiki page
+  await writeWikiPage(slug, pageContent);
+
+  // Update the index
+  const entries = await listWikiPages();
+
+  // Extract a short summary from the content (first sentence or first 200 chars)
+  const plainContent = content.replace(/^#.*$/gm, "").trim();
+  const sentenceEnd = plainContent.search(/[.!?]\s/);
+  const summaryText =
+    sentenceEnd !== -1 && sentenceEnd < 200
+      ? plainContent.slice(0, sentenceEnd + 1)
+      : plainContent.slice(0, 200);
+  const summary = summaryText.replace(/\s+/g, " ").trim() || title;
+
+  const existingIdx = entries.findIndex((e) => e.slug === slug);
+  if (existingIdx !== -1) {
+    entries[existingIdx].title = title;
+    entries[existingIdx].summary = summary;
+  } else {
+    entries.push({ title, slug, summary });
+  }
+  await updateIndex(entries);
+
+  // Log the save
+  await appendToLog(`Saved query answer "${title}" as ${slug}`);
+
+  return { slug };
 }

@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { searchIndex, buildContext, query } from "../query";
-import { writeWikiPage, updateIndex, ensureDirectories } from "../wiki";
+import { searchIndex, buildContext, query, saveAnswerToWiki } from "../query";
+import { writeWikiPage, updateIndex, ensureDirectories, readWikiPage, listWikiPages } from "../wiki";
 import type { IndexEntry } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -314,5 +314,71 @@ describe("query", () => {
     // The system prompt for the final query should mention other pages
     const systemPrompt = mockedCallLLM.mock.calls[1][0];
     expect(systemPrompt).toContain("other pages");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// saveAnswerToWiki tests
+// ---------------------------------------------------------------------------
+describe("saveAnswerToWiki", () => {
+  it("saves an answer as a wiki page and updates the index", async () => {
+    await ensureDirectories();
+
+    const result = await saveAnswerToWiki(
+      "Neural Networks Explained",
+      "Neural networks are computational models. They consist of layers of neurons.",
+    );
+
+    expect(result.slug).toBe("neural-networks-explained");
+
+    // Verify the wiki page was created
+    const page = await readWikiPage("neural-networks-explained");
+    expect(page).not.toBeNull();
+    expect(page!.content).toContain("# Neural Networks Explained");
+    expect(page!.content).toContain("Neural networks are computational models");
+
+    // Verify the index was updated
+    const entries = await listWikiPages();
+    const entry = entries.find((e) => e.slug === "neural-networks-explained");
+    expect(entry).toBeDefined();
+    expect(entry!.title).toBe("Neural Networks Explained");
+    expect(entry!.summary).toContain("Neural networks are computational models");
+  });
+
+  it("does not duplicate heading if content already starts with one", async () => {
+    await ensureDirectories();
+
+    await saveAnswerToWiki(
+      "My Topic",
+      "# My Topic\n\nAlready has a heading.",
+    );
+
+    const page = await readWikiPage("my-topic");
+    expect(page).not.toBeNull();
+    // Should not have double heading
+    const headingCount = (page!.content.match(/^# /gm) || []).length;
+    expect(headingCount).toBe(1);
+  });
+
+  it("updates existing index entry on re-save", async () => {
+    await ensureDirectories();
+
+    await saveAnswerToWiki("First Version", "Original content.");
+    await saveAnswerToWiki("First Version", "Updated content.");
+
+    const entries = await listWikiPages();
+    const matching = entries.filter((e) => e.slug === "first-version");
+    expect(matching).toHaveLength(1);
+
+    const page = await readWikiPage("first-version");
+    expect(page!.content).toContain("Updated content");
+  });
+
+  it("throws when title produces an empty slug", async () => {
+    await ensureDirectories();
+
+    await expect(saveAnswerToWiki("!!!", "Some content")).rejects.toThrow(
+      "valid slug",
+    );
   });
 });
