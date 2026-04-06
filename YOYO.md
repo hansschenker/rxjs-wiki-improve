@@ -1,4 +1,4 @@
-# Karpathy LLM Wiki
+# The Self-Growing Karpathy LLM Wiki
 
 ## What This Is
 

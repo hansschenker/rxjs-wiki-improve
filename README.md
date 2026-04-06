@@ -1,4 +1,4 @@
-# Karpathy LLM Wiki
+# The Self-Growing Karpathy LLM Wiki
 
 [![Stars](https://img.shields.io/github/stars/yologdev/karpathy-llm-wiki?style=social)](https://github.com/yologdev/karpathy-llm-wiki)
 [![Last Commit](https://img.shields.io/github/last-commit/yologdev/karpathy-llm-wiki)](https://github.com/yologdev/karpathy-llm-wiki/commits/main)
