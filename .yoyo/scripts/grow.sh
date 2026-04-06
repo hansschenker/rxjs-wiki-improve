@@ -69,11 +69,14 @@ run_agent() {
     local timeout_val="$1"
     local prompt_file="$2"
     local log_file="$3"
+    local extra_flags="${4:-}"
 
     local exit_code=0
+    # shellcheck disable=SC2086
     ${TIMEOUT_CMD:+$TIMEOUT_CMD "$timeout_val"} yoyo \
         --model "$MODEL" \
         --skills .yoyo/skills \
+        $extra_flags \
         < "$prompt_file" 2>&1 | tee "$log_file" || exit_code=$?
 
     return "$exit_code"
@@ -430,7 +433,7 @@ TEOF
 
         TASK_LOG=$(mktemp)
         TASK_EXIT=0
-        run_agent "$IMPL_TIMEOUT" "$TASK_PROMPT" "$TASK_LOG" || TASK_EXIT=$?
+        run_agent "$IMPL_TIMEOUT" "$TASK_PROMPT" "$TASK_LOG" "--context-strategy checkpoint" || TASK_EXIT=$?
         rm -f "$TASK_PROMPT"
 
         if [ "$TASK_EXIT" -eq 124 ]; then
@@ -545,7 +548,7 @@ $BFIX_ERRORS
 Fix the specific errors. After fixing: pnpm build && pnpm lint && pnpm test
 BFIXEOF
         BFIX_LOG=$(mktemp)
-        run_agent 600 "$BFIX_PROMPT" "$BFIX_LOG" || true
+        run_agent 600 "$BFIX_PROMPT" "$BFIX_LOG" "--context-strategy checkpoint" || true
 
         if grep -q '"type":"error"' "$BFIX_LOG" 2>/dev/null; then
             echo "    Build-fix agent API error — aborting fix loop."
@@ -632,7 +635,7 @@ $EVAL_FEEDBACK
 Fix the issues. After fixing: pnpm build && pnpm lint && pnpm test
 FIXEOF
                 FIX_LOG=$(mktemp)
-                run_agent 600 "$FIX_PROMPT" "$FIX_LOG" || true
+                run_agent 600 "$FIX_PROMPT" "$FIX_LOG" "--context-strategy checkpoint" || true
                 rm -f "$FIX_PROMPT" "$FIX_LOG"
 
                 FIX_PROTECTED=$(check_protected_files "$PRE_TASK_SHA")
