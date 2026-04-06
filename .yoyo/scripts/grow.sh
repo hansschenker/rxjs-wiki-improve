@@ -27,7 +27,7 @@ if [ -z "${REPO:-}" ]; then
     fi
 fi
 
-MODEL="${MODEL:-claude-sonnet-4-6}"
+MODEL="${MODEL:-claude-opus-4-6}"
 TIMEOUT="${TIMEOUT:-1200}"
 BOT_LOGIN="${BOT_LOGIN:-yoyo[bot]}"
 BOT_SLUG="${BOT_SLUG:-yoyo}"
