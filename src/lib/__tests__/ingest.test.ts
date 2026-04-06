@@ -2,7 +2,16 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { slugify, extractSummary, ingest } from "../ingest";
+import {
+  slugify,
+  extractSummary,
+  ingest,
+  isUrl,
+  stripHtml,
+  extractTitle,
+  fetchUrlContent,
+  ingestUrl,
+} from "../ingest";
 import { listWikiPages } from "../wiki";
 
 // Mock the LLM module so ingest never calls the real API
@@ -193,5 +202,219 @@ describe("ingest", () => {
     // New code produces "Dr." (period + space boundary) — still short but includes punctuation.
     expect(entries[0].summary).not.toBe("Dr");
     expect(entries[0].summary.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isUrl
+// ---------------------------------------------------------------------------
+
+describe("isUrl", () => {
+  it("recognizes http URLs", () => {
+    expect(isUrl("http://example.com")).toBe(true);
+  });
+
+  it("recognizes https URLs", () => {
+    expect(isUrl("https://example.com/path?q=1")).toBe(true);
+  });
+
+  it("rejects plain text", () => {
+    expect(isUrl("just some text")).toBe(false);
+  });
+
+  it("rejects titles that contain URLs", () => {
+    expect(isUrl("My article about https")).toBe(false);
+  });
+
+  it("rejects empty string", () => {
+    expect(isUrl("")).toBe(false);
+  });
+
+  it("handles URLs with leading whitespace", () => {
+    expect(isUrl("  https://example.com")).toBe(true);
+  });
+
+  it("rejects ftp URLs", () => {
+    expect(isUrl("ftp://files.example.com")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// stripHtml & extractTitle
+// ---------------------------------------------------------------------------
+
+describe("stripHtml", () => {
+  it("removes basic HTML tags and preserves text", () => {
+    expect(stripHtml("<p>Hello <b>world</b></p>")).toBe("Hello world");
+  });
+
+  it("removes script tags and their contents", () => {
+    const html = '<p>Before</p><script>var x = 1;</script><p>After</p>';
+    expect(stripHtml(html)).toBe("Before After");
+  });
+
+  it("removes style tags and their contents", () => {
+    const html = '<style>.foo { color: red; }</style><p>Content</p>';
+    expect(stripHtml(html)).toBe("Content");
+  });
+
+  it("removes nav, header, footer elements", () => {
+    const html = '<nav><a href="/">Home</a></nav><main><p>Article text</p></main><footer>Copyright</footer>';
+    expect(stripHtml(html)).toBe("Article text");
+  });
+
+  it("removes noscript elements", () => {
+    const html = '<noscript>Please enable JS</noscript><p>Real content</p>';
+    expect(stripHtml(html)).toBe("Real content");
+  });
+
+  it("decodes common HTML entities", () => {
+    expect(stripHtml("&amp; &lt; &gt; &quot; &#39; &nbsp;")).toBe('& < > " \'');
+  });
+
+  it("collapses whitespace", () => {
+    expect(stripHtml("<p>  Hello   world  </p>")).toBe("Hello world");
+  });
+
+  it("handles multiline script tags", () => {
+    const html = `<script type="text/javascript">
+      function foo() {
+        return "bar";
+      }
+    </script><p>Content here</p>`;
+    expect(stripHtml(html)).toBe("Content here");
+  });
+});
+
+describe("extractTitle", () => {
+  it("extracts title from HTML", () => {
+    const html = '<html><head><title>My Page Title</title></head><body></body></html>';
+    expect(extractTitle(html)).toBe("My Page Title");
+  });
+
+  it("returns empty string when no title tag", () => {
+    const html = '<html><head></head><body><p>content</p></body></html>';
+    expect(extractTitle(html)).toBe("");
+  });
+
+  it("handles title with extra whitespace", () => {
+    const html = '<title>  Spaced   Title  </title>';
+    expect(extractTitle(html)).toBe("Spaced Title");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchUrlContent (mocked fetch)
+// ---------------------------------------------------------------------------
+
+describe("fetchUrlContent", () => {
+  const sampleHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head><title>Test Article</title></head>
+    <body>
+      <nav><a href="/">Home</a><a href="/about">About</a></nav>
+      <header><h1>Site Header</h1></header>
+      <main>
+        <h1>Test Article</h1>
+        <p>This is the main article content. It has multiple sentences.</p>
+        <p>Second paragraph with more information.</p>
+      </main>
+      <footer><p>Copyright 2024</p></footer>
+      <script>console.log("tracking");</script>
+    </body>
+    </html>
+  `;
+
+  it("extracts title and content from HTML", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(sampleHtml),
+    });
+
+    try {
+      const result = await fetchUrlContent("https://example.com/article");
+      expect(result.title).toBe("Test Article");
+      expect(result.content).toContain("main article content");
+      expect(result.content).toContain("Second paragraph");
+      // Nav, header, footer, script content should be stripped
+      expect(result.content).not.toContain("Site Header");
+      expect(result.content).not.toContain("Copyright 2024");
+      expect(result.content).not.toContain("tracking");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("falls back to hostname when no title tag", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve("<html><body><p>Some content</p></body></html>"),
+    });
+
+    try {
+      const result = await fetchUrlContent("https://example.com/page");
+      expect(result.title).toBe("example.com");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("throws on HTTP error", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+    });
+
+    try {
+      await expect(fetchUrlContent("https://example.com/missing")).rejects.toThrow(
+        "Failed to fetch URL: 404 Not Found",
+      );
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ingestUrl (integration with mocked fetch, no LLM key)
+// ---------------------------------------------------------------------------
+
+describe("ingestUrl", () => {
+  const sampleHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head><title>Web Article</title></head>
+    <body>
+      <main>
+        <p>This is a web article about AI. It covers many topics.</p>
+      </main>
+    </body>
+    </html>
+  `;
+
+  it("fetches URL and creates wiki page", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(sampleHtml),
+    });
+
+    try {
+      const result = await ingestUrl("https://example.com/ai-article");
+      expect(result.wikiPages).toContain("web-article");
+      expect(result.indexUpdated).toBe(true);
+
+      const entries = await listWikiPages();
+      const entry = entries.find((e) => e.slug === "web-article");
+      expect(entry).toBeDefined();
+      expect(entry!.title).toBe("Web Article");
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });

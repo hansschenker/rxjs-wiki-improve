@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ingest } from "@/lib/ingest";
+import { ingest, ingestUrl, isUrl } from "@/lib/ingest";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { title, content } = body;
+    const { url, title, content } = body;
 
-    // Validate inputs
+    // URL path takes precedence
+    if (url && typeof url === "string" && isUrl(url.trim())) {
+      const result = await ingestUrl(url.trim());
+      return NextResponse.json(result);
+    }
+
+    // Text path: require title + content
     if (!title || typeof title !== "string" || title.trim().length === 0) {
       return NextResponse.json(
-        { error: "title is required and must be a non-empty string" },
+        { error: "title is required and must be a non-empty string (or provide a url)" },
         { status: 400 },
       );
     }
@@ -21,7 +27,7 @@ export async function POST(request: NextRequest) {
       content.trim().length === 0
     ) {
       return NextResponse.json(
-        { error: "content is required and must be a non-empty string" },
+        { error: "content is required and must be a non-empty string (or provide a url)" },
         { status: 400 },
       );
     }

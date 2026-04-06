@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
+type Mode = "text" | "url";
+
 interface IngestResponse {
   rawPath: string;
   wikiPages: string[];
@@ -11,11 +13,24 @@ interface IngestResponse {
 }
 
 export default function IngestPage() {
+  const [mode, setMode] = useState<Mode>("text");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IngestResponse | null>(null);
+
+  function switchMode(newMode: Mode) {
+    setMode(newMode);
+    setError(null);
+    if (newMode === "url") {
+      setTitle("");
+      setContent("");
+    } else {
+      setUrl("");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,10 +39,13 @@ export default function IngestPage() {
     setResult(null);
 
     try {
+      const body =
+        mode === "url" ? { url } : { title, content };
+
       const res = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
@@ -48,6 +66,7 @@ export default function IngestPage() {
   function reset() {
     setTitle("");
     setContent("");
+    setUrl("");
     setError(null);
     setResult(null);
   }
@@ -97,42 +116,93 @@ export default function IngestPage() {
         </Link>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label
-            htmlFor="title"
-            className="block text-sm font-medium mb-2"
-          >
-            Title
-          </label>
-          <input
-            id="title"
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            placeholder="e.g. Attention Is All You Need"
-            className="w-full rounded-lg border border-foreground/20 bg-transparent px-4 py-2.5 text-sm placeholder:text-foreground/40 focus:border-foreground/50 focus:outline-none transition-colors"
-          />
-        </div>
+      {/* Mode toggle */}
+      <div className="mb-6 flex gap-2">
+        <button
+          type="button"
+          onClick={() => switchMode("text")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
+            mode === "text"
+              ? "bg-foreground text-background"
+              : "border border-foreground/20 text-foreground/60 hover:text-foreground"
+          }`}
+        >
+          Text
+        </button>
+        <button
+          type="button"
+          onClick={() => switchMode("url")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
+            mode === "url"
+              ? "bg-foreground text-background"
+              : "border border-foreground/20 text-foreground/60 hover:text-foreground"
+          }`}
+        >
+          URL
+        </button>
+      </div>
 
-        <div>
-          <label
-            htmlFor="content"
-            className="block text-sm font-medium mb-2"
-          >
-            Content
-          </label>
-          <textarea
-            id="content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            required
-            rows={12}
-            placeholder="Paste the source text here..."
-            className="w-full rounded-lg border border-foreground/20 bg-transparent px-4 py-2.5 text-sm placeholder:text-foreground/40 focus:border-foreground/50 focus:outline-none transition-colors resize-y"
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {mode === "url" ? (
+          <div>
+            <label
+              htmlFor="url"
+              className="block text-sm font-medium mb-2"
+            >
+              URL
+            </label>
+            <input
+              id="url"
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              required
+              placeholder="https://example.com/article"
+              className="w-full rounded-lg border border-foreground/20 bg-transparent px-4 py-2.5 text-sm placeholder:text-foreground/40 focus:border-foreground/50 focus:outline-none transition-colors"
+            />
+            <p className="mt-2 text-xs text-foreground/40">
+              The page title and content will be extracted automatically.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div>
+              <label
+                htmlFor="title"
+                className="block text-sm font-medium mb-2"
+              >
+                Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                placeholder="e.g. Attention Is All You Need"
+                className="w-full rounded-lg border border-foreground/20 bg-transparent px-4 py-2.5 text-sm placeholder:text-foreground/40 focus:border-foreground/50 focus:outline-none transition-colors"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="content"
+                className="block text-sm font-medium mb-2"
+              >
+                Content
+              </label>
+              <textarea
+                id="content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                required
+                rows={12}
+                placeholder="Paste the source text here..."
+                className="w-full rounded-lg border border-foreground/20 bg-transparent px-4 py-2.5 text-sm placeholder:text-foreground/40 focus:border-foreground/50 focus:outline-none transition-colors resize-y"
+              />
+            </div>
+          </>
+        )}
 
         {error && (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">

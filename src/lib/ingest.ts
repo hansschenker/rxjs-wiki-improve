@@ -22,6 +22,107 @@ export function slugify(title: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// URL detection & fetching
+// ---------------------------------------------------------------------------
+
+/** Check if a string looks like a URL (starts with http:// or https://). */
+export function isUrl(input: string): boolean {
+  const trimmed = input.trim();
+  return trimmed.startsWith("http://") || trimmed.startsWith("https://");
+}
+
+/**
+ * Strip HTML to plain text using a simple regex-based approach.
+ *
+ * 1. Remove <script>, <style>, <nav>, <header>, <footer> elements entirely
+ * 2. Strip remaining HTML tags
+ * 3. Decode common HTML entities
+ * 4. Collapse whitespace
+ */
+export function stripHtml(html: string): string {
+  let text = html;
+
+  // Remove elements whose content should be discarded entirely
+  const removeTags = ["script", "style", "nav", "header", "footer", "noscript"];
+  for (const tag of removeTags) {
+    const re = new RegExp(`<${tag}[^>]*>[\\s\\S]*?</${tag}>`, "gi");
+    text = text.replace(re, " ");
+  }
+
+  // Strip remaining HTML tags
+  text = text.replace(/<[^>]+>/g, " ");
+
+  // Decode common HTML entities
+  text = text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+
+  // Collapse whitespace
+  text = text.replace(/\s+/g, " ").trim();
+
+  return text;
+}
+
+/**
+ * Extract the <title> content from HTML.
+ * Falls back to empty string if not found.
+ */
+export function extractTitle(html: string): string {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (!match) return "";
+  // Strip any inner tags and collapse whitespace
+  return match[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Fetch a URL and extract its text content and title.
+ *
+ * Uses Node.js native `fetch()` and regex-based HTML stripping.
+ */
+export async function fetchUrlContent(
+  url: string,
+): Promise<{ title: string; content: string }> {
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "llm-wiki/1.0",
+      Accept: "text/html,application/xhtml+xml,*/*",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch URL: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  const html = await response.text();
+
+  const title = extractTitle(html) || new URL(url).hostname;
+  const content = stripHtml(html);
+
+  if (!content) {
+    throw new Error("No text content could be extracted from the URL");
+  }
+
+  return { title, content };
+}
+
+/**
+ * Ingest a URL into the wiki.
+ *
+ * 1. Fetch and extract the page content
+ * 2. Delegate to the standard `ingest()` pipeline
+ */
+export async function ingestUrl(url: string): Promise<IngestResult> {
+  const { title, content } = await fetchUrlContent(url);
+  return ingest(title, content);
+}
+
+// ---------------------------------------------------------------------------
 // Fallback stub (no API key)
 // ---------------------------------------------------------------------------
 
