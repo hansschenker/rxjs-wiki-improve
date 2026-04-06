@@ -69,8 +69,9 @@ wiki/                # LLM-maintained wiki output (gitignored)
 
 ## How yoyo Works Here
 
-- Read GitHub issues labeled `agent-input` for feature requests
-- Implement the highest-impact issue each growth session
+- Each session: read the founding vision (llm-wiki.md), assess the codebase, identify gaps
+- Decide what to build next based on the biggest gap between vision and reality
+- Factor in GitHub issues labeled `agent-input` if they align with the vision — but the vision drives
 - Run `pnpm build && pnpm lint && pnpm test` after every change
 - If builds break and can't be fixed in 3 attempts, revert
 - Write session notes to `.yoyo/journal.md`

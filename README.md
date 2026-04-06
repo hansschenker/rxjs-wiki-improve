@@ -1,55 +1,58 @@
 # Karpathy LLM Wiki
 
-> One prompt. Zero human code. An AI agent that builds the product while you sleep.
+> One prompt. Zero human code. An AI agent that reads a vision, decides what to build, and ships — every 8 hours, on its own.
 
-This repo started with [a single idea file](llm-wiki.md) from Andrej Karpathy. An autonomous agent called [yoyo](https://github.com/yologdev/yoyo-evolve) reads it, plans what to build, writes the code, runs the tests, and ships — every 8 hours, on its own.
+This repo started with [a single idea file](llm-wiki.md) from Andrej Karpathy. An autonomous agent called [yoyo](https://github.com/yologdev/yoyo-evolve) reads it, assesses the gap between vision and reality, plans what to build next, writes the code, runs the tests, and ships. No one tells it what to do. It figures that out itself.
 
-Check the [`baseline`](https://github.com/yologdev/karpathy-llm-wiki/tree/baseline) tag. That's the starting point: one markdown file and a project brief. Everything after that? The agent wrote it.
+Check the [`baseline`](https://github.com/yologdev/karpathy-llm-wiki/tree/baseline) tag. That's the starting point: one markdown file and a project brief. Everything after that? The agent decided it was needed, and built it.
 
-**No human writes code here. Humans write [issues](https://github.com/yologdev/karpathy-llm-wiki/issues).**
+**No human writes code here. No human manages a backlog. The agent drives.**
 
 ---
 
 ## The Experiment
 
-Can you describe a product in a single prompt and have an AI agent build it — not in one shot, but over days and weeks, shaped by feedback?
+Can you describe a product in a single prompt and have an AI agent build it — not in one shot, but over days and weeks, figuring out what to do next on its own?
 
 We took Karpathy's [LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) (a web app that builds a persistent, interlinked wiki from your raw sources — the anti-RAG), dropped it into a repo, pointed an agent at it, and said go.
 
-The product grows through GitHub issues:
+Every 8 hours, the agent wakes up and runs a growth session:
 
 ```
-You file an issue:                    8 hours later:
-                                    
-  "Add ingest page where I can         Agent reads your issue
-   paste a URL and get a wiki           Plans the implementation
-   article back"                        Writes the code
-                                        Runs build + lint + tests
-                                        Evaluates its own diff
-                                        Commits and pushes
-                                        Responds to your issue
-                                        Writes a journal entry
-                                        
-                                      You review next morning.
+                                    What the agent does:
+
+  No issues filed?                    Reads the founding prompt
+  Doesn't matter.                     Reads the codebase
+                                      Assesses: what exists vs. what should exist
+  The agent reads the vision,         Plans up to 3 tasks
+  compares it to the codebase,        Writes the code
+  and decides what to build next.     Runs build + lint + tests
+                                      Evaluates its own diff
+  You can file issues to steer it.    Commits and pushes
+  But you don't have to.              Writes a journal entry
+
+                                    You check in when you feel like it.
 ```
 
-That's it. You manage a backlog. The agent manages the codebase.
+Human issues are optional steering. The founding prompt is the autopilot.
 
 ## How the Agent Works
 
 Every growth session runs a 4-phase pipeline — not one big prompt, but separate agents with mechanical verification between each step:
 
 ```
- ASSESS          PLAN            BUILD              COMMUNICATE
- ──────          ────            ─────              ───────────
- Read codebase   Read issues     For each task:     Write journal
- Check build     Prioritize      │                  Record learnings
- Review gaps     Write tasks     ├→ Implement       Respond to issues
- Write report    (up to 3)       ├→ Build + test
-                                 ├→ Evaluate (separate agent)
-                                 ├→ Fix if rejected
-                                 └→ Revert if unfixable
+ ASSESS            PLAN              BUILD              COMMUNICATE
+ ──────            ────              ─────              ───────────
+ Read the vision   Compare vision    For each task:     Write journal
+ Read codebase     to current state  │                  Record learnings
+ Check build       Decide what's     ├→ Implement       Respond to issues
+ Map the gaps      most impactful    ├→ Build + test
+                   Write tasks       ├→ Evaluate (separate agent)
+                   (up to 3)         ├→ Fix if rejected
+                                     └→ Revert if unfixable
 ```
+
+The agent decides its own priorities. If there are open issues, it factors them in. If there aren't, it keeps building toward the vision anyway.
 
 The key insight: **the harness enforces quality, not the LLM.**
 
@@ -73,14 +76,15 @@ Vibe coding is you and an AI in a chat window, accepting whatever comes out and 
 
 | | Vibe coding | This project |
 |-|-------------|--------------|
+| **Direction** | Human tells agent what to do | Agent reads vision, decides what to build |
 | **Context** | Starts fresh each session | Reads journal, learnings, full codebase every time |
 | **Verification** | "Looks good to me" | Build + lint + tests + independent eval agent |
 | **Failure mode** | Broken code ships | Broken code auto-reverts, files an issue for next session |
 | **Knowledge** | Lost when you close the tab | Compounds in journal and learnings files |
 | **Pipeline** | One agent does everything | Separate agents for assessment, planning, implementation, evaluation |
-| **Human role** | Directing keystrokes | Curating a backlog |
+| **Human role** | Directing keystrokes | Optional — file issues to steer, or just watch |
 
-This is closer to managing a developer than using a tool.
+This is closer to planting a seed than managing a developer.
 
 ## Where This Stands (April 2026)
 
@@ -88,11 +92,12 @@ Issue-driven agents are now mainstream — Copilot, Gemini, Cursor all do it. Cr
 
 **What nobody else is doing:**
 
-- **1 prompt → product over many sessions.** Replit Agent builds in one shot. We're growing a product across weeks from a seed prompt — each session builds on the last.
+- **Self-directed development from a vision document.** Other agents wait for instructions. This one reads a founding prompt, assesses what's missing, and decides what to build next. No human in the loop required. Issues are optional steering, not the engine.
+- **1 prompt → product over many sessions.** Replit Agent builds in one shot. We're growing a product across weeks from a seed prompt — each session builds on the last, compounding knowledge in journals and learnings.
 - **Self-managed backlog.** The agent files its own `agent-self` issues for future work and `agent-help-wanted` when it's blocked. It manages its own continuity.
 - **"Trust the harness, not the model."** No LLM self-policing. Shell-script-enforced mechanical gates. The model writes code; the harness decides if it ships.
 
-The individual pieces exist. This architecture — and the philosophy of "humans write issues, agents write code" as a sustained development model — is new.
+The individual pieces exist. This architecture — the agent as autonomous developer, not tool — is new.
 
 No proprietary infrastructure. Just GitHub Actions, a shell script, and a prompt.
 
@@ -117,7 +122,7 @@ Everything under `src/` gets created by the agent. That's the whole point.
 
 **Watch:** Star the repo and follow the commits. Each one is the agent's work.
 
-**Participate:** [File an issue](https://github.com/yologdev/karpathy-llm-wiki/issues/new) describing a feature. Label it `agent-input`. The agent picks it up in the next session.
+**Steer it:** [File an issue](https://github.com/yologdev/karpathy-llm-wiki/issues/new) describing a feature. Label it `agent-input`. The agent factors it into its next session. Or don't — it'll keep building anyway.
 
 **Trigger manually:**
 ```bash
@@ -136,4 +141,4 @@ gh workflow run grow.yml --repo yologdev/karpathy-llm-wiki \
 
 ---
 
-*The founding prompt is the seed. The harness is the soil. The issues are sunlight. Watch it grow.*
+*The founding prompt is the seed. The harness is the soil. Watch it grow.*

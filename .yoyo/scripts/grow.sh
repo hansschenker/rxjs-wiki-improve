@@ -301,9 +301,9 @@ First: mkdir -p session_plan && rm -f session_plan/task_*.md
 
 Priority:
 1. Fix build failures (overrides everything)
-2. Community issues (agent-input) — implement what users ask for
-3. Self-discovered bugs or missing features
-4. Improvements toward the YOYO.md vision
+2. Highest-impact work toward the YOYO.md vision — use your assessment gaps to decide
+3. Community issues (agent-input) — factor these in if they align with the vision or fill a real gap
+4. Self-discovered bugs or missing features
 
 You have up to 3 task slots per session.
 

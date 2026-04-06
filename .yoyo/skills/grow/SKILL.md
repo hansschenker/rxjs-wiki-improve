@@ -16,8 +16,9 @@ You are growing the LLM Wiki project from a founding prompt into a working produ
 - Check open issues for feature requests
 
 ## Phase 2: Plan
-- If triggered by specific issue: plan that implementation
-- If scheduled: identify highest-impact improvement toward the YOYO.md vision
+- Compare what exists to the YOYO.md vision and llm-wiki.md pattern
+- Identify the highest-impact gaps and decide what to build next
+- Factor in open issues if they align with the vision — but the vision drives, issues steer
 - Write SESSION_PLAN.md
 
 ## Phase 3: Implement
