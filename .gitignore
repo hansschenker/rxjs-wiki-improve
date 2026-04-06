@@ -3,6 +3,6 @@ node_modules/
 .env
 .env.local
 raw/
-wiki/
+/wiki/
 SESSION_PLAN.md
 ISSUE_RESPONSE.md
