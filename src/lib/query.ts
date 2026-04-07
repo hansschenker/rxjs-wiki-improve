@@ -332,7 +332,7 @@ export async function saveAnswerToWiki(
   await updateIndex(entries);
 
   // Log the save
-  await appendToLog(`Saved query answer "${title}" as ${slug}`);
+  await appendToLog("save", title, `query answer saved as ${slug}`);
 
   return { slug };
 }

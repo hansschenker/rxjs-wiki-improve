@@ -18,7 +18,7 @@ export default async function LogPage() {
       </div>
 
       {logContent ? (
-        <article className="font-mono text-sm leading-relaxed">
+        <article>
           <MarkdownRenderer content={logContent} />
         </article>
       ) : (

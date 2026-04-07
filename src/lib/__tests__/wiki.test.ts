@@ -119,17 +119,72 @@ describe("saveRawSource", () => {
 });
 
 describe("appendToLog", () => {
-  it("should append timestamped entries to log.md", async () => {
-    await appendToLog("first entry");
-    await appendToLog("second entry");
+  it("should append H2-headed entries to log.md matching the founding spec", async () => {
+    await appendToLog("ingest", "first entry");
+    await appendToLog("ingest", "second entry");
 
     const logPath = path.join(tmpDir, "wiki", "log.md");
     const content = await fs.readFile(logPath, "utf-8");
-    const lines = content.trim().split("\n");
 
-    expect(lines).toHaveLength(2);
-    expect(lines[0]).toMatch(/^\[.+\] first entry$/);
-    expect(lines[1]).toMatch(/^\[.+\] second entry$/);
+    // Should contain two H2 heading lines matching: ## [YYYY-MM-DD] op | title
+    const headingRe = /^## \[\d{4}-\d{2}-\d{2}\] ingest \| (first|second) entry$/gm;
+    const headings = content.match(headingRe) ?? [];
+    expect(headings).toHaveLength(2);
+    expect(headings[0]).toMatch(/first entry$/);
+    expect(headings[1]).toMatch(/second entry$/);
+  });
+
+  it("grep-style match returns one line per appended entry", async () => {
+    await appendToLog("ingest", "alpha");
+    await appendToLog("query", "beta");
+    await appendToLog("lint", "gamma");
+
+    const content = await fs.readFile(
+      path.join(tmpDir, "wiki", "log.md"),
+      "utf-8",
+    );
+    // Equivalent to: grep "^## \[" log.md
+    const lines = content
+      .split("\n")
+      .filter((l) => /^## \[/.test(l));
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain("ingest | alpha");
+    expect(lines[1]).toContain("query | beta");
+    expect(lines[2]).toContain("lint | gamma");
+  });
+
+  it("writes a body details line when details are provided", async () => {
+    await appendToLog("ingest", "Some Title", "slug: some-title · 2 related");
+    const content = await fs.readFile(
+      path.join(tmpDir, "wiki", "log.md"),
+      "utf-8",
+    );
+    expect(content).toMatch(
+      /^## \[\d{4}-\d{2}-\d{2}\] ingest \| Some Title$/m,
+    );
+    expect(content).toContain("slug: some-title · 2 related");
+  });
+
+  it("omits the body line when no details are provided", async () => {
+    await appendToLog("query", "Headless Entry");
+    const content = await fs.readFile(
+      path.join(tmpDir, "wiki", "log.md"),
+      "utf-8",
+    );
+    // Two newlines after the heading, then nothing else (or just whitespace).
+    expect(content).toBe("## [" + new Date().toISOString().slice(0, 10) + "] query | Headless Entry\n\n");
+  });
+
+  it("throws on invalid operation", async () => {
+    await expect(
+      // @ts-expect-error — testing runtime validation
+      appendToLog("bogus", "title"),
+    ).rejects.toThrow(/Invalid log operation/);
+  });
+
+  it("throws on empty title", async () => {
+    await expect(appendToLog("ingest", "")).rejects.toThrow(/non-empty/);
+    await expect(appendToLog("ingest", "   ")).rejects.toThrow(/non-empty/);
   });
 });
 
@@ -145,7 +200,7 @@ describe("readLog", () => {
   });
 
   it("should return log content after entries are appended", async () => {
-    await appendToLog("test entry");
+    await appendToLog("ingest", "test entry");
     const result = await readLog();
     expect(result).not.toBeNull();
     expect(result).toMatch(/test entry/);

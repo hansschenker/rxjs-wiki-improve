@@ -425,7 +425,9 @@ export async function ingest(
 
   // 6. Log
   await appendToLog(
-    `Ingested "${title}" as ${slug}, updated ${updatedSlugs.length} related pages`,
+    "ingest",
+    title,
+    `slug: ${slug} · updated ${updatedSlugs.length} related page(s)`,
   );
 
   return {
