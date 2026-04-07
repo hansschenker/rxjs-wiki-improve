@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { writeWikiPage, updateIndex, ensureDirectories } from "../wiki";
+import { writeWikiPage, updateIndex, ensureDirectories, readLog } from "../wiki";
 import type { IndexEntry } from "../types";
 
 // Mock the LLM module so lint never calls the real API
@@ -308,6 +308,37 @@ describe("lint", () => {
 
     // "map" should NOT match inside "bitmap" thanks to word-boundary matching
     expect(crossRefIssues).toHaveLength(0);
+  });
+
+  it("appends a 'lint' log entry on every pass", async () => {
+    // Set up a small wiki
+    await writeWikiPage(
+      "alpha",
+      "# Alpha\n\nAlpha is a page with enough content to pass the empty check.",
+    );
+    await writeWikiPage(
+      "beta",
+      "# Beta\n\nBeta is a page with enough content to pass the empty check.",
+    );
+    await updateIndex([
+      { slug: "alpha", title: "Alpha", summary: "First page" },
+      { slug: "beta", title: "Beta", summary: "Second page" },
+    ]);
+
+    await lint();
+
+    const log = await readLog();
+    expect(log).not.toBeNull();
+
+    // Find the most recent lint entry by walking H2 headings from the end.
+    const headings = (log ?? "")
+      .split("\n")
+      .filter((line) => line.startsWith("## ["));
+    expect(headings.length).toBeGreaterThan(0);
+
+    const last = headings[headings.length - 1];
+    // Heading shape: "## [YYYY-MM-DD] <op> | <title>"
+    expect(last).toMatch(/^## \[\d{4}-\d{2}-\d{2}\] lint \| wiki lint pass$/);
   });
 });
 

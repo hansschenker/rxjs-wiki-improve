@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const navLinks = [
   { href: "/wiki", label: "Browse" },
   { href: "/wiki/graph", label: "Graph" },
+  { href: "/wiki/log", label: "Log" },
   { href: "/ingest", label: "Ingest" },
   { href: "/query", label: "Query" },
   { href: "/lint", label: "Lint" },
@@ -14,9 +15,14 @@ const navLinks = [
 function getActiveHref(pathname: string): string | null {
   // Find the nav link with the longest matching prefix.
   // This ensures /wiki/graph matches "Graph" (longer) over "Browse" (/wiki).
+  // /wiki/log uses an exact match so it doesn't accidentally highlight under
+  // sibling routes (and won't be shadowed by a longer Browse prefix).
   let best: string | null = null;
   for (const { href } of navLinks) {
-    const matches = pathname === href || pathname.startsWith(href + "/");
+    const matches =
+      href === "/wiki/log"
+        ? pathname === href
+        : pathname === href || pathname.startsWith(href + "/");
     if (matches && (best === null || href.length > best.length)) {
       best = href;
     }

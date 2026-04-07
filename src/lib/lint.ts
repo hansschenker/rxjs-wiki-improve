@@ -1,5 +1,5 @@
 import fs from "fs/promises";
-import { getWikiDir, listWikiPages, readWikiPage } from "./wiki";
+import { appendToLog, getWikiDir, listWikiPages, readWikiPage } from "./wiki";
 import { hasLLMKey, callLLM } from "./llm";
 import type { LintIssue, LintResult } from "./types";
 
@@ -379,6 +379,17 @@ export async function lint(): Promise<LintResult> {
   const contradictions = await checkContradictions(diskSlugs);
 
   const issues = [...orphans, ...stale, ...empty, ...crossRefs, ...contradictions];
+
+  // Append a log entry so lint passes are visible in the wiki timeline.
+  // The title is a stable string ("wiki lint pass") so log readers can group
+  // lint rows; the details line carries a one-shot summary of issue counts.
+  const errorCount = issues.filter((i) => i.severity === "error").length;
+  const warningCount = issues.filter((i) => i.severity === "warning").length;
+  const infoCount = issues.filter((i) => i.severity === "info").length;
+  const logSummary =
+    `${issues.length} issue(s): ` +
+    `${errorCount} error · ${warningCount} warning · ${infoCount} info`;
+  await appendToLog("lint", "wiki lint pass", logSummary);
 
   return {
     issues,

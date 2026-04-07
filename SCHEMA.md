@@ -98,7 +98,9 @@ ordered sequence of steps, a set of file outputs, and a log entry shape.
      to flag contradictions inside each cluster.
   3. Aggregate everything into a `LintResult` (see `src/lib/types.ts`).
 - **Outputs:** a report only. Lint never mutates wiki files.
-- **Log entry:** not currently emitted. See [Known gaps](#known-gaps).
+- **Log entry:** `## [YYYY-MM-DD] lint | wiki lint pass` — appended on every
+  run, with a one-line details body summarising issue counts
+  (`N issue(s): X error · Y warning · Z info`).
 
 ## Cross-reference policy
 
@@ -149,8 +151,6 @@ sessions should pick from this list:
   Dataview-friendly metadata.
 - No image or asset handling on URL ingest — images in source HTML are
   dropped.
-- Lint does not append a log entry, so lint passes are invisible in the
-  timeline.
 - No vector search. The only search corpus is `index.md` plus the keyword/LLM
   rerank in `searchIndex()`.
 - No raw-source browsing UI — users can't see the immutable layer through
