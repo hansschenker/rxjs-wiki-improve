@@ -13,6 +13,7 @@ import {
   ensureDirectories,
   validateSlug,
   writeWikiPageWithSideEffects,
+  deleteWikiPage,
 } from "../wiki";
 import type { IndexEntry } from "../types";
 
@@ -477,6 +478,189 @@ describe("writeWikiPageWithSideEffects", () => {
     // No log file should have been created.
     const log = await readLog();
     expect(log).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteWikiPage — hard delete + index cleanup + backlink stripping.
+// ---------------------------------------------------------------------------
+describe("deleteWikiPage", () => {
+  it("deletes the page file from the wiki directory", async () => {
+    await writeWikiPage("doomed", "# Doomed\n\nThis page is going away.");
+    await updateIndex([
+      { slug: "doomed", title: "Doomed", summary: "ephemeral" },
+    ]);
+
+    await deleteWikiPage("doomed");
+
+    const page = await readWikiPage("doomed");
+    expect(page).toBeNull();
+    await expect(
+      fs.stat(path.join(tmpDir, "wiki", "doomed.md")),
+    ).rejects.toThrow();
+  });
+
+  it("removes the entry from the index", async () => {
+    await writeWikiPage("keep", "# Keep\n\nStays.");
+    await writeWikiPage("drop", "# Drop\n\nGoes.");
+    await updateIndex([
+      { slug: "keep", title: "Keep", summary: "stays" },
+      { slug: "drop", title: "Drop", summary: "goes" },
+    ]);
+
+    const result = await deleteWikiPage("drop");
+
+    expect(result.removedFromIndex).toBe(true);
+    const entries = await listWikiPages();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].slug).toBe("keep");
+  });
+
+  it("throws on an unknown slug", async () => {
+    await ensureDirectories();
+    await expect(deleteWikiPage("nope")).rejects.toThrow(/page not found/);
+  });
+
+  it("throws on an invalid slug (path traversal)", async () => {
+    await ensureDirectories();
+    await expect(deleteWikiPage("../evil")).rejects.toThrow(/Invalid slug/);
+  });
+
+  it("strips a plain markdown backlink from a linking page", async () => {
+    await writeWikiPage(
+      "target",
+      "# Target\n\nThe page being deleted.",
+    );
+    await writeWikiPage(
+      "linker",
+      "# Linker\n\nThis page references [Target](target.md) inline.",
+    );
+    await updateIndex([
+      { slug: "target", title: "Target", summary: "doomed" },
+      { slug: "linker", title: "Linker", summary: "refers" },
+    ]);
+
+    const result = await deleteWikiPage("target");
+
+    expect(result.strippedBacklinksFrom).toContain("linker");
+    const linker = await readWikiPage("linker");
+    expect(linker).not.toBeNull();
+    expect(linker!.content).not.toContain("target.md");
+    expect(linker!.content).not.toContain("[Target]");
+  });
+
+  it("strips a **See also:** line cleanly when it only links the deleted page", async () => {
+    await writeWikiPage(
+      "target",
+      "# Target\n\nThe page being deleted.",
+    );
+    await writeWikiPage(
+      "linker",
+      "# Linker\n\nBody text.\n\n**See also:** [Target](target.md)\n",
+    );
+    await updateIndex([
+      { slug: "target", title: "Target", summary: "doomed" },
+      { slug: "linker", title: "Linker", summary: "refers" },
+    ]);
+
+    await deleteWikiPage("target");
+
+    const linker = await readWikiPage("linker");
+    expect(linker).not.toBeNull();
+    // The See-also line should be gone entirely (not left as an empty stub).
+    expect(linker!.content).not.toMatch(/\*\*See also:\*\*\s*$/m);
+    expect(linker!.content).not.toContain("target.md");
+    expect(linker!.content).not.toContain("[Target]");
+    // No runs of 3+ newlines left behind.
+    expect(linker!.content).not.toMatch(/\n{3,}/);
+  });
+
+  it("cleans leading-comma artefact in a multi-link See also line", async () => {
+    await writeWikiPage("target", "# Target\n\nDoomed.");
+    await writeWikiPage("other", "# Other\n\nSurvives.");
+    await writeWikiPage(
+      "linker",
+      "# Linker\n\nBody.\n\n**See also:** [Target](target.md), [Other](other.md)\n",
+    );
+    await updateIndex([
+      { slug: "target", title: "Target", summary: "doomed" },
+      { slug: "other", title: "Other", summary: "survives" },
+      { slug: "linker", title: "Linker", summary: "refers" },
+    ]);
+
+    await deleteWikiPage("target");
+
+    const linker = await readWikiPage("linker");
+    expect(linker).not.toBeNull();
+    // Should still link to other.md, with no leading comma.
+    expect(linker!.content).toContain("**See also:** [Other](other.md)");
+    expect(linker!.content).not.toContain("target.md");
+    expect(linker!.content).not.toMatch(/\*\*See also:\*\*\s*,/);
+  });
+
+  it("cleans trailing-comma artefact in a multi-link See also line", async () => {
+    await writeWikiPage("target", "# Target\n\nDoomed.");
+    await writeWikiPage("other", "# Other\n\nSurvives.");
+    await writeWikiPage(
+      "linker",
+      "# Linker\n\nBody.\n\n**See also:** [Other](other.md), [Target](target.md)\n",
+    );
+    await updateIndex([
+      { slug: "target", title: "Target", summary: "doomed" },
+      { slug: "other", title: "Other", summary: "survives" },
+      { slug: "linker", title: "Linker", summary: "refers" },
+    ]);
+
+    await deleteWikiPage("target");
+
+    const linker = await readWikiPage("linker");
+    expect(linker).not.toBeNull();
+    expect(linker!.content).toContain("[Other](other.md)");
+    expect(linker!.content).not.toContain("target.md");
+    // No trailing comma on the See also line.
+    expect(linker!.content).not.toMatch(/,\s*\n/);
+    expect(linker!.content).not.toMatch(/,\s*$/m);
+  });
+
+  it("appends a log entry with op 'other' and 'deleted' in the details", async () => {
+    await writeWikiPage("zeta", "# Zeta Page\n\nDoomed.");
+    await updateIndex([
+      { slug: "zeta", title: "Zeta Page", summary: "doomed" },
+    ]);
+
+    await deleteWikiPage("zeta");
+
+    const log = await readLog();
+    expect(log).not.toBeNull();
+    expect(log).toMatch(/^## \[\d{4}-\d{2}-\d{2}\] other \| Zeta Page$/m);
+    expect(log).toContain("deleted");
+    expect(log).toContain("stripped backlinks from 0 page(s)");
+  });
+
+  it("returns an accurate strippedBacklinksFrom list", async () => {
+    await writeWikiPage("target", "# Target\n\nDoomed.");
+    await writeWikiPage(
+      "linker-a",
+      "# Linker A\n\nSee [Target](target.md).",
+    );
+    await writeWikiPage(
+      "linker-b",
+      "# Linker B\n\nAlso [Target](target.md).",
+    );
+    await writeWikiPage("unrelated", "# Unrelated\n\nNo links here.");
+    await updateIndex([
+      { slug: "target", title: "Target", summary: "doomed" },
+      { slug: "linker-a", title: "Linker A", summary: "a" },
+      { slug: "linker-b", title: "Linker B", summary: "b" },
+      { slug: "unrelated", title: "Unrelated", summary: "none" },
+    ]);
+
+    const result = await deleteWikiPage("target");
+
+    expect(result.strippedBacklinksFrom.sort()).toEqual([
+      "linker-a",
+      "linker-b",
+    ]);
   });
 });
 

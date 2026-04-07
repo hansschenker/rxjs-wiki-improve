@@ -381,6 +381,104 @@ export interface WritePageResult {
   updatedSlugs: string[];
 }
 
+/** Result of a {@link deleteWikiPage} call. */
+export interface DeletePageResult {
+  /** The slug of the page that was deleted. */
+  slug: string;
+  /** Whether an index entry for this slug was actually removed. */
+  removedFromIndex: boolean;
+  /** Slugs of pages that had a backlink to the deleted page stripped out. */
+  strippedBacklinksFrom: string[];
+}
+
+/** Escape a string for use inside a regular expression. */
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Delete a wiki page and clean up references to it.
+ *
+ * Steps:
+ * 1. Validate the slug (throws on traversal / invalid).
+ * 2. Read the page (throws if it doesn't exist) — captured to get the title
+ *    for the log entry.
+ * 3. Unlink the `.md` file from the wiki dir.
+ * 4. Remove the entry from `index.md`.
+ * 5. Strip backlinks from any other wiki page that links to this slug,
+ *    cleaning up empty / leading-comma `**See also:**` artefacts.
+ * 6. Append an `"other"` log entry recording the deletion.
+ *
+ * Hard delete only — no trash, no undo. Raw source files in `raw/` are
+ * intentionally NOT touched (the raw layer is immutable per the founding
+ * vision).
+ */
+export async function deleteWikiPage(
+  slug: string,
+): Promise<DeletePageResult> {
+  validateSlug(slug);
+
+  const page = await readWikiPage(slug);
+  if (!page) {
+    throw new Error(`page not found: ${slug}`);
+  }
+  const title = page.title;
+
+  // 1. Unlink the page file.
+  const filePath = path.join(getWikiDir(), `${slug}.md`);
+  await fs.unlink(filePath);
+
+  // 2. Remove the index entry.
+  const entries = await listWikiPages();
+  const filteredEntries = entries.filter((e) => e.slug !== slug);
+  const removedFromIndex = filteredEntries.length !== entries.length;
+  await updateIndex(filteredEntries);
+
+  // 3. Strip backlinks from remaining pages.
+  const escapedSlug = escapeRegex(slug);
+  // Match any markdown link whose target is `${slug}.md`.
+  const linkRe = new RegExp(`\\[[^\\]]+\\]\\(${escapedSlug}\\.md\\)`, "g");
+
+  const strippedBacklinksFrom: string[] = [];
+  for (const entry of filteredEntries) {
+    const otherPage = await readWikiPage(entry.slug);
+    if (!otherPage) continue;
+    if (!otherPage.content.includes(`${slug}.md`)) continue;
+
+    // 1. Strip the actual link occurrences.
+    let updated = otherPage.content.replace(linkRe, "");
+
+    // 2. Clean up See also artefacts left behind.
+    //
+    //    a) Drop empty See-also lines: `**See also:** ` (optionally with
+    //       trailing whitespace) on its own line.
+    updated = updated.replace(/^\*\*See also:\*\*\s*$/gm, "");
+    //    b) Fix leading comma: `**See also:** , X` → `**See also:** X`
+    updated = updated.replace(
+      /(\*\*See also:\*\*)\s*,\s*/g,
+      "$1 ",
+    );
+    //    c) Fix trailing comma at end-of-line: `..., \n` → `\n`
+    updated = updated.replace(/,\s*$/gm, "");
+    //    d) Collapse runs of 3+ blank lines that the empty-line removal may
+    //       have produced into a single blank line, so we don't leave a hole.
+    updated = updated.replace(/\n{3,}/g, "\n\n");
+
+    if (updated !== otherPage.content) {
+      await writeWikiPage(entry.slug, updated);
+      strippedBacklinksFrom.push(entry.slug);
+    }
+  }
+
+  // 4. Log the deletion. We don't have a "delete" enum value (out of scope
+  // for this MVP) so use "other" with a descriptive details string.
+  await appendToLog(
+    "other",
+    title ?? slug,
+    `deleted · stripped backlinks from ${strippedBacklinksFrom.length} page(s)`,
+  );
+
+  return { slug, removedFromIndex, strippedBacklinksFrom };
+}
+
 /**
  * Write a wiki page and run the full set of side effects every write-path
  * in this codebase needs:

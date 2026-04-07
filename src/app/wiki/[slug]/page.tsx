@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { readWikiPage } from "@/lib/wiki";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
+import { DeletePageButton } from "@/components/DeletePageButton";
 
 interface WikiPageProps {
   params: Promise<{ slug: string }>;
@@ -38,6 +39,7 @@ export default async function WikiPageView({ params }: WikiPageProps) {
       <article className="mt-6">
         <MarkdownRenderer content={page.content} />
       </article>
+      <DeletePageButton slug={slug} />
     </main>
   );
 }
