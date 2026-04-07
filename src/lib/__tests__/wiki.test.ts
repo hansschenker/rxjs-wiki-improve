@@ -12,6 +12,7 @@ import {
   readLog,
   ensureDirectories,
   validateSlug,
+  writeWikiPageWithSideEffects,
 } from "../wiki";
 import type { IndexEntry } from "../types";
 
@@ -316,6 +317,166 @@ describe("saveRawSource — path traversal protection", () => {
 
   it("throws for empty id", async () => {
     await expect(saveRawSource("", "content")).rejects.toThrow(/non-empty/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// writeWikiPageWithSideEffects — the unified write pipeline both ingest()
+// and saveAnswerToWiki() now go through. These tests pin the contract so
+// future write-paths (edit, delete, re-ingest, import) can rely on it.
+// ---------------------------------------------------------------------------
+describe("writeWikiPageWithSideEffects", () => {
+  it("writes the page file with the supplied content", async () => {
+    const result = await writeWikiPageWithSideEffects({
+      slug: "alpha",
+      title: "Alpha",
+      content: "# Alpha\n\nThe first letter.",
+      summary: "First letter of the alphabet.",
+      logOp: "ingest",
+      crossRefSource: null,
+    });
+
+    expect(result.slug).toBe("alpha");
+    const page = await readWikiPage("alpha");
+    expect(page).not.toBeNull();
+    expect(page!.content).toBe("# Alpha\n\nThe first letter.");
+  });
+
+  it("inserts a new index entry when the slug is unknown", async () => {
+    await writeWikiPageWithSideEffects({
+      slug: "beta",
+      title: "Beta",
+      content: "# Beta\n\nSecond.",
+      summary: "Second letter.",
+      logOp: "ingest",
+      crossRefSource: null,
+    });
+
+    const entries = await listWikiPages();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toEqual({
+      slug: "beta",
+      title: "Beta",
+      summary: "Second letter.",
+    });
+  });
+
+  it("updates the existing index entry on re-write (no duplicates)", async () => {
+    // First write — initial title + summary.
+    await writeWikiPageWithSideEffects({
+      slug: "gamma",
+      title: "Gamma",
+      content: "# Gamma\n\nv1",
+      summary: "first version",
+      logOp: "ingest",
+      crossRefSource: null,
+    });
+
+    // Second write under the same slug — must overwrite, not duplicate.
+    await writeWikiPageWithSideEffects({
+      slug: "gamma",
+      title: "Gamma (updated)",
+      content: "# Gamma (updated)\n\nv2",
+      summary: "second version",
+      logOp: "save",
+      crossRefSource: null,
+    });
+
+    const entries = await listWikiPages();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toEqual({
+      slug: "gamma",
+      title: "Gamma (updated)",
+      summary: "second version",
+    });
+
+    // Page file content reflects the second write.
+    const page = await readWikiPage("gamma");
+    expect(page!.content).toBe("# Gamma (updated)\n\nv2");
+  });
+
+  it("appends a structured log line with the supplied op + details", async () => {
+    await writeWikiPageWithSideEffects({
+      slug: "delta",
+      title: "Delta Page",
+      content: "# Delta Page\n\n…",
+      summary: "fourth letter",
+      logOp: "save",
+      crossRefSource: null,
+      logDetails: ({ updatedSlugs }) =>
+        `slug: delta · linked ${updatedSlugs.length} related page(s)`,
+    });
+
+    const log = await readLog();
+    expect(log).not.toBeNull();
+    // H2 heading, save op, our title.
+    expect(log).toMatch(
+      /^## \[\d{4}-\d{2}-\d{2}\] save \| Delta Page$/m,
+    );
+    // Details body line — `updatedSlugs` is empty because cross-ref was
+    // skipped (no LLM key in the test environment, and we passed null).
+    expect(log).toContain("slug: delta · linked 0 related page(s)");
+  });
+
+  it("skips cross-reference entirely when crossRefSource is null", async () => {
+    // Pre-existing page that would normally be a cross-ref candidate.
+    await writeWikiPage(
+      "machine-learning",
+      "# Machine Learning\n\nA field of AI.",
+    );
+    await updateIndex([
+      {
+        slug: "machine-learning",
+        title: "Machine Learning",
+        summary: "A field of AI.",
+      },
+    ]);
+
+    const result = await writeWikiPageWithSideEffects({
+      slug: "neural-networks",
+      title: "Neural Networks",
+      content:
+        "# Neural Networks\n\nLayered models used in machine learning.",
+      summary: "Layered models used in ML.",
+      logOp: "ingest",
+      crossRefSource: null, // explicit skip
+    });
+
+    // No related pages updated — cross-ref was skipped.
+    expect(result.updatedSlugs).toEqual([]);
+
+    // The pre-existing page is unchanged: no "See also" section was added.
+    const ml = await readWikiPage("machine-learning");
+    expect(ml!.content).toBe("# Machine Learning\n\nA field of AI.");
+    expect(ml!.content).not.toContain("See also");
+  });
+
+  it("returns the slug it wrote", async () => {
+    const result = await writeWikiPageWithSideEffects({
+      slug: "epsilon",
+      title: "Epsilon",
+      content: "# Epsilon",
+      summary: "fifth",
+      logOp: "ingest",
+      crossRefSource: null,
+    });
+    expect(result.slug).toBe("epsilon");
+  });
+
+  it("propagates slug validation errors before touching the filesystem", async () => {
+    await expect(
+      writeWikiPageWithSideEffects({
+        slug: "../../etc/passwd",
+        title: "Bad",
+        content: "# Bad",
+        summary: "bad",
+        logOp: "ingest",
+        crossRefSource: null,
+      }),
+    ).rejects.toThrow(/Invalid slug/);
+    // No log file should have been created.
+    const log = await readLog();
+    expect(log).toBeNull();
   });
 });
 

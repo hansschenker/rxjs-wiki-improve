@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import type { WikiPage, IndexEntry } from "./types";
+import { callLLM, hasLLMKey } from "./llm";
 
 // ---------------------------------------------------------------------------
 // Configurable base directories — override via env vars for testing
@@ -227,4 +228,213 @@ export async function readLog(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Cross-referencing helpers
+// ---------------------------------------------------------------------------
+
+const RELATED_PAGES_PROMPT = `Given this new wiki page and the existing wiki index, return a JSON array of slugs for pages that are related and should cross-reference this new page. Return at most 5 slugs. Return only the JSON array, nothing else.`;
+
+/**
+ * Identify existing wiki pages that are related to a newly written page.
+ *
+ * Sends the index entries + a summary of the new content to the LLM and asks
+ * it to return a JSON array of related slugs. Falls back to an empty array
+ * when there is no LLM key, no existing pages, or any error occurs.
+ */
+export async function findRelatedPages(
+  newSlug: string,
+  newContent: string,
+  existingEntries: IndexEntry[],
+): Promise<string[]> {
+  // Nothing to cross-reference when there's no LLM or no existing pages
+  if (!hasLLMKey() || existingEntries.length === 0) {
+    return [];
+  }
+
+  // Build a user message with the index and the new page's content
+  const indexList = existingEntries
+    .filter((e) => e.slug !== newSlug)
+    .map((e) => `- ${e.slug}: ${e.title} — ${e.summary}`)
+    .join("\n");
+
+  if (!indexList) {
+    return [];
+  }
+
+  const userMessage = `## New page (slug: ${newSlug})\n\n${newContent.slice(0, 2000)}\n\n## Existing wiki index\n\n${indexList}`;
+
+  try {
+    const response = await callLLM(RELATED_PAGES_PROMPT, userMessage);
+
+    // Extract JSON array from response — allow surrounding whitespace/text
+    const match = response.match(/\[[\s\S]*?\]/);
+    if (!match) return [];
+
+    const parsed: unknown = JSON.parse(match[0]);
+    if (!Array.isArray(parsed)) return [];
+
+    // Validate: only keep slugs that actually exist in the index (and aren't the new page)
+    const validSlugs = new Set(
+      existingEntries.filter((e) => e.slug !== newSlug).map((e) => e.slug),
+    );
+    return parsed
+      .filter((s): s is string => typeof s === "string" && validSlugs.has(s))
+      .slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Append cross-reference links to related wiki pages.
+ *
+ * For each related slug:
+ * - Reads the existing wiki page
+ * - Skips if it already contains a link to the new slug
+ * - Appends a "See also" link (or extends an existing "See also" section)
+ *
+ * Returns the slugs that were actually modified.
+ */
+export async function updateRelatedPages(
+  newSlug: string,
+  newTitle: string,
+  relatedSlugs: string[],
+): Promise<string[]> {
+  const updatedSlugs: string[] = [];
+
+  for (const slug of relatedSlugs) {
+    const page = await readWikiPage(slug);
+    if (!page) continue;
+
+    // Skip if already links to the new page
+    if (page.content.includes(`${newSlug}.md`)) continue;
+
+    const link = `[${newTitle}](${newSlug}.md)`;
+    let updatedContent: string;
+
+    // Check if there's already a "See also" section
+    const seeAlsoPattern = /^(\*\*See also:\*\*.*)$/m;
+    const seeAlsoMatch = page.content.match(seeAlsoPattern);
+
+    if (seeAlsoMatch) {
+      // Append to existing "See also" line
+      updatedContent = page.content.replace(
+        seeAlsoPattern,
+        `${seeAlsoMatch[1]}, ${link}`,
+      );
+    } else {
+      // Add a new "See also" section at the end
+      updatedContent = `${page.content.trimEnd()}\n\n**See also:** ${link}\n`;
+    }
+
+    await writeWikiPage(slug, updatedContent);
+    updatedSlugs.push(slug);
+  }
+
+  return updatedSlugs;
+}
+
+// ---------------------------------------------------------------------------
+// writeWikiPageWithSideEffects — the unified write pipeline
+// ---------------------------------------------------------------------------
+//
+// Both `ingest()` and `saveAnswerToWiki()` need to perform the same 5-step
+// sequence when materialising a wiki page: write file → upsert index entry →
+// flush index → cross-reference related pages → append log line. Keeping that
+// pipeline in one place is the durable fix for the "parallel write-paths
+// drift" learning recorded in `.yoyo/learnings.md` — every future write path
+// (edit, delete, re-ingest, import) should go through this function.
+
+/** Options accepted by {@link writeWikiPageWithSideEffects}. */
+export interface WritePageOptions {
+  /** URL-safe slug — validated via {@link validateSlug}. */
+  slug: string;
+  /** Page title used in the index entry and (optionally) cross-ref links. */
+  title: string;
+  /** Full markdown to write to `wiki/<slug>.md`. */
+  content: string;
+  /** Index entry summary line (the bit after the em-dash). */
+  summary: string;
+  /** Append-only log operation — see {@link LogOperation}. */
+  logOp: LogOperation;
+  /** Optional callback that produces the log "details" body. */
+  logDetails?: (ctx: { updatedSlugs: string[] }) => string;
+  /**
+   * Source text used for cross-ref discovery.
+   *
+   * - Defaults to `content` (the page markdown).
+   * - `ingest()` passes the raw source text so the LLM sees the full document
+   *   rather than the slimmed-down wiki page.
+   * - Pass `null` to skip cross-referencing entirely (e.g. for tests or
+   *   imports where you want to control linking yourself).
+   */
+  crossRefSource?: string | null;
+}
+
+/** Result of a {@link writeWikiPageWithSideEffects} call. */
+export interface WritePageResult {
+  /** The slug of the page that was written. */
+  slug: string;
+  /** Slugs of related pages that received a backlink during cross-ref. */
+  updatedSlugs: string[];
+}
+
+/**
+ * Write a wiki page and run the full set of side effects every write-path
+ * in this codebase needs:
+ *
+ * 1. Validate the slug.
+ * 2. Write `wiki/<slug>.md`.
+ * 3. Upsert an `{ title, slug, summary }` entry into `wiki/index.md`
+ *    (re-uses an existing entry's row if the slug already exists, so
+ *    re-writes don't produce duplicates).
+ * 4. Cross-reference related pages via {@link findRelatedPages} +
+ *    {@link updateRelatedPages}, unless `crossRefSource` is `null`.
+ * 5. Append a structured entry to `wiki/log.md`.
+ */
+export async function writeWikiPageWithSideEffects(
+  opts: WritePageOptions,
+): Promise<WritePageResult> {
+  const { slug, title, content, summary, logOp, logDetails } = opts;
+
+  // 1. Validate — writeWikiPage also validates, but we want to fail fast
+  // before any filesystem mutation happens.
+  validateSlug(slug);
+
+  // 2. Write the page file itself.
+  await writeWikiPage(slug, content);
+
+  // 3. Upsert the index entry. Re-read so we never clobber concurrent
+  // updates that landed between caller-read and now.
+  const entries = await listWikiPages();
+  const existingIdx = entries.findIndex((e) => e.slug === slug);
+  if (existingIdx !== -1) {
+    entries[existingIdx].title = title;
+    entries[existingIdx].summary = summary;
+  } else {
+    entries.push({ title, slug, summary });
+  }
+  await updateIndex(entries);
+
+  // 4. Cross-reference. `crossRefSource === null` means "explicit skip".
+  // `undefined` falls back to the page content itself.
+  let updatedSlugs: string[] = [];
+  if (opts.crossRefSource !== null) {
+    const sourceForCrossRef = opts.crossRefSource ?? content;
+    const refreshedEntries = await listWikiPages();
+    const relatedSlugs = await findRelatedPages(
+      slug,
+      sourceForCrossRef,
+      refreshedEntries,
+    );
+    updatedSlugs = await updateRelatedPages(slug, title, relatedSlugs);
+  }
+
+  // 5. Log.
+  const details = logDetails?.({ updatedSlugs });
+  await appendToLog(logOp, title, details);
+
+  return { slug, updatedSlugs };
 }

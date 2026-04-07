@@ -2,11 +2,9 @@ import { callLLM, hasLLMKey } from "./llm";
 import {
   listWikiPages,
   readWikiPage,
-  writeWikiPage,
-  updateIndex,
-  appendToLog,
+  writeWikiPageWithSideEffects,
 } from "./wiki";
-import { slugify, findRelatedPages, updateRelatedPages } from "./ingest";
+import { slugify } from "./ingest";
 import type { IndexEntry, QueryResult } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -288,7 +286,10 @@ export async function query(question: string): Promise<QueryResult> {
  * Save a query answer as a new wiki page.
  *
  * Unlike the full `ingest()` pipeline, this writes the answer markdown
- * directly — it's already a well-formatted page with citations.
+ * directly — it's already a well-formatted page with citations. The actual
+ * write/index/cross-ref/log dance is delegated to
+ * {@link writeWikiPageWithSideEffects} so this path can never drift from
+ * `ingest()` again (see `.yoyo/learnings.md` — "Parallel write-paths drift").
  *
  * Returns the slug of the newly created wiki page.
  */
@@ -307,12 +308,6 @@ export async function saveAnswerToWiki(
     ? content
     : `# ${title}\n\n${content}`;
 
-  // Write the wiki page
-  await writeWikiPage(slug, pageContent);
-
-  // Update the index
-  const entries = await listWikiPages();
-
   // Extract a short summary from the content (first sentence or first 200 chars)
   const plainContent = content.replace(/^#.*$/gm, "").trim();
   const sentenceEnd = plainContent.search(/[.!?]\s/);
@@ -322,27 +317,19 @@ export async function saveAnswerToWiki(
       : plainContent.slice(0, 200);
   const summary = summaryText.replace(/\s+/g, " ").trim() || title;
 
-  const existingIdx = entries.findIndex((e) => e.slug === slug);
-  if (existingIdx !== -1) {
-    entries[existingIdx].title = title;
-    entries[existingIdx].summary = summary;
-  } else {
-    entries.push({ title, slug, summary });
-  }
-  await updateIndex(entries);
-
-  // Cross-reference related pages — same pass that ingest() does so saved
-  // answers don't end up orphaned from related clusters.
-  const refreshedEntries = await listWikiPages();
-  const relatedSlugs = await findRelatedPages(slug, content, refreshedEntries);
-  const updatedSlugs = await updateRelatedPages(slug, title, relatedSlugs);
-
-  // Log the save
-  await appendToLog(
-    "save",
+  // Hand off to the unified write pipeline. We pass the original answer
+  // `content` (rather than `pageContent`) as the cross-ref source so the
+  // related-pages prompt sees the same text the user actually saw.
+  const { slug: writtenSlug } = await writeWikiPageWithSideEffects({
+    slug,
     title,
-    `query answer saved as ${slug} · linked ${updatedSlugs.length} related page(s)`,
-  );
+    content: pageContent,
+    summary,
+    logOp: "save",
+    crossRefSource: content,
+    logDetails: ({ updatedSlugs }) =>
+      `query answer saved as ${slug} · linked ${updatedSlugs.length} related page(s)`,
+  });
 
-  return { slug };
+  return { slug: writtenSlug };
 }
