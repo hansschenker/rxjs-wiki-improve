@@ -22,12 +22,14 @@ export async function GET() {
     }));
 
     const edges: GraphEdge[] = [];
-    const linkRe = /\[([^\]]*)\]\(([^)]+)\.md\)/g;
 
     for (const page of pages) {
       const wp = await readWikiPage(page.slug);
       if (!wp) continue;
 
+      // Declare regex inside the loop so its `lastIndex` state can never
+      // leak across pages (g-flag regexes are stateful between exec calls).
+      const linkRe = /\[([^\]]*)\]\(([^)]+)\.md\)/g;
       let match: RegExpExecArray | null;
       while ((match = linkRe.exec(wp.content)) !== null) {
         const target = match[2];

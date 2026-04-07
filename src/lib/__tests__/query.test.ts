@@ -381,4 +381,44 @@ describe("saveAnswerToWiki", () => {
       "valid slug",
     );
   });
+
+  it("cross-references related pages after saving", async () => {
+    mockedHasLLMKey.mockReturnValue(true);
+    // findRelatedPages will call the LLM and expect a JSON array of slugs
+    mockedCallLLM.mockResolvedValue('["react", "nextjs"]');
+
+    // Seed the wiki with two existing pages
+    await writeWikiPage(
+      "react",
+      "# React\n\nReact is a JavaScript framework for building user interfaces.",
+    );
+    await writeWikiPage(
+      "nextjs",
+      "# Next.js\n\nNext.js is a JavaScript framework built on top of React.",
+    );
+    await updateIndex([
+      { slug: "react", title: "React", summary: "JavaScript UI framework" },
+      { slug: "nextjs", title: "Next.js", summary: "JavaScript framework on React" },
+    ]);
+
+    await saveAnswerToWiki(
+      "JavaScript Frameworks Overview",
+      "Modern JavaScript frameworks like React and Next.js have transformed web development.",
+    );
+
+    // The new page should exist
+    const newPage = await readWikiPage("javascript-frameworks-overview");
+    expect(newPage).not.toBeNull();
+
+    // At least one of the seeded pages should now link back to the new slug
+    const reactPage = await readWikiPage("react");
+    const nextPage = await readWikiPage("nextjs");
+    const reactLinks = reactPage!.content.includes(
+      "javascript-frameworks-overview.md",
+    );
+    const nextLinks = nextPage!.content.includes(
+      "javascript-frameworks-overview.md",
+    );
+    expect(reactLinks || nextLinks).toBe(true);
+  });
 });

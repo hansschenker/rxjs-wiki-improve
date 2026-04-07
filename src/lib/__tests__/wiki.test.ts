@@ -318,3 +318,77 @@ describe("saveRawSource — path traversal protection", () => {
     await expect(saveRawSource("", "content")).rejects.toThrow(/non-empty/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Graph API route — exercises link extraction across multiple pages.
+// Regression test for the stale-`lastIndex` footgun on the g-flag regex.
+// ---------------------------------------------------------------------------
+describe("/api/wiki/graph route", () => {
+  it("extracts edges across multiple pages without losing matches", async () => {
+    // Three pages, each linking to two others. With a per-loop regex, all
+    // 6 directed edges must be present. (A stale-`lastIndex` bug would
+    // intermittently drop edges depending on string lengths.)
+    await writeWikiPage(
+      "alpha",
+      "# Alpha\n\nSee [Beta](beta.md) and [Gamma](gamma.md) for context.",
+    );
+    await writeWikiPage(
+      "beta",
+      "# Beta\n\nReferences [Alpha](alpha.md) and [Gamma](gamma.md).",
+    );
+    await writeWikiPage(
+      "gamma",
+      "# Gamma\n\nMentions [Alpha](alpha.md) and [Beta](beta.md) heavily.",
+    );
+    await updateIndex([
+      { slug: "alpha", title: "Alpha", summary: "First" },
+      { slug: "beta", title: "Beta", summary: "Second" },
+      { slug: "gamma", title: "Gamma", summary: "Third" },
+    ]);
+
+    const { GET } = await import("../../app/api/wiki/graph/route");
+    const res = await GET();
+    const data = (await res.json()) as {
+      nodes: { id: string; label: string }[];
+      edges: { source: string; target: string }[];
+    };
+
+    expect(data.nodes).toHaveLength(3);
+    const slugs = data.nodes.map((n) => n.id).sort();
+    expect(slugs).toEqual(["alpha", "beta", "gamma"]);
+
+    // All 6 directed edges should be present
+    expect(data.edges).toHaveLength(6);
+    const edgeKeys = data.edges
+      .map((e) => `${e.source}->${e.target}`)
+      .sort();
+    expect(edgeKeys).toEqual(
+      [
+        "alpha->beta",
+        "alpha->gamma",
+        "beta->alpha",
+        "beta->gamma",
+        "gamma->alpha",
+        "gamma->beta",
+      ].sort(),
+    );
+  });
+
+  it("ignores links to slugs not in the wiki", async () => {
+    await writeWikiPage(
+      "real",
+      "# Real\n\nLinks to [ghost](ghost.md) which doesn't exist.",
+    );
+    await updateIndex([
+      { slug: "real", title: "Real", summary: "Exists" },
+    ]);
+
+    const { GET } = await import("../../app/api/wiki/graph/route");
+    const res = await GET();
+    const data = (await res.json()) as {
+      edges: { source: string; target: string }[];
+    };
+
+    expect(data.edges).toHaveLength(0);
+  });
+});

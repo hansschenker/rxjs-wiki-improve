@@ -138,12 +138,18 @@ export default function LintPage() {
                     <span className="inline-block rounded-full border border-foreground/20 bg-foreground/5 px-2.5 py-0.5 text-xs font-medium text-foreground/70">
                       {issue.type}
                     </span>
-                    <Link
-                      href={`/wiki/${issue.slug}`}
-                      className="inline-block rounded-full border border-foreground/20 bg-foreground/5 px-2.5 py-0.5 text-xs font-medium text-foreground hover:bg-foreground/10 transition-colors"
-                    >
-                      {issue.slug}
-                    </Link>
+                    {issue.slug ? (
+                      <Link
+                        href={`/wiki/${issue.slug}`}
+                        className="inline-block rounded-full border border-foreground/20 bg-foreground/5 px-2.5 py-0.5 text-xs font-medium text-foreground hover:bg-foreground/10 transition-colors"
+                      >
+                        {issue.slug}
+                      </Link>
+                    ) : (
+                      <span className="inline-block rounded-full border border-foreground/20 bg-foreground/5 px-2.5 py-0.5 text-xs font-medium text-foreground/60">
+                        system
+                      </span>
+                    )}
                     <span className="basis-full text-sm text-foreground/80 mt-1">
                       {issue.message}
                     </span>

@@ -6,7 +6,7 @@ import {
   updateIndex,
   appendToLog,
 } from "./wiki";
-import { slugify } from "./ingest";
+import { slugify, findRelatedPages, updateRelatedPages } from "./ingest";
 import type { IndexEntry, QueryResult } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -331,8 +331,18 @@ export async function saveAnswerToWiki(
   }
   await updateIndex(entries);
 
+  // Cross-reference related pages — same pass that ingest() does so saved
+  // answers don't end up orphaned from related clusters.
+  const refreshedEntries = await listWikiPages();
+  const relatedSlugs = await findRelatedPages(slug, content, refreshedEntries);
+  const updatedSlugs = await updateRelatedPages(slug, title, relatedSlugs);
+
   // Log the save
-  await appendToLog("save", title, `query answer saved as ${slug}`);
+  await appendToLog(
+    "save",
+    title,
+    `query answer saved as ${slug} · linked ${updatedSlugs.length} related page(s)`,
+  );
 
   return { slug };
 }
