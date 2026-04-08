@@ -677,6 +677,83 @@ describe("deleteWikiPage", () => {
       "linker-b",
     ]);
   });
+
+  // -------------------------------------------------------------------------
+  // Consolidated pipeline coverage — delete flows through the same
+  // lifecycle-op pipeline as writes (see the "Delete is a write-path too"
+  // and "Acting on the shallow fix buries the deep signal" learnings).
+  // These cases exercise the shared pipeline end-to-end via deleteWikiPage.
+  // -------------------------------------------------------------------------
+
+  it("strips inbound links from two linking pages while preserving their non-link content", async () => {
+    await writeWikiPage("target", "# Target\n\nDoomed.");
+    await writeWikiPage(
+      "linker-a",
+      "# Linker A\n\nParagraph one about [Target](target.md) matters.\n\nParagraph two is unrelated and should survive verbatim.",
+    );
+    await writeWikiPage(
+      "linker-b",
+      "# Linker B\n\nAlpha intro.\n\n**See also:** [Target](target.md)\n",
+    );
+    await updateIndex([
+      { slug: "target", title: "Target", summary: "doomed" },
+      { slug: "linker-a", title: "Linker A", summary: "refs" },
+      { slug: "linker-b", title: "Linker B", summary: "also refs" },
+    ]);
+
+    const result = await deleteWikiPage("target");
+
+    // Both linkers were rewritten.
+    expect(result.strippedBacklinksFrom.sort()).toEqual([
+      "linker-a",
+      "linker-b",
+    ]);
+
+    // Linker A kept all its non-link prose; only the link itself is gone.
+    const a = await readWikiPage("linker-a");
+    expect(a).not.toBeNull();
+    expect(a!.content).toContain("# Linker A");
+    expect(a!.content).toContain("Paragraph one about");
+    expect(a!.content).toContain("matters.");
+    expect(a!.content).toContain(
+      "Paragraph two is unrelated and should survive verbatim.",
+    );
+    expect(a!.content).not.toContain("target.md");
+    expect(a!.content).not.toContain("[Target]");
+
+    // Linker B kept its intro; the lone See-also line is cleaned out.
+    const b = await readWikiPage("linker-b");
+    expect(b).not.toBeNull();
+    expect(b!.content).toContain("# Linker B");
+    expect(b!.content).toContain("Alpha intro.");
+    expect(b!.content).not.toContain("target.md");
+    expect(b!.content).not.toMatch(/\*\*See also:\*\*\s*$/m);
+  });
+
+  it("removes only the deleted page's index entry, leaving other entries alone", async () => {
+    await writeWikiPage("alpha", "# Alpha\n\nFirst.");
+    await writeWikiPage("beta", "# Beta\n\nSecond.");
+    await writeWikiPage("gamma", "# Gamma\n\nThird.");
+    await updateIndex([
+      { slug: "alpha", title: "Alpha", summary: "first" },
+      { slug: "beta", title: "Beta", summary: "second" },
+      { slug: "gamma", title: "Gamma", summary: "third" },
+    ]);
+
+    await deleteWikiPage("beta");
+
+    const entries = await listWikiPages();
+    expect(entries.map((e) => e.slug).sort()).toEqual(["alpha", "gamma"]);
+    // Surviving entries keep their original summary/title — no drive-by edits.
+    expect(entries.find((e) => e.slug === "alpha")).toMatchObject({
+      title: "Alpha",
+      summary: "first",
+    });
+    expect(entries.find((e) => e.slug === "gamma")).toMatchObject({
+      title: "Gamma",
+      summary: "third",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

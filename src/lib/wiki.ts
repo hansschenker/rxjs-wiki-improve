@@ -691,18 +691,175 @@ export interface DeletePageResult {
 /** Escape a string for use inside a regular expression. */
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// ---------------------------------------------------------------------------
+// runPageLifecycleOp — the shared lifecycle-op pipeline
+// ---------------------------------------------------------------------------
+//
+// Anything that touches `wiki/<slug>.md` + `index.md` + other pages + `log.md`
+// is the same shape of operation regardless of whether it creates, updates, or
+// deletes a page. Per the "Delete is a write-path too — lifecycle ops, not
+// just writes" learning in `.yoyo/learnings.md`, every such op flows through
+// this one function, which owns the 5-step side-effect orchestration:
+//
+//   1. Validate the slug.
+//   2. Mutate the page file on disk (write / unlink).
+//   3. Mutate `index.md` (upsert / remove).
+//   4. Cross-reference other pages (add "See also" links / strip backlinks).
+//   5. Append a structured entry to `log.md`.
+//
+// Per-op differences live on the `op` strategy object. `writeWikiPageWithSideEffects`
+// and `deleteWikiPage` are thin wrappers that construct the appropriate op
+// and pass it through.
+
+type PageLifecycleOp =
+  | {
+      kind: "write";
+      title: string;
+      content: string;
+      summary: string;
+      /**
+       * Source text used for cross-ref discovery.
+       * - `undefined` → use the page content itself.
+       * - `null` → explicit skip (no cross-ref pass at all).
+       * - string → use that text (e.g. raw source in ingest).
+       */
+      crossRefSource?: string | null;
+    }
+  | {
+      kind: "delete";
+      /** Title used in the log entry (captured before unlink). */
+      title: string;
+    };
+
+/** Internal result of a lifecycle op — a superset of Write/Delete result shapes. */
+interface LifecycleOpResult {
+  slug: string;
+  /** Pages that gained a backlink (write) — empty for delete. */
+  crossRefedSlugs: string[];
+  /** Pages that had a backlink stripped (delete) — empty for write. */
+  strippedBacklinksFrom: string[];
+  /** Whether the index actually had a row removed (delete) — false for write. */
+  removedFromIndex: boolean;
+}
+
+/**
+ * Strip every markdown link to `${slug}.md` from `content` and tidy up any
+ * `**See also:**` artefacts the removal leaves behind. Returns the rewritten
+ * content (or the input unchanged if no links were present).
+ */
+function stripBacklinksTo(slug: string, content: string): string {
+  const escapedSlug = escapeRegex(slug);
+  // `g` flag: declared at narrowest scope to avoid cross-call `lastIndex` leaks.
+  const linkRe = new RegExp(`\\[[^\\]]+\\]\\(${escapedSlug}\\.md\\)`, "g");
+
+  // 1. Strip the actual link occurrences.
+  let updated = content.replace(linkRe, "");
+
+  // 2. Clean up See also artefacts left behind.
+  //
+  //    a) Drop empty See-also lines: `**See also:** ` (optionally with
+  //       trailing whitespace) on its own line.
+  updated = updated.replace(/^\*\*See also:\*\*\s*$/gm, "");
+  //    b) Fix leading comma: `**See also:** , X` → `**See also:** X`
+  updated = updated.replace(/(\*\*See also:\*\*)\s*,\s*/g, "$1 ");
+  //    c) Fix trailing comma at end-of-line: `..., \n` → `\n`
+  updated = updated.replace(/,\s*$/gm, "");
+  //    d) Collapse runs of 3+ blank lines that the empty-line removal may
+  //       have produced into a single blank line, so we don't leave a hole.
+  updated = updated.replace(/\n{3,}/g, "\n\n");
+
+  return updated;
+}
+
+/**
+ * Shared lifecycle-op pipeline for write and delete. See the block comment
+ * above for the full 5-step shape.
+ */
+async function runPageLifecycleOp(
+  slug: string,
+  op: PageLifecycleOp,
+  logOp: LogOperation,
+  logDetails?: (ctx: {
+    crossRefedSlugs: string[];
+    strippedBacklinksFrom: string[];
+  }) => string | undefined,
+): Promise<LifecycleOpResult> {
+  // 1. Validate — the per-step helpers also validate, but we want to fail
+  //    fast before any filesystem mutation happens.
+  validateSlug(slug);
+
+  // 2. Mutate the page file.
+  if (op.kind === "write") {
+    await writeWikiPage(slug, op.content);
+  } else {
+    const filePath = path.join(getWikiDir(), `${slug}.md`);
+    await fs.unlink(filePath);
+  }
+
+  // 3. Mutate the index. Re-read so we never clobber concurrent updates
+  //    that landed between caller-read and now.
+  const entries = await listWikiPages();
+  let removedFromIndex = false;
+  let postIndexEntries: IndexEntry[];
+  if (op.kind === "write") {
+    const existingIdx = entries.findIndex((e) => e.slug === slug);
+    if (existingIdx !== -1) {
+      entries[existingIdx].title = op.title;
+      entries[existingIdx].summary = op.summary;
+    } else {
+      entries.push({ title: op.title, slug, summary: op.summary });
+    }
+    postIndexEntries = entries;
+  } else {
+    postIndexEntries = entries.filter((e) => e.slug !== slug);
+    removedFromIndex = postIndexEntries.length !== entries.length;
+  }
+  await updateIndex(postIndexEntries);
+
+  // 4. Cross-reference other pages.
+  //    - write: discover related pages and add backlinks TO this slug.
+  //    - delete: rewrite every remaining page to strip links to this slug.
+  let crossRefedSlugs: string[] = [];
+  const strippedBacklinksFrom: string[] = [];
+  if (op.kind === "write") {
+    if (op.crossRefSource !== null) {
+      const sourceForCrossRef = op.crossRefSource ?? op.content;
+      const refreshedEntries = await listWikiPages();
+      const relatedSlugs = await findRelatedPages(
+        slug,
+        sourceForCrossRef,
+        refreshedEntries,
+      );
+      crossRefedSlugs = await updateRelatedPages(slug, op.title, relatedSlugs);
+    }
+  } else {
+    for (const entry of postIndexEntries) {
+      const otherPage = await readWikiPage(entry.slug);
+      if (!otherPage) continue;
+      if (!otherPage.content.includes(`${slug}.md`)) continue;
+
+      const updated = stripBacklinksTo(slug, otherPage.content);
+      if (updated !== otherPage.content) {
+        await writeWikiPage(entry.slug, updated);
+        strippedBacklinksFrom.push(entry.slug);
+      }
+    }
+  }
+
+  // 5. Log.
+  const details = logDetails?.({ crossRefedSlugs, strippedBacklinksFrom });
+  await appendToLog(logOp, op.title, details);
+
+  return { slug, crossRefedSlugs, strippedBacklinksFrom, removedFromIndex };
+}
+
 /**
  * Delete a wiki page and clean up references to it.
  *
- * Steps:
- * 1. Validate the slug (throws on traversal / invalid).
- * 2. Read the page (throws if it doesn't exist) — captured to get the title
- *    for the log entry.
- * 3. Unlink the `.md` file from the wiki dir.
- * 4. Remove the entry from `index.md`.
- * 5. Strip backlinks from any other wiki page that links to this slug,
- *    cleaning up empty / leading-comma `**See also:**` artefacts.
- * 6. Append a `"delete"` log entry recording the deletion.
+ * Thin wrapper over {@link runPageLifecycleOp} — the actual 5-step dance
+ * (unlink → remove index entry → strip backlinks across pages → log) lives
+ * in the shared pipeline. See the block comment above `runPageLifecycleOp`
+ * for details.
  *
  * Hard delete only — no trash, no undo. Raw source files in `raw/` are
  * intentionally NOT touched (the raw layer is immutable per the founding
@@ -713,66 +870,26 @@ export async function deleteWikiPage(
 ): Promise<DeletePageResult> {
   validateSlug(slug);
 
+  // Capture the title BEFORE unlinking so the log entry is human-readable.
   const page = await readWikiPage(slug);
   if (!page) {
     throw new Error(`page not found: ${slug}`);
   }
-  const title = page.title;
+  const title = page.title ?? slug;
 
-  // 1. Unlink the page file.
-  const filePath = path.join(getWikiDir(), `${slug}.md`);
-  await fs.unlink(filePath);
-
-  // 2. Remove the index entry.
-  const entries = await listWikiPages();
-  const filteredEntries = entries.filter((e) => e.slug !== slug);
-  const removedFromIndex = filteredEntries.length !== entries.length;
-  await updateIndex(filteredEntries);
-
-  // 3. Strip backlinks from remaining pages.
-  const escapedSlug = escapeRegex(slug);
-  // Match any markdown link whose target is `${slug}.md`.
-  const linkRe = new RegExp(`\\[[^\\]]+\\]\\(${escapedSlug}\\.md\\)`, "g");
-
-  const strippedBacklinksFrom: string[] = [];
-  for (const entry of filteredEntries) {
-    const otherPage = await readWikiPage(entry.slug);
-    if (!otherPage) continue;
-    if (!otherPage.content.includes(`${slug}.md`)) continue;
-
-    // 1. Strip the actual link occurrences.
-    let updated = otherPage.content.replace(linkRe, "");
-
-    // 2. Clean up See also artefacts left behind.
-    //
-    //    a) Drop empty See-also lines: `**See also:** ` (optionally with
-    //       trailing whitespace) on its own line.
-    updated = updated.replace(/^\*\*See also:\*\*\s*$/gm, "");
-    //    b) Fix leading comma: `**See also:** , X` → `**See also:** X`
-    updated = updated.replace(
-      /(\*\*See also:\*\*)\s*,\s*/g,
-      "$1 ",
-    );
-    //    c) Fix trailing comma at end-of-line: `..., \n` → `\n`
-    updated = updated.replace(/,\s*$/gm, "");
-    //    d) Collapse runs of 3+ blank lines that the empty-line removal may
-    //       have produced into a single blank line, so we don't leave a hole.
-    updated = updated.replace(/\n{3,}/g, "\n\n");
-
-    if (updated !== otherPage.content) {
-      await writeWikiPage(entry.slug, updated);
-      strippedBacklinksFrom.push(entry.slug);
-    }
-  }
-
-  // 4. Log the deletion.
-  await appendToLog(
+  const result = await runPageLifecycleOp(
+    slug,
+    { kind: "delete", title },
     "delete",
-    title ?? slug,
-    `deleted · stripped backlinks from ${strippedBacklinksFrom.length} page(s)`,
+    ({ strippedBacklinksFrom }) =>
+      `deleted · stripped backlinks from ${strippedBacklinksFrom.length} page(s)`,
   );
 
-  return { slug, removedFromIndex, strippedBacklinksFrom };
+  return {
+    slug: result.slug,
+    removedFromIndex: result.removedFromIndex,
+    strippedBacklinksFrom: result.strippedBacklinksFrom,
+  };
 }
 
 /**
@@ -787,48 +904,27 @@ export async function deleteWikiPage(
  * 4. Cross-reference related pages via {@link findRelatedPages} +
  *    {@link updateRelatedPages}, unless `crossRefSource` is `null`.
  * 5. Append a structured entry to `wiki/log.md`.
+ *
+ * Thin wrapper over {@link runPageLifecycleOp} — the actual 5 steps live in
+ * the shared pipeline, which `deleteWikiPage` also flows through.
  */
 export async function writeWikiPageWithSideEffects(
   opts: WritePageOptions,
 ): Promise<WritePageResult> {
   const { slug, title, content, summary, logOp, logDetails } = opts;
 
-  // 1. Validate — writeWikiPage also validates, but we want to fail fast
-  // before any filesystem mutation happens.
-  validateSlug(slug);
+  const result = await runPageLifecycleOp(
+    slug,
+    {
+      kind: "write",
+      title,
+      content,
+      summary,
+      crossRefSource: opts.crossRefSource,
+    },
+    logOp,
+    ({ crossRefedSlugs }) => logDetails?.({ updatedSlugs: crossRefedSlugs }),
+  );
 
-  // 2. Write the page file itself.
-  await writeWikiPage(slug, content);
-
-  // 3. Upsert the index entry. Re-read so we never clobber concurrent
-  // updates that landed between caller-read and now.
-  const entries = await listWikiPages();
-  const existingIdx = entries.findIndex((e) => e.slug === slug);
-  if (existingIdx !== -1) {
-    entries[existingIdx].title = title;
-    entries[existingIdx].summary = summary;
-  } else {
-    entries.push({ title, slug, summary });
-  }
-  await updateIndex(entries);
-
-  // 4. Cross-reference. `crossRefSource === null` means "explicit skip".
-  // `undefined` falls back to the page content itself.
-  let updatedSlugs: string[] = [];
-  if (opts.crossRefSource !== null) {
-    const sourceForCrossRef = opts.crossRefSource ?? content;
-    const refreshedEntries = await listWikiPages();
-    const relatedSlugs = await findRelatedPages(
-      slug,
-      sourceForCrossRef,
-      refreshedEntries,
-    );
-    updatedSlugs = await updateRelatedPages(slug, title, relatedSlugs);
-  }
-
-  // 5. Log.
-  const details = logDetails?.({ updatedSlugs });
-  await appendToLog(logOp, title, details);
-
-  return { slug, updatedSlugs };
+  return { slug: result.slug, updatedSlugs: result.crossRefedSlugs };
 }
