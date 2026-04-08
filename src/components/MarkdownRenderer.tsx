@@ -6,7 +6,19 @@ interface MarkdownRendererProps {
   content: string;
 }
 
+/**
+ * Strip a leading YAML frontmatter block (`---\n...\n---\n?`) before
+ * rendering so users never see raw YAML in the browser. We intentionally
+ * don't import `parseFrontmatter` from `lib/wiki` — this component runs
+ * inside React server/client boundaries and we want zero coupling to the
+ * parser.
+ */
+function stripFrontmatter(content: string): string {
+  return content.replace(/^---\n[\s\S]*?\n---\n?\n?/, "");
+}
+
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+  const body = stripFrontmatter(content);
   return (
     <div className="prose prose-neutral dark:prose-invert max-w-none">
       <ReactMarkdown
@@ -40,7 +52,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           },
         }}
       >
-        {content}
+        {body}
       </ReactMarkdown>
     </div>
   );

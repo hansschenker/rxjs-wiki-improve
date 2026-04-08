@@ -14,6 +14,9 @@ import {
   validateSlug,
   writeWikiPageWithSideEffects,
   deleteWikiPage,
+  parseFrontmatter,
+  serializeFrontmatter,
+  readWikiPageWithFrontmatter,
 } from "../wiki";
 import type { IndexEntry } from "../types";
 
@@ -747,5 +750,190 @@ describe("/api/wiki/graph route", () => {
     };
 
     expect(data.edges).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// YAML frontmatter parser + serializer
+// ---------------------------------------------------------------------------
+
+describe("parseFrontmatter", () => {
+  it("returns empty data and the full content when no frontmatter is present", () => {
+    const content = "# My Page\n\nJust a regular markdown document.";
+    const result = parseFrontmatter(content);
+    expect(result.data).toEqual({});
+    expect(result.body).toBe(content);
+  });
+
+  it("parses plain string scalars", () => {
+    const content =
+      "---\ncreated: 2026-04-08\ntitle: Hello World\n---\n\n# Body\n";
+    const result = parseFrontmatter(content);
+    expect(result.data.created).toBe("2026-04-08");
+    expect(result.data.title).toBe("Hello World");
+    expect(result.body).toBe("# Body\n");
+  });
+
+  it("parses numeric-looking scalars as strings", () => {
+    const content = "---\nsource_count: 3\n---\n\nbody";
+    const result = parseFrontmatter(content);
+    expect(result.data.source_count).toBe("3");
+  });
+
+  it("parses inline arrays with plain and quoted elements", () => {
+    const content =
+      '---\ntags: [alpha, beta, "gamma delta"]\n---\n\nbody\n';
+    const result = parseFrontmatter(content);
+    expect(result.data.tags).toEqual(["alpha", "beta", "gamma delta"]);
+  });
+
+  it("parses empty inline arrays as empty arrays", () => {
+    const content = "---\ntags: []\n---\n\nbody\n";
+    const result = parseFrontmatter(content);
+    expect(result.data.tags).toEqual([]);
+  });
+
+  it("strips surrounding double quotes from scalars", () => {
+    const content = '---\ntitle: "Hello: World"\n---\n\nbody';
+    const result = parseFrontmatter(content);
+    expect(result.data.title).toBe("Hello: World");
+  });
+
+  it("strips the frontmatter block from the body", () => {
+    const content =
+      "---\ncreated: 2026-04-08\ntags: []\n---\n\n# Hello\n\nBody text.\n";
+    const result = parseFrontmatter(content);
+    expect(result.body).toBe("# Hello\n\nBody text.\n");
+    expect(result.body).not.toContain("---");
+  });
+
+  it("throws on unclosed frontmatter block", () => {
+    const content = "---\ncreated: 2026-04-08\ntitle: stuck\n\n# No close\n";
+    expect(() => parseFrontmatter(content)).toThrow(/closing/);
+  });
+
+  it("throws on nested objects", () => {
+    const content =
+      "---\nmeta:\n  nested: value\n---\n\nbody\n";
+    expect(() => parseFrontmatter(content)).toThrow(/nested/i);
+  });
+
+  it("throws on block arrays", () => {
+    const content = "---\ntags:\n  - alpha\n  - beta\n---\n\nbody\n";
+    expect(() => parseFrontmatter(content)).toThrow(/nested|block/i);
+  });
+
+  it("throws on block scalars", () => {
+    const content = "---\nnotes: |\n  multi-line\n  text here\n---\n\nbody";
+    expect(() => parseFrontmatter(content)).toThrow(/block|nested/i);
+  });
+
+  it("throws when a line is missing a colon", () => {
+    const content = "---\nnot a valid line\n---\n\nbody";
+    expect(() => parseFrontmatter(content)).toThrow(/colon|:/);
+  });
+
+  it("throws on malformed inline array (missing closing bracket)", () => {
+    const content = "---\ntags: [a, b, c\n---\n\nbody";
+    expect(() => parseFrontmatter(content)).toThrow(/array|close/i);
+  });
+});
+
+describe("serializeFrontmatter", () => {
+  it("returns the body unchanged when data is empty", () => {
+    const body = "# Hello\n\nBody text.\n";
+    expect(serializeFrontmatter({}, body)).toBe(body);
+  });
+
+  it("emits keys in insertion order", () => {
+    const out = serializeFrontmatter(
+      { created: "2026-04-08", updated: "2026-04-08", source_count: "1" },
+      "# Body\n",
+    );
+    const lines = out.split("\n");
+    expect(lines[0]).toBe("---");
+    expect(lines[1]).toBe("created: 2026-04-08");
+    expect(lines[2]).toBe("updated: 2026-04-08");
+    expect(lines[3]).toBe("source_count: 1");
+    expect(lines[4]).toBe("---");
+  });
+
+  it("emits arrays inline", () => {
+    const out = serializeFrontmatter({ tags: ["a", "b", "c"] }, "body\n");
+    expect(out).toContain("tags: [a, b, c]");
+  });
+
+  it("quotes array elements that contain commas", () => {
+    const out = serializeFrontmatter({ tags: ["a, b", "c"] }, "body\n");
+    expect(out).toContain('tags: ["a, b", c]');
+  });
+
+  it("quotes scalars that contain a colon", () => {
+    const out = serializeFrontmatter({ title: "Hello: World" }, "body\n");
+    expect(out).toContain('title: "Hello: World"');
+  });
+
+  it("round-trips through parseFrontmatter for common shapes", () => {
+    const original = {
+      created: "2026-04-08",
+      updated: "2026-04-08",
+      source_count: "2",
+      tags: ["foo", "bar", "baz qux"],
+    };
+    const body = "# Title\n\nBody paragraph.\n";
+    const serialized = serializeFrontmatter(original, body);
+    const reparsed = parseFrontmatter(serialized);
+    expect(reparsed.data).toEqual(original);
+    expect(reparsed.body).toBe(body);
+  });
+
+  it("round-trips empty arrays", () => {
+    const original: Record<string, string | string[]> = {
+      created: "2026-04-08",
+      tags: [],
+    };
+    const serialized = serializeFrontmatter(original, "body\n");
+    const reparsed = parseFrontmatter(serialized);
+    expect(reparsed.data).toEqual(original);
+  });
+});
+
+describe("readWikiPageWithFrontmatter", () => {
+  it("returns empty frontmatter and the full content as body when none is present", async () => {
+    await writeWikiPage("plain", "# Plain\n\nNo frontmatter here.\n");
+    const page = await readWikiPageWithFrontmatter("plain");
+    expect(page).not.toBeNull();
+    expect(page!.frontmatter).toEqual({});
+    expect(page!.body).toBe("# Plain\n\nNo frontmatter here.\n");
+    expect(page!.content).toBe("# Plain\n\nNo frontmatter here.\n");
+    expect(page!.title).toBe("Plain");
+  });
+
+  it("exposes parsed frontmatter and strips the YAML from body", async () => {
+    const content =
+      "---\ncreated: 2026-04-08\nsource_count: 1\ntags: [alpha, beta]\n---\n\n# Titled Page\n\nSome body.\n";
+    await writeWikiPage("with-fm", content);
+
+    const page = await readWikiPageWithFrontmatter("with-fm");
+    expect(page).not.toBeNull();
+    expect(page!.frontmatter.created).toBe("2026-04-08");
+    expect(page!.frontmatter.source_count).toBe("1");
+    expect(page!.frontmatter.tags).toEqual(["alpha", "beta"]);
+
+    // body excludes the YAML block
+    expect(page!.body).toBe("# Titled Page\n\nSome body.\n");
+    expect(page!.body).not.toContain("---");
+
+    // content retains the full markdown including the frontmatter
+    expect(page!.content).toBe(content);
+
+    // title comes from the H1 in the body
+    expect(page!.title).toBe("Titled Page");
+  });
+
+  it("returns null for a missing slug", async () => {
+    await ensureDirectories();
+    const page = await readWikiPageWithFrontmatter("does-not-exist");
+    expect(page).toBeNull();
   });
 });

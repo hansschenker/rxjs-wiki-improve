@@ -1,6 +1,9 @@
 import {
   saveRawSource,
   writeWikiPageWithSideEffects,
+  readWikiPageWithFrontmatter,
+  serializeFrontmatter,
+  type Frontmatter,
 } from "./wiki";
 import { callLLM, hasLLMKey } from "./llm";
 import { Readability } from "@mozilla/readability";
@@ -312,13 +315,44 @@ export async function ingest(
   // the original document, not the LLM's reformatting.
   const summary = extractSummary(content);
 
-  // 4. Hand off to the unified write pipeline. We pass the raw `content` as
+  // 4. Build / refresh the YAML frontmatter block. New pages get
+  // created = updated = today and source_count = 1. Re-ingesting the same
+  // slug preserves `created`, advances `updated`, increments `source_count`,
+  // and preserves any user-edited tags.
+  const now = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const frontmatter: Frontmatter = {
+    created: now,
+    updated: now,
+    source_count: "1",
+    tags: [],
+  };
+
+  const existing = await readWikiPageWithFrontmatter(slug);
+  if (existing) {
+    const existingCreated = existing.frontmatter.created;
+    if (typeof existingCreated === "string" && existingCreated !== "") {
+      frontmatter.created = existingCreated;
+    }
+    const prevCountRaw = existing.frontmatter.source_count;
+    const prevCount =
+      typeof prevCountRaw === "string" ? Number(prevCountRaw) : NaN;
+    frontmatter.source_count = String(
+      (Number.isFinite(prevCount) ? prevCount : 0) + 1,
+    );
+    if (Array.isArray(existing.frontmatter.tags)) {
+      frontmatter.tags = existing.frontmatter.tags;
+    }
+  }
+
+  const contentWithFm = serializeFrontmatter(frontmatter, wikiContent);
+
+  // 5. Hand off to the unified write pipeline. We pass the raw `content` as
   // `crossRefSource` so the LLM sees the full document when picking related
   // pages, matching the previous behaviour.
   const { updatedSlugs } = await writeWikiPageWithSideEffects({
     slug,
     title,
-    content: wikiContent,
+    content: contentWithFm,
     summary,
     logOp: "ingest",
     crossRefSource: content,

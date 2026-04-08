@@ -239,6 +239,70 @@ describe("ingest", () => {
 });
 
 // ---------------------------------------------------------------------------
+// ingest — YAML frontmatter
+// ---------------------------------------------------------------------------
+
+describe("ingest — YAML frontmatter", () => {
+  it("prepends a frontmatter block to new pages", async () => {
+    await ingest("Frontmatter Test", "Some source content. With a sentence.");
+
+    const { readWikiPageWithFrontmatter } = await import("../wiki");
+    const page = await readWikiPageWithFrontmatter("frontmatter-test");
+    expect(page).not.toBeNull();
+
+    // Raw content must start with the frontmatter delimiter.
+    expect(page!.content.startsWith("---\n")).toBe(true);
+
+    // Parsed frontmatter has the four expected keys.
+    expect(typeof page!.frontmatter.created).toBe("string");
+    expect(typeof page!.frontmatter.updated).toBe("string");
+    expect(page!.frontmatter.source_count).toBe("1");
+    expect(page!.frontmatter.tags).toEqual([]);
+
+    // created/updated are YYYY-MM-DD strings.
+    expect(page!.frontmatter.created).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(page!.frontmatter.updated).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    // Body (frontmatter stripped) still contains a heading.
+    expect(page!.body).toContain("# ");
+  });
+
+  it("increments source_count and preserves created on re-ingest", async () => {
+    const { readWikiPageWithFrontmatter } = await import("../wiki");
+
+    await ingest("Recurring", "First version of the content. Details.");
+    const first = await readWikiPageWithFrontmatter("recurring");
+    expect(first).not.toBeNull();
+    const originalCreated = first!.frontmatter.created as string;
+    expect(first!.frontmatter.source_count).toBe("1");
+
+    // Simulate a later re-ingest: manually rewrite the page with an older
+    // `created` date so we can verify it's preserved across re-ingest even
+    // when the clock has moved.
+    await writeWikiPage(
+      "recurring",
+      `---\ncreated: 2020-01-01\nupdated: 2020-01-01\nsource_count: 1\ntags: [keep-me]\n---\n\n# Recurring\n\nOlder body.\n`,
+    );
+
+    await ingest("Recurring", "Second version of the content. More details.");
+
+    const second = await readWikiPageWithFrontmatter("recurring");
+    expect(second).not.toBeNull();
+    // created preserved from the existing page on disk
+    expect(second!.frontmatter.created).toBe("2020-01-01");
+    // source_count incremented
+    expect(second!.frontmatter.source_count).toBe("2");
+    // updated advanced to today (YYYY-MM-DD)
+    expect(second!.frontmatter.updated).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(second!.frontmatter.updated).not.toBe("2020-01-01");
+    // user-edited tags preserved
+    expect(second!.frontmatter.tags).toEqual(["keep-me"]);
+    // sanity: originalCreated was a "today" date on the first ingest
+    expect(originalCreated).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // isUrl
 // ---------------------------------------------------------------------------
 
