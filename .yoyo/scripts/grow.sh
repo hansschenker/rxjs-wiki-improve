@@ -108,8 +108,8 @@ check_protected_files() {
     echo "$protected"
 }
 
-# ── Run-frequency gate (8h between sessions) ──
-MIN_GAP_SECS=$((8 * 3600))
+# ── Run-frequency gate (4h between sessions) ──
+MIN_GAP_SECS=$((4 * 3600))
 LAST_RUN_EPOCH=$(git log --format="%ct" --grep="yoyo: growth session" -1 2>/dev/null || echo "0")
 LAST_RUN_EPOCH="${LAST_RUN_EPOCH:-0}"
 NOW_EPOCH=$(date +%s)
@@ -117,7 +117,7 @@ ELAPSED=$((NOW_EPOCH - LAST_RUN_EPOCH))
 
 if [ "$ELAPSED" -lt "$MIN_GAP_SECS" ] && [ "${FORCE_RUN:-}" != "true" ]; then
     ELAPSED_H=$((ELAPSED / 3600))
-    echo "Last session ${ELAPSED_H}h ago — need 8h gap. Set FORCE_RUN=true to override."
+    echo "Last session ${ELAPSED_H}h ago — need 4h gap. Set FORCE_RUN=true to override."
     exit 0
 fi
 
