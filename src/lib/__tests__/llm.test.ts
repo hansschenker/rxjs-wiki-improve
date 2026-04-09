@@ -4,12 +4,26 @@ import { hasLLMKey, callLLM } from "../llm";
 // Save and restore env vars around each test so we don't leak state.
 let savedAnthropic: string | undefined;
 let savedOpenAI: string | undefined;
+let savedGoogle: string | undefined;
+let savedOllamaBaseURL: string | undefined;
+let savedOllamaModel: string | undefined;
 let savedModel: string | undefined;
 
 beforeEach(() => {
   savedAnthropic = process.env.ANTHROPIC_API_KEY;
   savedOpenAI = process.env.OPENAI_API_KEY;
+  savedGoogle = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  savedOllamaBaseURL = process.env.OLLAMA_BASE_URL;
+  savedOllamaModel = process.env.OLLAMA_MODEL;
   savedModel = process.env.LLM_MODEL;
+
+  // Start each test from a clean slate so tests don't depend on ordering.
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  delete process.env.OLLAMA_BASE_URL;
+  delete process.env.OLLAMA_MODEL;
+  delete process.env.LLM_MODEL;
 });
 
 afterEach(() => {
@@ -23,29 +37,43 @@ afterEach(() => {
   };
   restore("ANTHROPIC_API_KEY", savedAnthropic);
   restore("OPENAI_API_KEY", savedOpenAI);
+  restore("GOOGLE_GENERATIVE_AI_API_KEY", savedGoogle);
+  restore("OLLAMA_BASE_URL", savedOllamaBaseURL);
+  restore("OLLAMA_MODEL", savedOllamaModel);
   restore("LLM_MODEL", savedModel);
 });
 
 describe("hasLLMKey", () => {
-  it("returns false when no API keys are set", () => {
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.OPENAI_API_KEY;
+  it("returns false when no provider env var is set", () => {
     expect(hasLLMKey()).toBe(false);
   });
 
   it("returns true when ANTHROPIC_API_KEY is set", () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
-    delete process.env.OPENAI_API_KEY;
     expect(hasLLMKey()).toBe(true);
   });
 
   it("returns true when OPENAI_API_KEY is set", () => {
-    delete process.env.ANTHROPIC_API_KEY;
     process.env.OPENAI_API_KEY = "sk-test";
     expect(hasLLMKey()).toBe(true);
   });
 
-  it("returns true when both keys are set", () => {
+  it("returns true when only GOOGLE_GENERATIVE_AI_API_KEY is set", () => {
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = "google-test-key";
+    expect(hasLLMKey()).toBe(true);
+  });
+
+  it("returns true when only OLLAMA_BASE_URL is set", () => {
+    process.env.OLLAMA_BASE_URL = "http://localhost:11434/api";
+    expect(hasLLMKey()).toBe(true);
+  });
+
+  it("returns true when only OLLAMA_MODEL is set", () => {
+    process.env.OLLAMA_MODEL = "llama3.2";
+    expect(hasLLMKey()).toBe(true);
+  });
+
+  it("returns true when multiple keys are set", () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
     process.env.OPENAI_API_KEY = "sk-test";
     expect(hasLLMKey()).toBe(true);
@@ -53,12 +81,16 @@ describe("hasLLMKey", () => {
 });
 
 describe("callLLM", () => {
-  it("throws a clear error when no API key is set", async () => {
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.OPENAI_API_KEY;
+  it("throws a clear error mentioning all four providers when no env vars are set", async () => {
+    const promise = callLLM("system", "hello");
 
-    await expect(callLLM("system", "hello")).rejects.toThrow(
-      /No LLM API key found/,
-    );
+    // The error should mention every supported provider env var so users
+    // know their options. Using substring checks keeps the assertion
+    // resilient to minor wording tweaks.
+    await expect(promise).rejects.toThrow(/No LLM API key found/);
+    await expect(promise).rejects.toThrow(/ANTHROPIC_API_KEY/);
+    await expect(promise).rejects.toThrow(/OPENAI_API_KEY/);
+    await expect(promise).rejects.toThrow(/GOOGLE_GENERATIVE_AI_API_KEY/);
+    await expect(promise).rejects.toThrow(/OLLAMA/);
   });
 });

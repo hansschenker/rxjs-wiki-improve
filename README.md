@@ -142,13 +142,47 @@ Create `.env.local` with your LLM API key:
 # Pick ONE provider — set the API key for whichever you want to use:
 ANTHROPIC_API_KEY=sk-ant-...     # Anthropic Claude (default)
 # OPENAI_API_KEY=sk-...          # OpenAI GPT
+# GOOGLE_GENERATIVE_AI_API_KEY=... # Google Gemini
+# OLLAMA_BASE_URL=http://localhost:11434/api  # Local Ollama (or just OLLAMA_MODEL)
 
-# Optional: override the default model
+# Optional: override the default model for whichever provider wins
 # LLM_MODEL=claude-sonnet-4-20250514
 ```
 
 ```bash
 pnpm dev        # http://localhost:3000
+```
+
+### Supported LLM providers
+
+The app auto-detects a provider from environment variables. Priority (first match
+wins): **Anthropic → OpenAI → Google → Ollama**. Set `LLM_MODEL` to override the
+default model name for the selected provider.
+
+| Provider | Env var | Default model | Notes |
+|---|---|---|---|
+| Anthropic | `ANTHROPIC_API_KEY=sk-ant-...` | `claude-sonnet-4-20250514` | `@ai-sdk/anthropic` |
+| OpenAI | `OPENAI_API_KEY=sk-...` | `gpt-4o` | `@ai-sdk/openai` |
+| Google | `GOOGLE_GENERATIVE_AI_API_KEY=...` | `gemini-2.0-flash` | `@ai-sdk/google` (Gemini) |
+| Ollama | `OLLAMA_BASE_URL=http://localhost:11434/api` and/or `OLLAMA_MODEL=llama3.2` | `llama3.2` | `ollama-ai-provider-v2`; runs against a local Ollama server, no API key needed |
+
+Examples:
+
+```bash
+# Anthropic (default)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# OpenAI with a different model
+OPENAI_API_KEY=sk-...
+LLM_MODEL=gpt-4o-mini
+
+# Google Gemini
+GOOGLE_GENERATIVE_AI_API_KEY=...
+LLM_MODEL=gemini-1.5-pro
+
+# Local Ollama — pull a model first with `ollama pull llama3.2`
+OLLAMA_BASE_URL=http://localhost:11434/api
+OLLAMA_MODEL=llama3.2
 ```
 
 ## Watch It Grow
