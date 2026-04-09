@@ -18,6 +18,15 @@ import { createOllama } from "ollama-ai-provider-v2";
  *   - Ollama:    OLLAMA_BASE_URL or OLLAMA_MODEL (Ollama is typically keyless;
  *                presence of either env var signals intent to use a local
  *                Ollama server)
+ *
+ * Additional env vars (used by src/lib/embeddings.ts, not this module):
+ *   - EMBEDDING_MODEL: override the default embedding model name for the
+ *     active provider. Defaults are:
+ *       OpenAI → text-embedding-3-small
+ *       Google → gemini-embedding-001
+ *       Ollama → nomic-embed-text
+ *     Anthropic does not support embeddings.
+ *     See `src/lib/embeddings.ts` for the full embedding API.
  */
 export function hasLLMKey(): boolean {
   return !!(
