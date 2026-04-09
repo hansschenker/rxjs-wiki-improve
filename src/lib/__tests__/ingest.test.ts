@@ -371,6 +371,28 @@ describe("stripHtml", () => {
     expect(stripHtml("&amp; &lt; &gt; &quot; &#39; &nbsp;")).toBe('& < > " \'');
   });
 
+  it("decodes numeric decimal entities", () => {
+    // &#8212; = em dash (—), &#169; = copyright (©)
+    expect(stripHtml("Hello&#8212;world")).toBe("Hello\u2014world");
+    expect(stripHtml("&#169; 2026")).toBe("\u00A9 2026");
+  });
+
+  it("decodes numeric hex entities", () => {
+    // &#x2014; = em dash (—), &#x2019; = right single quote (')
+    expect(stripHtml("Hello&#x2014;world")).toBe("Hello\u2014world");
+    expect(stripHtml("it&#x2019;s")).toBe("it\u2019s");
+  });
+
+  it("decodes common named HTML5 entities", () => {
+    expect(stripHtml("a&mdash;b")).toBe("a\u2014b");
+    expect(stripHtml("a&ndash;b")).toBe("a\u2013b");
+    expect(stripHtml("wait&hellip;")).toBe("wait\u2026");
+    expect(stripHtml("&lsquo;hi&rsquo;")).toBe("\u2018hi\u2019");
+    expect(stripHtml("&ldquo;hi&rdquo;")).toBe("\u201Chi\u201D");
+    expect(stripHtml("&trade; &copy; &reg;")).toBe("\u2122 \u00A9 \u00AE");
+    expect(stripHtml("&bull; &middot;")).toBe("\u2022 \u00B7");
+  });
+
   it("collapses whitespace", () => {
     expect(stripHtml("<p>  Hello   world  </p>")).toBe("Hello world");
   });

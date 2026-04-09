@@ -34,7 +34,12 @@ function unquoteScalar(raw: string): string {
   if (trimmed.length >= 2) {
     const first = trimmed[0];
     const last = trimmed[trimmed.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+    if (first === '"' && last === '"') {
+      // Unescape backslash-escaped double quotes produced by the serializer.
+      return trimmed.slice(1, -1).replace(/\\"/g, '"');
+    }
+    if (first === "'" && last === "'") {
+      // Single-quoted YAML strings don't use backslash escaping.
       return trimmed.slice(1, -1);
     }
   }

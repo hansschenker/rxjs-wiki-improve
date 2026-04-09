@@ -1122,6 +1122,43 @@ describe("serializeFrontmatter", () => {
     expect(reparsed.data.updated).toBe(today);
     expect(reparsed.body).toBe(newBody);
   });
+
+  it("round-trips a title containing double quotes", () => {
+    const original = { title: 'Say "hello" world' };
+    const body = "# Content\n";
+    const serialized = serializeFrontmatter(original, body);
+    const reparsed = parseFrontmatter(serialized);
+    expect(reparsed.data.title).toBe('Say "hello" world');
+    expect(reparsed.body).toBe(body);
+  });
+
+  it("round-trips a scalar with both colons and double quotes (forced quoting)", () => {
+    // Colons trigger `needsScalarQuoting`, which wraps the value in "..."
+    // and escapes embedded quotes as \". The parser must unescape them.
+    const original = { source: 'http://example.com/"path"' };
+    const body = "body\n";
+    const serialized = serializeFrontmatter(original, body);
+    // Verify the serialized form actually uses escaped quotes.
+    expect(serialized).toContain('source: "http://example.com/\\"path\\""');
+    const reparsed = parseFrontmatter(serialized);
+    expect(reparsed.data.source).toBe('http://example.com/"path"');
+  });
+
+  it("round-trips an array element containing double quotes", () => {
+    const original = { tags: ['say "hi"', "plain"] };
+    const body = "body\n";
+    const serialized = serializeFrontmatter(original, body);
+    const reparsed = parseFrontmatter(serialized);
+    expect(reparsed.data.tags).toEqual(['say "hi"', "plain"]);
+  });
+
+  it("does not backslash-unescape single-quoted values", () => {
+    // Single-quoted YAML strings don't use backslash escaping.
+    // A literal backslash-quote sequence inside single quotes must be kept.
+    const content = "---\ntitle: 'keep \\\"this\\\" literally'\n---\n\nbody\n";
+    const parsed = parseFrontmatter(content);
+    expect(parsed.data.title).toBe('keep \\"this\\" literally');
+  });
 });
 
 describe("readWikiPageWithFrontmatter", () => {

@@ -69,7 +69,23 @@ export function stripHtml(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ");
+    .replace(/&nbsp;/g, " ")
+    // Common named HTML5 entities
+    .replace(/&mdash;/g, "\u2014")
+    .replace(/&ndash;/g, "\u2013")
+    .replace(/&hellip;/g, "\u2026")
+    .replace(/&rsquo;/g, "\u2019")
+    .replace(/&lsquo;/g, "\u2018")
+    .replace(/&rdquo;/g, "\u201D")
+    .replace(/&ldquo;/g, "\u201C")
+    .replace(/&trade;/g, "\u2122")
+    .replace(/&copy;/g, "\u00A9")
+    .replace(/&reg;/g, "\u00AE")
+    .replace(/&bull;/g, "\u2022")
+    .replace(/&middot;/g, "\u00B7")
+    // Numeric entities: &#123; and &#x1F;
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
 
   // Collapse whitespace
   text = text.replace(/\s+/g, " ").trim();
