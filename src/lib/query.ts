@@ -53,7 +53,7 @@ Wiki index:
 {index}`;
 
 // ---------------------------------------------------------------------------
-// Keyword-based index search
+// BM25 sparse index search
 // ---------------------------------------------------------------------------
 
 /**
@@ -67,28 +67,119 @@ function tokenize(text: string): string[] {
     .filter((w) => w.length >= 2 && !STOP_WORDS.has(w));
 }
 
+/** BM25 term-frequency saturation parameter. Standard default is 1.2–2.0. */
+const BM25_K1 = 1.5;
+/** BM25 length-normalization parameter. Standard default is 0.75. */
+const BM25_B = 0.75;
+
 /**
- * Score an index entry by how many question keywords appear in its title
- * and summary (case-insensitive).
+ * Precomputed corpus statistics needed to evaluate BM25 against a set of
+ * index entries.
  */
-function scoreEntry(entry: IndexEntry, questionTokens: string[]): number {
-  const entryText = `${entry.title} ${entry.summary}`.toLowerCase();
-  let score = 0;
-  for (const token of questionTokens) {
-    if (entryText.includes(token)) {
-      score++;
+export interface CorpusStats {
+  /** Number of documents in the corpus. */
+  N: number;
+  /** Average document length in tokens. */
+  avgdl: number;
+  /** Document frequency per term: number of entries containing the term. */
+  df: Map<string, number>;
+  /** Tokenized body for each entry, keyed by slug. */
+  docTokens: Map<string, string[]>;
+}
+
+/**
+ * Build BM25 corpus statistics for a list of index entries. Pure + exported
+ * so tests can exercise it directly. Each "document" is the tokenized
+ * concatenation of an entry's title and summary.
+ */
+export function buildCorpusStats(entries: IndexEntry[]): CorpusStats {
+  const docTokens = new Map<string, string[]>();
+  const df = new Map<string, number>();
+  let totalLen = 0;
+
+  for (const entry of entries) {
+    const tokens = tokenize(`${entry.title} ${entry.summary}`);
+    docTokens.set(entry.slug, tokens);
+    totalLen += tokens.length;
+
+    // Count each unique term once for df
+    const seen = new Set<string>();
+    for (const tok of tokens) {
+      if (!seen.has(tok)) {
+        seen.add(tok);
+        df.set(tok, (df.get(tok) ?? 0) + 1);
+      }
     }
   }
+
+  const N = entries.length;
+  const avgdl = N > 0 ? totalLen / N : 0;
+
+  return { N, avgdl, df, docTokens };
+}
+
+/**
+ * Okapi BM25 score for a single index entry against a tokenized query.
+ *
+ * Implements the standard formulation from Robertson, Walker, Jones,
+ * Hancock-Beaulieu & Gatford, "Okapi at TREC-3" (1994), and as summarized in
+ * Robertson & Zaragoza, "The Probabilistic Relevance Framework: BM25 and
+ * Beyond" (2009). Parameters `k1 = 1.5` and `b = 0.75` are the widely used
+ * defaults — `k1` controls how quickly term-frequency saturates and `b`
+ * controls how aggressively long documents are penalized. IDF uses the
+ * `ln(1 + (N - df + 0.5) / (df + 0.5))` form, which stays non-negative even
+ * when a term appears in every document.
+ */
+export function bm25Score(
+  entry: IndexEntry,
+  queryTokens: string[],
+  corpusStats: CorpusStats,
+): number {
+  if (queryTokens.length === 0 || corpusStats.N === 0) {
+    return 0;
+  }
+
+  const tokens = corpusStats.docTokens.get(entry.slug);
+  if (!tokens || tokens.length === 0) {
+    return 0;
+  }
+
+  // Per-document term frequencies
+  const tf = new Map<string, number>();
+  for (const tok of tokens) {
+    tf.set(tok, (tf.get(tok) ?? 0) + 1);
+  }
+
+  const dl = tokens.length;
+  const avgdl = corpusStats.avgdl || 1; // guard against div-by-zero
+  let score = 0;
+
+  for (const term of queryTokens) {
+    const termFreq = tf.get(term) ?? 0;
+    if (termFreq === 0) continue;
+
+    const df = corpusStats.df.get(term) ?? 0;
+    const idf = Math.log(
+      1 + (corpusStats.N - df + 0.5) / (df + 0.5),
+    );
+
+    const numerator = termFreq * (BM25_K1 + 1);
+    const denominator =
+      termFreq + BM25_K1 * (1 - BM25_B + BM25_B * (dl / avgdl));
+
+    score += idf * (numerator / denominator);
+  }
+
   return score;
 }
 
 /**
  * Search the wiki index to find the most relevant page slugs for a question.
  *
- * Phase 1: keyword matching (always runs)
- * Phase 2: LLM-based selection (if available, overrides keyword results)
+ * Phase 1: BM25 sparse scoring (always runs)
+ * Phase 2: LLM-based selection (if available, overrides BM25 ranking)
  *
- * Falls back to keyword results if LLM call fails.
+ * Falls back to BM25 results if LLM call fails.
  */
 export async function searchIndex(
   question: string,
@@ -98,13 +189,14 @@ export async function searchIndex(
     return [];
   }
 
-  // Phase 1 — keyword matching
+  // Phase 1 — BM25 sparse scoring
   const questionTokens = tokenize(question);
+  const corpusStats = buildCorpusStats(entries);
 
   const scored = entries
     .map((entry) => ({
       slug: entry.slug,
-      score: scoreEntry(entry, questionTokens),
+      score: bm25Score(entry, questionTokens, corpusStats),
     }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)

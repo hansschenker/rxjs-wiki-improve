@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { searchIndex, buildContext, query, saveAnswerToWiki } from "../query";
+import { searchIndex, buildContext, query, saveAnswerToWiki, buildCorpusStats, bm25Score } from "../query";
 import { writeWikiPage, updateIndex, ensureDirectories, readWikiPage, listWikiPages } from "../wiki";
 import type { IndexEntry } from "../types";
 
@@ -51,6 +51,177 @@ afterEach(async () => {
   }
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
+
+// ---------------------------------------------------------------------------
+// BM25 scoring tests
+// ---------------------------------------------------------------------------
+describe("BM25 scoring", () => {
+  it("buildCorpusStats handles an empty corpus safely", () => {
+    const stats = buildCorpusStats([]);
+    expect(stats.N).toBe(0);
+    expect(stats.avgdl).toBe(0);
+    expect(stats.df.size).toBe(0);
+    expect(stats.docTokens.size).toBe(0);
+  });
+
+  it("bm25Score returns 0 for empty query tokens (no NaN)", () => {
+    const entries: IndexEntry[] = [
+      { slug: "alpha", title: "Alpha", summary: "Some content here" },
+      { slug: "beta", title: "Beta", summary: "Other content here" },
+    ];
+    const stats = buildCorpusStats(entries);
+    const score = bm25Score(entries[0], [], stats);
+    expect(score).toBe(0);
+    expect(Number.isNaN(score)).toBe(false);
+  });
+
+  it("bm25Score returns 0 against an empty corpus without throwing", () => {
+    const entry: IndexEntry = { slug: "x", title: "X", summary: "X" };
+    const stats = buildCorpusStats([]);
+    const score = bm25Score(entry, ["anything"], stats);
+    expect(score).toBe(0);
+  });
+
+  it("ranks rarer terms higher via IDF (beats substring counting)", () => {
+    // "learning" appears in every doc, "backpropagation" appears in exactly one.
+    // Old substring scorer would give both docs with both terms a score of 2.
+    // BM25 should strongly favor the doc that actually contains the rare term.
+    const entries: IndexEntry[] = [
+      {
+        slug: "backprop",
+        title: "Backpropagation",
+        summary: "Backpropagation algorithm for learning",
+      },
+      {
+        slug: "general-learning",
+        title: "General Learning",
+        summary: "Overview of learning concepts",
+      },
+      {
+        slug: "supervised",
+        title: "Supervised Learning",
+        summary: "Supervised learning approaches",
+      },
+      {
+        slug: "unsupervised",
+        title: "Unsupervised Learning",
+        summary: "Unsupervised learning approaches",
+      },
+    ];
+
+    const stats = buildCorpusStats(entries);
+    const q = tokenizeForTest("backpropagation learning");
+
+    const scores = entries.map((e) => ({
+      slug: e.slug,
+      score: bm25Score(e, q, stats),
+    }));
+    scores.sort((a, b) => b.score - a.score);
+
+    expect(scores[0].slug).toBe("backprop");
+    // The doc with the rare term must strictly outrank all purely-"learning" docs
+    expect(scores[0].score).toBeGreaterThan(scores[1].score);
+  });
+
+  it("produces deterministic ranking on a handcrafted corpus", () => {
+    const entries: IndexEntry[] = [
+      {
+        slug: "pasta-recipes",
+        title: "Pasta Recipes",
+        summary: "Italian pasta cooking guide",
+      },
+      {
+        slug: "neural-nets",
+        title: "Neural Networks",
+        summary: "Deep neural network architectures",
+      },
+      {
+        slug: "transformer",
+        title: "Transformer Architecture",
+        summary: "Self attention transformer neural model",
+      },
+      {
+        slug: "gardening",
+        title: "Gardening Tips",
+        summary: "Growing tomatoes in the backyard",
+      },
+      {
+        slug: "python-intro",
+        title: "Python Introduction",
+        summary: "Python programming language basics",
+      },
+    ];
+
+    const stats = buildCorpusStats(entries);
+    const q = tokenizeForTest("transformer neural architecture");
+
+    const scores = entries
+      .map((e) => ({ slug: e.slug, score: bm25Score(e, q, stats) }))
+      .sort((a, b) => b.score - a.score);
+
+    // "transformer" contains all three query terms — must rank first
+    expect(scores[0].slug).toBe("transformer");
+    // "neural-nets" contains two of them — must rank second
+    expect(scores[1].slug).toBe("neural-nets");
+    // Unrelated docs must score 0
+    const pasta = scores.find((s) => s.slug === "pasta-recipes");
+    const garden = scores.find((s) => s.slug === "gardening");
+    const python = scores.find((s) => s.slug === "python-intro");
+    expect(pasta!.score).toBe(0);
+    expect(garden!.score).toBe(0);
+    expect(python!.score).toBe(0);
+  });
+
+  it("penalizes longer documents via length normalization", () => {
+    // Both docs contain "widget" exactly once. The shorter one should score
+    // higher because BM25's length normalization penalizes the longer doc.
+    const entries: IndexEntry[] = [
+      {
+        slug: "short",
+        title: "Widget",
+        summary: "Small",
+      },
+      {
+        slug: "long",
+        title: "Widget",
+        summary:
+          "Small something else random filler words padding extra tokens making this document substantially longer overall",
+      },
+    ];
+
+    const stats = buildCorpusStats(entries);
+    const q = tokenizeForTest("widget");
+
+    const shortScore = bm25Score(entries[0], q, stats);
+    const longScore = bm25Score(entries[1], q, stats);
+
+    expect(shortScore).toBeGreaterThan(0);
+    expect(longScore).toBeGreaterThan(0);
+    expect(shortScore).toBeGreaterThan(longScore);
+  });
+});
+
+// Local helper mirroring the private tokenize() in query.ts, used only so
+// tests can construct query-token inputs to bm25Score without exporting
+// tokenize. Keep in sync with query.ts::tokenize.
+function tokenizeForTest(text: string): string[] {
+  const STOP = new Set([
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+    "what", "how", "which", "does", "do", "did", "has", "have", "had",
+    "who", "whom", "whose", "where", "when", "why",
+    "can", "could", "would", "should", "will", "shall", "may", "might",
+    "in", "on", "at", "to", "for", "of", "with", "by", "from", "about",
+    "into", "through", "during", "before", "after", "above", "below",
+    "and", "or", "but", "not", "no", "nor", "so", "if", "then", "than",
+    "this", "that", "these", "those", "it", "its",
+    "i", "me", "my", "we", "our", "you", "your", "he", "she", "they", "them",
+    "tell", "explain", "describe", "give", "show",
+  ]);
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 2 && !STOP.has(w));
+}
 
 // ---------------------------------------------------------------------------
 // searchIndex tests
