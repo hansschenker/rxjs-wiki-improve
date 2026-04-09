@@ -298,6 +298,71 @@ function extractCitedSlugs(
 }
 
 // ---------------------------------------------------------------------------
+// System prompt builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the system prompt used for wiki queries.
+ *
+ * Exported so the streaming endpoint can reuse the same prompt construction
+ * without duplicating logic.
+ */
+export async function buildQuerySystemPrompt(
+  context: string,
+  entries: IndexEntry[],
+  selectedSlugs: string[],
+): Promise<string> {
+  // Build the full index listing so the LLM knows what else exists
+  const indexListing = entries
+    .map((e) => `- [${e.title}](${e.slug}.md) — ${e.summary}`)
+    .join("\n");
+
+  const indexSection =
+    entries.length > selectedSlugs.length
+      ? `\nThe wiki also contains these other pages (not loaded in full):\n${indexListing}\n`
+      : "";
+
+  let systemPrompt = SYSTEM_PROMPT_TEMPLATE
+    .replace("{context}", context)
+    .replace("{index_section}", indexSection);
+
+  // Append SCHEMA.md conventions so the query prompt stays in sync with the
+  // wiki's page conventions — same pattern used by ingest.
+  const conventions = await loadPageConventions();
+  if (conventions) {
+    systemPrompt += `\n\nThe wiki you are querying follows these conventions (from SCHEMA.md):\n\n${conventions}`;
+  }
+
+  return systemPrompt;
+}
+
+/**
+ * Select which wiki pages to load for answering a question.
+ *
+ * For small wikis (<= {@link SMALL_WIKI_THRESHOLD}), returns all pages.
+ * For larger wikis, uses BM25 + LLM-based index search.
+ *
+ * Exported so the streaming endpoint can reuse the same selection logic.
+ */
+export async function selectPagesForQuery(
+  question: string,
+  entries: IndexEntry[],
+): Promise<string[]> {
+  if (entries.length <= SMALL_WIKI_THRESHOLD) {
+    return entries.map((e) => e.slug);
+  }
+
+  const selected = await searchIndex(question, entries);
+
+  // If no matches found, fall back to first N pages
+  if (selected.length === 0) {
+    return entries.slice(0, MAX_CONTEXT_PAGES).map((e) => e.slug);
+  }
+
+  return selected;
+}
+
+// ---------------------------------------------------------------------------
 // Main query function
 // ---------------------------------------------------------------------------
 
@@ -320,20 +385,7 @@ export async function query(question: string): Promise<QueryResult> {
   }
 
   // Determine which pages to load
-  let selectedSlugs: string[];
-
-  if (entries.length <= SMALL_WIKI_THRESHOLD) {
-    // Small wiki — load all pages
-    selectedSlugs = entries.map((e) => e.slug);
-  } else {
-    // Large wiki — search index for relevant pages
-    selectedSlugs = await searchIndex(question, entries);
-
-    // If no matches found, fall back to first N pages
-    if (selectedSlugs.length === 0) {
-      selectedSlugs = entries.slice(0, MAX_CONTEXT_PAGES).map((e) => e.slug);
-    }
-  }
+  const selectedSlugs = await selectPagesForQuery(question, entries);
 
   const { context } = await buildContext(selectedSlugs);
 
@@ -347,26 +399,7 @@ export async function query(question: string): Promise<QueryResult> {
     };
   }
 
-  // Build the full index listing so the LLM knows what else exists
-  const indexListing = entries
-    .map((e) => `- [${e.title}](${e.slug}.md) — ${e.summary}`)
-    .join("\n");
-
-  const indexSection =
-    entries.length > selectedSlugs.length
-      ? `\nThe wiki also contains these other pages (not loaded in full):\n${indexListing}\n`
-      : "";
-
-  let systemPrompt = SYSTEM_PROMPT_TEMPLATE
-    .replace("{context}", context)
-    .replace("{index_section}", indexSection);
-
-  // Append SCHEMA.md conventions so the query prompt stays in sync with the
-  // wiki's page conventions — same pattern used by ingest.
-  const conventions = await loadPageConventions();
-  if (conventions) {
-    systemPrompt += `\n\nThe wiki you are querying follows these conventions (from SCHEMA.md):\n\n${conventions}`;
-  }
+  const systemPrompt = await buildQuerySystemPrompt(context, entries, selectedSlugs);
 
   const answer = await callLLM(systemPrompt, question);
 

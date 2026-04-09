@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
@@ -20,40 +20,93 @@ export default function QueryPage() {
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [saveTitle, setSaveTitle] = useState("");
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!question.trim()) return;
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!question.trim()) return;
 
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    setSaveState({ status: "idle" });
+      setLoading(true);
+      setStreaming(false);
+      setError(null);
+      setResult(null);
+      setSaveState({ status: "idle" });
 
-    try {
-      const res = await fetch("/api/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: question.trim() }),
-      });
+      const trimmed = question.trim();
 
-      const data = await res.json();
+      try {
+        // Try the streaming endpoint first
+        const res = await fetch("/api/query/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: trimmed }),
+        });
 
-      if (!res.ok) {
-        setError(data.error ?? "Something went wrong");
-        return;
+        if (!res.ok) {
+          // Streaming endpoint failed — try non-streaming fallback
+          const data = await res.json().catch(() => null);
+          const errMsg = data?.error ?? `Request failed (${res.status})`;
+
+          // Fall back to non-streaming endpoint
+          const fallbackRes = await fetch("/api/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: trimmed }),
+          });
+
+          const fallbackData = await fallbackRes.json();
+          if (!fallbackRes.ok) {
+            setError(fallbackData.error ?? errMsg);
+            return;
+          }
+          setResult(fallbackData);
+          return;
+        }
+
+        // Parse sources from the custom header
+        const sourcesHeader = res.headers.get("X-Wiki-Sources");
+        const sources: string[] = sourcesHeader
+          ? (JSON.parse(sourcesHeader) as string[])
+          : [];
+
+        // Stream the response body
+        const reader = res.body?.getReader();
+        if (!reader) {
+          setError("Streaming not supported by the browser");
+          return;
+        }
+
+        setStreaming(true);
+        setLoading(false);
+
+        const decoder = new TextDecoder();
+        let answer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          answer += chunk;
+          setResult({ answer, sources });
+        }
+
+        // Final update with complete answer
+        setResult({ answer, sources });
+        setStreaming(false);
+      } catch {
+        setError("Failed to connect to the server");
+      } finally {
+        setLoading(false);
+        setStreaming(false);
       }
-
-      setResult(data);
-    } catch {
-      setError("Failed to connect to the server");
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [question],
+  );
 
   function handleSaveClick() {
     setSaveTitle(question.trim());
@@ -89,6 +142,8 @@ export default function QueryPage() {
     }
   }
 
+  const isProcessing = loading || streaming;
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
       <div className="mb-8">
@@ -115,10 +170,14 @@ export default function QueryPage() {
         />
         <button
           type="submit"
-          disabled={loading || !question.trim()}
+          disabled={isProcessing || !question.trim()}
           className="rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-background hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Thinking..." : "Ask"}
+          {loading
+            ? "Searching wiki..."
+            : streaming
+              ? "Streaming answer..."
+              : "Ask"}
         </button>
       </form>
 
@@ -132,6 +191,9 @@ export default function QueryPage() {
         <div className="mt-8 space-y-6">
           <div className="rounded-lg border border-foreground/10 p-6">
             <MarkdownRenderer content={result.answer} />
+            {streaming && (
+              <span className="inline-block w-2 h-4 bg-foreground/60 animate-pulse ml-0.5 align-text-bottom" />
+            )}
           </div>
 
           {result.sources.length > 0 && (
@@ -154,78 +216,80 @@ export default function QueryPage() {
             </div>
           )}
 
-          {/* Save to Wiki */}
-          <div className="border-t border-foreground/10 pt-4">
-            {saveState.status === "idle" && (
-              <button
-                onClick={handleSaveClick}
-                className="rounded-lg border border-foreground/20 px-4 py-2 text-sm font-medium hover:bg-foreground/5 transition-colors"
-              >
-                Save to Wiki
-              </button>
-            )}
-
-            {saveState.status === "editing" && (
-              <form onSubmit={handleSaveSubmit} className="space-y-3">
-                <label className="block text-sm font-medium text-foreground/70">
-                  Page title
-                </label>
-                <input
-                  type="text"
-                  value={saveTitle}
-                  onChange={(e) => setSaveTitle(e.target.value)}
-                  placeholder="Enter a title for this wiki page"
-                  className="w-full rounded-lg border border-foreground/20 bg-transparent px-4 py-2 text-sm placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/30"
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={!saveTitle.trim()}
-                    className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSaveState({ status: "idle" })}
-                    className="rounded-lg border border-foreground/20 px-4 py-2 text-sm font-medium hover:bg-foreground/5 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {saveState.status === "saving" && (
-              <p className="text-sm text-foreground/60">Saving to wiki...</p>
-            )}
-
-            {saveState.status === "saved" && saveState.slug && (
-              <div className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
-                Saved!{" "}
-                <Link
-                  href={`/wiki/${saveState.slug}`}
-                  className="underline font-medium hover:opacity-80"
-                >
-                  View wiki page →
-                </Link>
-              </div>
-            )}
-
-            {saveState.status === "error" && (
-              <div className="space-y-2">
-                <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-                  {saveState.error ?? "Failed to save"}
-                </div>
+          {/* Save to Wiki — only after streaming completes */}
+          {!streaming && (
+            <div className="border-t border-foreground/10 pt-4">
+              {saveState.status === "idle" && (
                 <button
                   onClick={handleSaveClick}
-                  className="text-sm text-foreground/60 hover:text-foreground underline"
+                  className="rounded-lg border border-foreground/20 px-4 py-2 text-sm font-medium hover:bg-foreground/5 transition-colors"
                 >
-                  Try again
+                  Save to Wiki
                 </button>
-              </div>
-            )}
-          </div>
+              )}
+
+              {saveState.status === "editing" && (
+                <form onSubmit={handleSaveSubmit} className="space-y-3">
+                  <label className="block text-sm font-medium text-foreground/70">
+                    Page title
+                  </label>
+                  <input
+                    type="text"
+                    value={saveTitle}
+                    onChange={(e) => setSaveTitle(e.target.value)}
+                    placeholder="Enter a title for this wiki page"
+                    className="w-full rounded-lg border border-foreground/20 bg-transparent px-4 py-2 text-sm placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/30"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={!saveTitle.trim()}
+                      className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSaveState({ status: "idle" })}
+                      className="rounded-lg border border-foreground/20 px-4 py-2 text-sm font-medium hover:bg-foreground/5 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {saveState.status === "saving" && (
+                <p className="text-sm text-foreground/60">Saving to wiki...</p>
+              )}
+
+              {saveState.status === "saved" && saveState.slug && (
+                <div className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
+                  Saved!{" "}
+                  <Link
+                    href={`/wiki/${saveState.slug}`}
+                    className="underline font-medium hover:opacity-80"
+                  >
+                    View wiki page →
+                  </Link>
+                </div>
+              )}
+
+              {saveState.status === "error" && (
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+                    {saveState.error ?? "Failed to save"}
+                  </div>
+                  <button
+                    onClick={handleSaveClick}
+                    className="text-sm text-foreground/60 hover:text-foreground underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </main>

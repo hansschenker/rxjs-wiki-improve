@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { hasLLMKey, callLLM } from "../llm";
+import { hasLLMKey, callLLM, callLLMStream } from "../llm";
 
 // Save and restore env vars around each test so we don't leak state.
 let savedAnthropic: string | undefined;
@@ -92,5 +92,21 @@ describe("callLLM", () => {
     await expect(promise).rejects.toThrow(/OPENAI_API_KEY/);
     await expect(promise).rejects.toThrow(/GOOGLE_GENERATIVE_AI_API_KEY/);
     await expect(promise).rejects.toThrow(/OLLAMA/);
+  });
+});
+
+describe("callLLMStream", () => {
+  it("throws a clear error mentioning all four providers when no env vars are set", () => {
+    // callLLMStream is synchronous (returns a StreamTextResult) but
+    // getModel() throws immediately when no provider is configured.
+    expect(() => callLLMStream("system", "hello")).toThrow(
+      /No LLM API key found/,
+    );
+    expect(() => callLLMStream("system", "hello")).toThrow(/ANTHROPIC_API_KEY/);
+    expect(() => callLLMStream("system", "hello")).toThrow(/OPENAI_API_KEY/);
+    expect(() => callLLMStream("system", "hello")).toThrow(
+      /GOOGLE_GENERATIVE_AI_API_KEY/,
+    );
+    expect(() => callLLMStream("system", "hello")).toThrow(/OLLAMA/);
   });
 });

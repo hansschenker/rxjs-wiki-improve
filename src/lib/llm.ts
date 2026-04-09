@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText, streamText } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -107,4 +107,28 @@ export async function callLLM(
   }
 
   return text;
+}
+
+/**
+ * Call the configured LLM provider and return a streaming result.
+ *
+ * Returns a `StreamTextResult` from the Vercel AI SDK. Use
+ * `.toTextStreamResponse()` to convert it into a standard `Response` for
+ * HTTP streaming, or await `.text` to collect the full response.
+ *
+ * Requires at least one supported provider env var to be set (same as
+ * {@link callLLM}).
+ */
+export function callLLMStream(
+  systemPrompt: string,
+  userMessage: string,
+) {
+  const model = getModel();
+
+  return streamText({
+    model,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userMessage }],
+    maxOutputTokens: 4096,
+  });
 }
