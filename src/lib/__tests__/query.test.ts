@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { searchIndex, buildContext, query, saveAnswerToWiki, buildCorpusStats, bm25Score, extractCitedSlugs } from "../query";
+import { searchIndex, buildContext, query, saveAnswerToWiki, buildCorpusStats, bm25Score, extractCitedSlugs, reciprocalRankFusion } from "../query";
 import { writeWikiPage, updateIndex, ensureDirectories, readWikiPage, listWikiPages } from "../wiki";
 import type { IndexEntry } from "../types";
 
@@ -14,10 +14,19 @@ vi.mock("../llm", () => ({
   callLLM: vi.fn(async () => "mocked response"),
 }));
 
+// Mock searchByVector from embeddings so tests don't need a real provider
+vi.mock("../embeddings", () => ({
+  searchByVector: vi.fn(async () => []),
+  upsertEmbedding: vi.fn(async () => {}),
+  removeEmbedding: vi.fn(async () => {}),
+}));
+
 import { hasLLMKey, callLLM } from "../llm";
+import { searchByVector } from "../embeddings";
 
 const mockedHasLLMKey = vi.mocked(hasLLMKey);
 const mockedCallLLM = vi.mocked(callLLM);
+const mockedSearchByVector = vi.mocked(searchByVector);
 
 // ---------------------------------------------------------------------------
 // Temp directory setup (same pattern as other test files)
@@ -36,6 +45,8 @@ beforeEach(async () => {
   // Reset mocks
   mockedHasLLMKey.mockReturnValue(false);
   mockedCallLLM.mockReset();
+  mockedSearchByVector.mockReset();
+  mockedSearchByVector.mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -810,5 +821,178 @@ describe("extractCitedSlugs", () => {
     const answer = "See [Link](https://example.com) and [File](doc.pdf).";
     const result = extractCitedSlugs(answer, ["https://example", "doc"]);
     expect(result).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reciprocal Rank Fusion (RRF)
+// ---------------------------------------------------------------------------
+describe("reciprocalRankFusion", () => {
+  it("combines BM25 and vector results using RRF scoring", () => {
+    const bm25 = [
+      { slug: "alpha", score: 5.0 },
+      { slug: "beta", score: 3.0 },
+      { slug: "gamma", score: 1.0 },
+    ];
+    const vector = [
+      { slug: "beta", score: 0.95 },
+      { slug: "delta", score: 0.85 },
+      { slug: "alpha", score: 0.70 },
+    ];
+
+    const fused = reciprocalRankFusion(bm25, vector);
+
+    // Both alpha and beta appear in both lists; delta and gamma appear in only one
+    expect(fused.length).toBe(4);
+
+    // All slugs should be present
+    const slugs = fused.map((r) => r.slug);
+    expect(slugs).toContain("alpha");
+    expect(slugs).toContain("beta");
+    expect(slugs).toContain("gamma");
+    expect(slugs).toContain("delta");
+
+    // beta is rank 2 in BM25 and rank 1 in vector — should be boosted
+    // alpha is rank 1 in BM25 and rank 3 in vector
+    // With k=60: beta RRF = 1/(60+2) + 1/(60+1) ≈ 0.01613 + 0.01639 ≈ 0.03252
+    //            alpha RRF = 1/(60+1) + 1/(60+3) ≈ 0.01639 + 0.01587 ≈ 0.03226
+    // beta should rank first
+    expect(slugs[0]).toBe("beta");
+    expect(slugs[1]).toBe("alpha");
+  });
+
+  it("handles empty vector results (pure BM25 fallback)", () => {
+    const bm25 = [
+      { slug: "alpha", score: 5.0 },
+      { slug: "beta", score: 3.0 },
+    ];
+
+    const fused = reciprocalRankFusion(bm25, []);
+
+    expect(fused.length).toBe(2);
+    expect(fused[0].slug).toBe("alpha");
+    expect(fused[1].slug).toBe("beta");
+  });
+
+  it("handles empty BM25 results (pure vector)", () => {
+    const vector = [
+      { slug: "alpha", score: 0.9 },
+      { slug: "beta", score: 0.8 },
+    ];
+
+    const fused = reciprocalRankFusion([], vector);
+
+    expect(fused.length).toBe(2);
+    expect(fused[0].slug).toBe("alpha");
+    expect(fused[1].slug).toBe("beta");
+  });
+
+  it("boosts a page ranked low by BM25 but high by vector search", () => {
+    // "delta" is ranked 5th by BM25 but 1st by vector search
+    const bm25 = [
+      { slug: "a", score: 10 },
+      { slug: "b", score: 8 },
+      { slug: "c", score: 6 },
+      { slug: "d", score: 4 },
+      { slug: "delta", score: 2 },
+    ];
+    const vector = [
+      { slug: "delta", score: 0.99 },
+      { slug: "a", score: 0.50 },
+    ];
+
+    const fused = reciprocalRankFusion(bm25, vector);
+
+    // delta: BM25 rank 5, vector rank 1 → 1/(60+5) + 1/(60+1) ≈ 0.01538 + 0.01639 = 0.03177
+    // a:     BM25 rank 1, vector rank 2 → 1/(60+1) + 1/(60+2) ≈ 0.01639 + 0.01613 = 0.03252
+    // b:     BM25 rank 2, no vector     → 1/(60+2) + 0         ≈ 0.01613
+    // So order should be: a, delta, b, c, d
+    const slugs = fused.map((r) => r.slug);
+    expect(slugs.indexOf("delta")).toBeLessThan(slugs.indexOf("b"));
+    expect(slugs.indexOf("delta")).toBeLessThan(slugs.indexOf("c"));
+    expect(slugs.indexOf("delta")).toBeLessThan(slugs.indexOf("d"));
+  });
+
+  it("respects custom k parameter", () => {
+    const bm25 = [{ slug: "alpha", score: 5.0 }];
+    const vector = [{ slug: "alpha", score: 0.9 }];
+
+    const fusedK1 = reciprocalRankFusion(bm25, vector, 1);
+    const fusedK60 = reciprocalRankFusion(bm25, vector, 60);
+
+    // With smaller k, rank position matters more → higher scores
+    expect(fusedK1[0].score).toBeGreaterThan(fusedK60[0].score);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Hybrid search integration (searchIndex with vector results)
+// ---------------------------------------------------------------------------
+describe("hybrid search in searchIndex", () => {
+  beforeEach(async () => {
+    await ensureDirectories();
+  });
+
+  it("falls back to pure BM25 when vector search returns empty", async () => {
+    // Set up wiki pages
+    const entries: IndexEntry[] = [
+      { slug: "ml", title: "Machine Learning", summary: "Overview of ML" },
+      { slug: "nn", title: "Neural Networks", summary: "Deep learning networks" },
+    ];
+    await writeWikiPage("ml", "# Machine Learning\n\nMachine learning overview");
+    await writeWikiPage("nn", "# Neural Networks\n\nDeep learning neural networks");
+    await updateIndex(entries);
+
+    // searchByVector returns empty (no embedding provider)
+    mockedSearchByVector.mockResolvedValue([]);
+
+    const result = await searchIndex("machine learning", entries, false);
+
+    // Should still return BM25 results
+    expect(result.length).toBeGreaterThan(0);
+    expect(result).toContain("ml");
+  });
+
+  it("uses RRF fusion when vector search returns results", async () => {
+    // Create several pages where BM25 and vector disagree on ranking
+    const entries: IndexEntry[] = [
+      { slug: "alpha", title: "Alpha Page", summary: "Alpha content about cats" },
+      { slug: "beta", title: "Beta Page", summary: "Beta content about dogs" },
+      { slug: "gamma", title: "Gamma Page", summary: "Gamma content about cats and dogs" },
+    ];
+    await writeWikiPage("alpha", "# Alpha Page\n\nAlpha content about cats");
+    await writeWikiPage("beta", "# Beta Page\n\nBeta content about dogs");
+    await writeWikiPage("gamma", "# Gamma Page\n\nGamma content about cats and dogs");
+    await updateIndex(entries);
+
+    // Vector search says gamma is most relevant
+    mockedSearchByVector.mockResolvedValue([
+      { slug: "gamma", score: 0.95 },
+      { slug: "alpha", score: 0.70 },
+      { slug: "beta", score: 0.50 },
+    ]);
+
+    const result = await searchIndex("cats", entries, false);
+
+    // With fusion, gamma should be boosted (high in vector, present in BM25)
+    expect(result).toContain("gamma");
+    expect(result).toContain("alpha");
+  });
+
+  it("handles vector search errors gracefully", async () => {
+    const entries: IndexEntry[] = [
+      { slug: "ml", title: "Machine Learning", summary: "Overview of ML" },
+    ];
+    await writeWikiPage("ml", "# Machine Learning\n\nMachine learning overview");
+    await updateIndex(entries);
+
+    // Vector search throws an error
+    mockedSearchByVector.mockRejectedValue(new Error("API error"));
+
+    const result = await searchIndex("machine learning", entries, false);
+
+    // Should fall back to BM25 without crashing
+    expect(result.length).toBeGreaterThan(0);
+    expect(result).toContain("ml");
   });
 });

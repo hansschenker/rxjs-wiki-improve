@@ -77,8 +77,11 @@ ordered sequence of steps, a set of file outputs, and a log entry shape.
 - **Trigger:** a question (free-text).
 - **Steps:**
   1. Read `wiki/index.md` to enumerate candidate pages.
-  2. Score candidates with a keyword pass plus an LLM rank to find the most
-     relevant slugs (`searchIndex()` in `src/lib/query.ts`).
+  2. Score candidates with BM25 keyword scoring. When an embedding provider is
+     configured (OpenAI, Google, or Ollama), also perform vector search and
+     combine results via Reciprocal Rank Fusion (RRF). Optionally refine with
+     an LLM rerank to find the most relevant slugs (`searchIndex()` in
+     `src/lib/query.ts`).
   3. Fetch the full content of the top-ranked pages.
   4. Synthesize an answer with inline citations and return both the answer
      and the list of source slugs.
@@ -156,8 +159,11 @@ sessions should pick from this list:
 
 - No image or asset handling on URL ingest — images in source HTML are
   dropped.
-- No vector search. The only search corpus is `index.md` plus the keyword/LLM
-  rerank in `searchIndex()`.
+- Vector search is partially implemented — embeddings are generated
+  incrementally on page write (when an embedding-capable provider like OpenAI,
+  Google, or Ollama is configured) and used for hybrid BM25+vector retrieval
+  via RRF. Batch rebuild of the full vector index is not yet supported.
+  Anthropic-only users see no regression (pure BM25 fallback).
 - No human-in-the-loop diff review on ingest — wiki writes happen
   immediately and silently.
 - No context window management or token counting — long pages may exceed

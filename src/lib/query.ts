@@ -6,6 +6,7 @@ import {
 } from "./wiki";
 import { slugify, loadPageConventions } from "./ingest";
 import { extractCitedSlugs } from "./citations";
+import { searchByVector } from "./embeddings";
 import type { IndexEntry, QueryResult } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -198,11 +199,60 @@ export function bm25Score(
   return score;
 }
 
+// ---------------------------------------------------------------------------
+// Reciprocal Rank Fusion (RRF)
+// ---------------------------------------------------------------------------
+
+/** Standard RRF constant — dampens the influence of high-rank positions. */
+const RRF_K = 60;
+
+/**
+ * Combine two ranked result lists using Reciprocal Rank Fusion.
+ *
+ * For each slug appearing in either list, computes:
+ *   `rrf_score = 1/(k + bm25_rank) + 1/(k + vector_rank)`
+ *
+ * where rank is the 1-based position and missing entries get rank = Infinity.
+ * This avoids needing to normalize scores that live on different scales (BM25
+ * vs cosine similarity).
+ */
+export function reciprocalRankFusion(
+  bm25Results: Array<{ slug: string; score: number }>,
+  vectorResults: Array<{ slug: string; score: number }>,
+  k: number = RRF_K,
+): Array<{ slug: string; score: number }> {
+  // Build rank maps (1-based)
+  const bm25Rank = new Map<string, number>();
+  bm25Results.forEach((r, i) => bm25Rank.set(r.slug, i + 1));
+
+  const vectorRank = new Map<string, number>();
+  vectorResults.forEach((r, i) => vectorRank.set(r.slug, i + 1));
+
+  // Collect all slugs from both lists
+  const allSlugs = new Set([
+    ...bm25Results.map((r) => r.slug),
+    ...vectorResults.map((r) => r.slug),
+  ]);
+
+  const fused: Array<{ slug: string; score: number }> = [];
+  for (const slug of allSlugs) {
+    const br = bm25Rank.get(slug) ?? Infinity;
+    const vr = vectorRank.get(slug) ?? Infinity;
+    const rrfScore = 1 / (k + br) + 1 / (k + vr);
+    fused.push({ slug, score: rrfScore });
+  }
+
+  fused.sort((a, b) => b.score - a.score);
+  return fused;
+}
+
 /**
  * Search the wiki index to find the most relevant page slugs for a question.
  *
  * Phase 1: BM25 sparse scoring (always runs)
- * Phase 2: LLM-based selection (if available, overrides BM25 ranking)
+ * Phase 1b: Vector search (when an embedding provider is configured)
+ * Phase 1c: RRF fusion of BM25 + vector results (when vector results exist)
+ * Phase 2: LLM-based selection (if available, overrides fusion ranking)
  *
  * Falls back to BM25 results if LLM call fails.
  *
@@ -225,16 +275,31 @@ export async function searchIndex(
   const questionTokens = tokenize(question);
   const corpusStats = await buildCorpusStats(entries, { fullBody });
 
-  const scored = entries
+  const bm25Results = entries
     .map((entry) => ({
       slug: entry.slug,
       score: bm25Score(entry, questionTokens, corpusStats),
     }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, MAX_CONTEXT_PAGES);
+    .slice(0, MAX_CONTEXT_PAGES * 2); // Keep more candidates for fusion
 
-  const keywordSlugs = scored.map((item) => item.slug);
+  // Phase 1b — Vector search (if an embedding provider is configured)
+  let vectorResults: Array<{ slug: string; score: number }> = [];
+  try {
+    vectorResults = await searchByVector(question, MAX_CONTEXT_PAGES * 2);
+  } catch {
+    // Vector search failure is non-fatal — fall back to BM25 only
+  }
+
+  // Phase 1c — Combine via RRF if we have vector results, otherwise pure BM25
+  let fusedSlugs: string[];
+  if (vectorResults.length > 0) {
+    const fused = reciprocalRankFusion(bm25Results, vectorResults);
+    fusedSlugs = fused.slice(0, MAX_CONTEXT_PAGES).map((r) => r.slug);
+  } else {
+    fusedSlugs = bm25Results.slice(0, MAX_CONTEXT_PAGES).map((r) => r.slug);
+  }
 
   // Phase 2 — LLM-based selection (if available)
   if (hasLLMKey()) {
@@ -262,11 +327,11 @@ export async function searchIndex(
         }
       }
     } catch {
-      // Fall through to keyword results
+      // Fall through to fused/keyword results
     }
   }
 
-  return keywordSlugs;
+  return fusedSlugs;
 }
 
 // ---------------------------------------------------------------------------

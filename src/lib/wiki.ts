@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import type { WikiPage, IndexEntry } from "./types";
 import { callLLM, hasLLMKey } from "./llm";
+import { upsertEmbedding, removeEmbedding } from "./embeddings";
 
 // ---------------------------------------------------------------------------
 // Configurable base directories — override via env vars for testing
@@ -575,6 +576,20 @@ async function runPageLifecycleOp(
   } else {
     const filePath = path.join(getWikiDir(), `${slug}.md`);
     await fs.unlink(filePath);
+  }
+
+  // 2b. Update vector index (fire-and-forget — never fails the operation).
+  try {
+    if (op.kind === "write") {
+      await upsertEmbedding(slug, op.content);
+    } else {
+      await removeEmbedding(slug);
+    }
+  } catch (err) {
+    console.warn(
+      `[wiki] embedding ${op.kind === "write" ? "upsert" : "remove"} failed for "${slug}":`,
+      err instanceof Error ? err.message : err,
+    );
   }
 
   // 3. Mutate the index. Re-read so we never clobber concurrent updates
