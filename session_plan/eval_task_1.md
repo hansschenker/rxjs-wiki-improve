@@ -1,0 +1,2 @@
+Verdict: PASS
+Reason: Google and Ollama providers are correctly wired into `hasLLMKey()` and `getModel()` with the specified priority order (Anthropic → OpenAI → Google → Ollama), sensible default models, `LLM_MODEL` override respected, an error message that lists all four providers, tests covering all the required cases with proper env save/restore, and README docs with a provider table and examples. Build and all 221 tests pass.

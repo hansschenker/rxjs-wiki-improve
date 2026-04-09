@@ -11,6 +11,13 @@ export interface IndexEntry {
   slug: string;
   title: string;
   summary: string;
+  /** Optional frontmatter-derived fields. Optional so legacy index entries
+   * (and pages without frontmatter) still parse into a valid `IndexEntry`. */
+  tags?: string[];
+  /** ISO-ish string from the page's `updated` frontmatter field. */
+  updated?: string;
+  /** Number of raw sources this page was built from. */
+  sourceCount?: number;
 }
 
 /** Result returned after ingesting a source document. */

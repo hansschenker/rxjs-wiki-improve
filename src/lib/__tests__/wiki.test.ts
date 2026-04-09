@@ -110,6 +110,62 @@ describe("updateIndex + listWikiPages roundtrip", () => {
     const result = await listWikiPages();
     expect(result).toEqual([]);
   });
+
+  it("enriches entries with frontmatter metadata (tags, updated, source_count)", async () => {
+    // Write three wiki pages with varying frontmatter shapes.
+    await writeWikiPage(
+      "alpha",
+      "---\nupdated: 2026-04-08\nsource_count: 3\ntags: [ai, llm]\n---\n\n# Alpha\n\nBody.\n",
+    );
+    await writeWikiPage(
+      "beta",
+      "---\nupdated: 2026-04-07\nsource_count: 1\ntags: [llm]\n---\n\n# Beta\n\nBody.\n",
+    );
+    // No frontmatter — should fall back gracefully.
+    await writeWikiPage("gamma", "# Gamma\n\nPlain body, no frontmatter.\n");
+
+    await updateIndex([
+      { slug: "alpha", title: "Alpha", summary: "First" },
+      { slug: "beta", title: "Beta", summary: "Second" },
+      { slug: "gamma", title: "Gamma", summary: "Third" },
+    ]);
+
+    const result = await listWikiPages();
+    expect(result).toHaveLength(3);
+
+    const alpha = result.find((e) => e.slug === "alpha")!;
+    expect(alpha.tags).toEqual(["ai", "llm"]);
+    expect(alpha.updated).toBe("2026-04-08");
+    expect(alpha.sourceCount).toBe(3);
+
+    const beta = result.find((e) => e.slug === "beta")!;
+    expect(beta.tags).toEqual(["llm"]);
+    expect(beta.updated).toBe("2026-04-07");
+    expect(beta.sourceCount).toBe(1);
+
+    // The plain page still returns a valid entry; new fields are undefined.
+    const gamma = result.find((e) => e.slug === "gamma")!;
+    expect(gamma.title).toBe("Gamma");
+    expect(gamma.summary).toBe("Third");
+    expect(gamma.tags).toBeUndefined();
+    expect(gamma.updated).toBeUndefined();
+    expect(gamma.sourceCount).toBeUndefined();
+  });
+
+  it("falls back to the plain entry when a page is missing on disk", async () => {
+    // Index references a slug that has no corresponding file.
+    await updateIndex([
+      { slug: "ghost", title: "Ghost", summary: "Not on disk" },
+    ]);
+
+    const result = await listWikiPages();
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      slug: "ghost",
+      title: "Ghost",
+      summary: "Not on disk",
+    });
+  });
 });
 
 describe("saveRawSource", () => {

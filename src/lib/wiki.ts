@@ -402,16 +402,64 @@ export async function listWikiPages(): Promise<IndexEntry[]> {
     return [];
   }
 
-  const entries: IndexEntry[] = [];
+  const baseEntries: IndexEntry[] = [];
   const lineRe = /^-\s+\[(.+?)]\((.+?)\.md\)\s*—\s*(.+)$/;
 
   for (const line of raw.split("\n")) {
     const m = line.match(lineRe);
     if (m) {
-      entries.push({ title: m[1], slug: m[2], summary: m[3].trim() });
+      baseEntries.push({ title: m[1], slug: m[2], summary: m[3].trim() });
     }
   }
-  return entries;
+
+  // Enrich every entry in parallel with frontmatter-derived metadata
+  // (tags / updated / source_count). If any individual page fails to
+  // parse, we log a warning and fall back to the plain entry so that
+  // one malformed page never breaks the whole index.
+  const enriched = await Promise.all(
+    baseEntries.map(async (entry): Promise<IndexEntry> => {
+      try {
+        const page = await readWikiPageWithFrontmatter(entry.slug);
+        if (!page) return entry;
+        const fm = page.frontmatter;
+
+        const tags =
+          Array.isArray(fm.tags)
+            ? fm.tags.filter((t): t is string => typeof t === "string" && t.length > 0)
+            : undefined;
+
+        const updated =
+          typeof fm.updated === "string" && fm.updated.length > 0
+            ? fm.updated
+            : undefined;
+
+        // source_count is persisted as a string (see ingest.ts); parse defensively.
+        const sourceCountRaw = fm.source_count;
+        const sourceCountNum =
+          typeof sourceCountRaw === "string" && sourceCountRaw.length > 0
+            ? Number.parseInt(sourceCountRaw, 10)
+            : NaN;
+        const sourceCount = Number.isFinite(sourceCountNum) && sourceCountNum >= 0
+          ? sourceCountNum
+          : undefined;
+
+        return {
+          ...entry,
+          ...(tags && tags.length > 0 ? { tags } : {}),
+          ...(updated ? { updated } : {}),
+          ...(sourceCount !== undefined ? { sourceCount } : {}),
+        };
+      } catch (err) {
+        console.warn(
+          `listWikiPages: failed to read frontmatter for "${entry.slug}" — falling back to plain entry`,
+          err,
+        );
+        return entry;
+      }
+    }),
+  );
+
+  return enriched;
 }
 
 /**
