@@ -79,20 +79,28 @@ export default function LintPage() {
   }
 
   const handleFix = useCallback(
-    async (issue: LintIssue, targetSlug: string) => {
-      const key = `${issue.slug}:${targetSlug}`;
+    async (issue: LintIssue, targetSlug?: string) => {
+      const key =
+        issue.type === "missing-crossref" && targetSlug
+          ? `${issue.slug}:${targetSlug}`
+          : `${issue.type}:${issue.slug}`;
       setFixingSet((prev) => new Set(prev).add(key));
       setFixMessage(null);
 
       try {
+        // Build body depending on issue type
+        const bodyObj: Record<string, string> = {
+          type: issue.type,
+          slug: issue.slug,
+        };
+        if (issue.type === "missing-crossref" && targetSlug) {
+          bodyObj.targetSlug = targetSlug;
+        }
+
         const res = await fetch("/api/lint/fix", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "missing-crossref",
-            slug: issue.slug,
-            targetSlug,
-          }),
+          body: JSON.stringify(bodyObj),
         });
 
         const data = await res.json();
@@ -109,7 +117,7 @@ export default function LintPage() {
             (i) =>
               !(
                 i.slug === issue.slug &&
-                i.type === "missing-crossref" &&
+                i.type === issue.type &&
                 i.message === issue.message
               ),
           );
@@ -210,10 +218,29 @@ export default function LintPage() {
                   issue.type === "missing-crossref"
                     ? parseTargetSlug(issue.message)
                     : null;
-                const fixKey = targetSlug
-                  ? `${issue.slug}:${targetSlug}`
-                  : null;
-                const isFixing = fixKey ? fixingSet.has(fixKey) : false;
+
+                const fixableTypes = new Set([
+                  "missing-crossref",
+                  "orphan-page",
+                  "stale-index",
+                  "empty-page",
+                ]);
+                const isFixable =
+                  fixableTypes.has(issue.type) &&
+                  (issue.type !== "missing-crossref" || targetSlug !== null);
+
+                const fixKey =
+                  issue.type === "missing-crossref" && targetSlug
+                    ? `${issue.slug}:${targetSlug}`
+                    : `${issue.type}:${issue.slug}`;
+                const isFixing = fixingSet.has(fixKey);
+
+                const fixLabel: Record<string, string> = {
+                  "missing-crossref": "Fix",
+                  "orphan-page": "Add to index",
+                  "stale-index": "Remove from index",
+                  "empty-page": "Delete page",
+                };
 
                 return (
                   <li
@@ -240,13 +267,17 @@ export default function LintPage() {
                         system
                       </span>
                     )}
-                    {targetSlug && (
+                    {isFixable && (
                       <button
-                        onClick={() => handleFix(issue, targetSlug)}
+                        onClick={() => handleFix(issue, targetSlug ?? undefined)}
                         disabled={isFixing}
-                        className="ml-auto inline-flex items-center gap-1 rounded border border-foreground/20 bg-transparent px-2 py-0.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={`ml-auto inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          issue.type === "empty-page"
+                            ? "border-red-500/30 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:text-red-400"
+                            : "border-foreground/20 bg-transparent text-foreground/60 hover:bg-foreground/5 hover:text-foreground"
+                        }`}
                       >
-                        {isFixing ? "Fixing…" : "Fix"}
+                        {isFixing ? "Fixing…" : fixLabel[issue.type] ?? "Fix"}
                       </button>
                     )}
                     <span className="basis-full text-sm text-foreground/80 mt-1">
