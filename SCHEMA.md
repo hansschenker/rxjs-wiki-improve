@@ -164,9 +164,9 @@ sessions should pick from this list:
   Google, or Ollama is configured) and used for hybrid BM25+vector retrieval
   via RRF. Batch rebuild of the full vector index is not yet supported.
   Anthropic-only users see no regression (pure BM25 fallback).
-- Lint auto-fix is partially implemented — only `missing-crossref` issues can
-  be auto-fixed via `POST /api/lint/fix`. Other fixable issue types (orphans,
-  empty pages) are not yet supported.
+- Lint auto-fix handles `missing-crossref`, `orphan-page`, `stale-index`, and
+  `empty-page` issues via `POST /api/lint/fix`. Contradiction auto-fix (which
+  would require LLM rewriting) is not yet supported.
 - Long documents are chunked at ingest time (12K chars per chunk ≈ 3K
   tokens) so they fit within provider context windows. Token counting is
   character-based (not tokenizer-exact), which is conservative but not
