@@ -166,8 +166,10 @@ sessions should pick from this list:
   Anthropic-only users see no regression (pure BM25 fallback).
 - No human-in-the-loop diff review on ingest — wiki writes happen
   immediately and silently.
-- No context window management or token counting — long pages may exceed
-  provider limits without warning.
+- Long documents are chunked at ingest time (12K chars per chunk ≈ 3K
+  tokens) so they fit within provider context windows. Token counting is
+  character-based (not tokenizer-exact), which is conservative but not
+  precise.
 - No concurrency safety or file locking — simultaneous ingests could corrupt
   shared files like `index.md` or `log.md`.
 

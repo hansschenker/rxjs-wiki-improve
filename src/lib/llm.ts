@@ -97,10 +97,13 @@ function getModel() {
  * Requires at least one supported provider env var to be set:
  * ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or
  * OLLAMA_BASE_URL / OLLAMA_MODEL.
+ *
+ * @param maxTokens — optional cap on output tokens (default 4096).
  */
 export async function callLLM(
   systemPrompt: string,
   userMessage: string,
+  maxTokens: number = 4096,
 ): Promise<string> {
   const model = getModel();
 
@@ -108,7 +111,7 @@ export async function callLLM(
     model,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
-    maxOutputTokens: 4096,
+    maxOutputTokens: maxTokens,
   });
 
   if (!text) {
@@ -127,10 +130,13 @@ export async function callLLM(
  *
  * Requires at least one supported provider env var to be set (same as
  * {@link callLLM}).
+ *
+ * @param maxTokens — optional cap on output tokens (default 4096).
  */
 export function callLLMStream(
   systemPrompt: string,
   userMessage: string,
+  maxTokens: number = 4096,
 ) {
   const model = getModel();
 
@@ -138,6 +144,6 @@ export function callLLMStream(
     model,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
-    maxOutputTokens: 4096,
+    maxOutputTokens: maxTokens,
   });
 }

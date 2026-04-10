@@ -16,6 +16,8 @@ import {
   updateRelatedPages,
   loadPageConventions,
   buildIngestSystemPrompt,
+  chunkText,
+  MAX_LLM_INPUT_CHARS,
 } from "../ingest";
 import { listWikiPages, readWikiPage, writeWikiPage } from "../wiki";
 import type { IndexEntry } from "../types";
@@ -1069,5 +1071,123 @@ describe("schema-aware ingest prompt", () => {
     const prompt = await buildIngestSystemPrompt();
     expect(prompt).toContain("You are a wiki editor");
     expect(prompt).toContain("Output pure markdown and nothing else");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// chunkText
+// ---------------------------------------------------------------------------
+
+describe("chunkText", () => {
+  it("returns a single chunk when content is shorter than limit", () => {
+    const text = "Short content here.";
+    const chunks = chunkText(text, 100);
+    expect(chunks).toEqual([text]);
+  });
+
+  it("splits on paragraph boundaries", () => {
+    const para1 = "First paragraph with some text.";
+    const para2 = "Second paragraph with more text.";
+    const para3 = "Third paragraph with even more.";
+    const text = `${para1}\n\n${para2}\n\n${para3}`;
+    // Each paragraph is ~31 chars. Set limit to 65 so two fit but not three.
+    const chunks = chunkText(text, 65);
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0]).toBe(`${para1}\n\n${para2}`);
+    expect(chunks[1]).toBe(para3);
+  });
+
+  it("splits a single giant paragraph on sentence boundaries", () => {
+    const s1 = "First sentence here.";
+    const s2 = "Second sentence here.";
+    const s3 = "Third sentence here.";
+    // Single paragraph (no \n\n), joined by spaces
+    const text = `${s1} ${s2} ${s3}`;
+    // Set limit so only ~2 sentences fit per chunk
+    const chunks = chunkText(text, 45);
+    expect(chunks.length).toBeGreaterThanOrEqual(2);
+    // Every chunk must be within the limit
+    for (const chunk of chunks) {
+      expect(chunk.length).toBeLessThanOrEqual(45);
+    }
+  });
+
+  it("preserves all content (join approximates original)", () => {
+    const paragraphs = Array.from(
+      { length: 20 },
+      (_, i) => `Paragraph ${i + 1} has some content about topic ${i}.`,
+    );
+    const text = paragraphs.join("\n\n");
+    const chunks = chunkText(text, 200);
+    expect(chunks.length).toBeGreaterThan(1);
+    // Rejoining should contain all original paragraphs
+    const rejoined = chunks.join("\n\n");
+    for (const para of paragraphs) {
+      expect(rejoined).toContain(para);
+    }
+  });
+
+  it("hard-splits a sentence that exceeds maxChars", () => {
+    // One long word with no sentence boundaries
+    const text = "a".repeat(300);
+    const chunks = chunkText(text, 100);
+    expect(chunks.length).toBe(3);
+    for (const chunk of chunks) {
+      expect(chunk.length).toBeLessThanOrEqual(100);
+    }
+    expect(chunks.join("")).toBe(text);
+  });
+
+  it("uses MAX_LLM_INPUT_CHARS as the default", () => {
+    // Just verify the constant is exported and is a sensible number
+    expect(MAX_LLM_INPUT_CHARS).toBe(12_000);
+    // Default chunkText with short text returns single chunk
+    const short = "hello";
+    expect(chunkText(short)).toEqual([short]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ingest — chunked LLM calls for long content
+// ---------------------------------------------------------------------------
+
+describe("ingest — chunked LLM calls", () => {
+  it("calls LLM multiple times for long content", async () => {
+    // Enable LLM mock
+    mockedHasLLMKey.mockReturnValue(true);
+    mockedCallLLM.mockResolvedValue("# Wiki Page\n\n## Summary\n\nMocked content.");
+
+    // Create content longer than MAX_LLM_INPUT_CHARS
+    const longContent = Array.from(
+      { length: 300 },
+      (_, i) => `Paragraph ${i} discusses topic number ${i} in detail with enough text to be substantial.`,
+    ).join("\n\n");
+
+    expect(longContent.length).toBeGreaterThan(MAX_LLM_INPUT_CHARS);
+
+    const result = await ingest("Long Article", longContent);
+    expect(result.primarySlug).toBe("long-article");
+
+    // Should have called LLM more than once due to chunking
+    expect(mockedCallLLM.mock.calls.length).toBeGreaterThan(1);
+
+    // Reset
+    mockedHasLLMKey.mockReturnValue(false);
+    mockedCallLLM.mockReset();
+  });
+
+  it("calls LLM exactly once for short content", async () => {
+    mockedHasLLMKey.mockReturnValue(true);
+    mockedCallLLM.mockResolvedValue("# Short Page\n\n## Summary\n\nBrief.");
+
+    const shortContent = "A brief article about something. Not very long.";
+    expect(shortContent.length).toBeLessThan(MAX_LLM_INPUT_CHARS);
+
+    await ingest("Short Article", shortContent);
+
+    expect(mockedCallLLM.mock.calls.length).toBe(1);
+
+    mockedHasLLMKey.mockReturnValue(false);
+    mockedCallLLM.mockReset();
   });
 });

@@ -282,6 +282,111 @@ export function extractSummary(content: string, maxLen = 200): string {
 // this file for backwards compatibility with existing tests and callers.
 
 // ---------------------------------------------------------------------------
+// Content chunking
+// ---------------------------------------------------------------------------
+
+/**
+ * Maximum number of characters to send to the LLM in a single call.
+ *
+ * 12,000 chars ≈ 3,000 tokens — conservative enough for all providers and
+ * leaves ample room for the system prompt and output tokens within even the
+ * smallest context windows (8K tokens).
+ */
+export const MAX_LLM_INPUT_CHARS = 12_000;
+
+/**
+ * Split text into chunks of at most `maxChars` characters.
+ *
+ * Strategy:
+ * 1. Split on paragraph boundaries (`\n\n`).
+ * 2. Greedily combine paragraphs into chunks up to `maxChars`.
+ * 3. If a single paragraph exceeds `maxChars`, split it on sentence
+ *    boundaries (`. `, `! `, `? ` followed by whitespace or end-of-string).
+ * 4. If a single sentence still exceeds `maxChars`, hard-split at `maxChars`.
+ *
+ * Returns an array of chunks, each ≤ `maxChars`.
+ */
+export function chunkText(text: string, maxChars: number = MAX_LLM_INPUT_CHARS): string[] {
+  if (text.length <= maxChars) return [text];
+
+  const paragraphs = text.split(/\n\n+/);
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const para of paragraphs) {
+    // If this single paragraph fits in the current chunk, append it
+    if (current.length === 0 && para.length <= maxChars) {
+      current = para;
+      continue;
+    }
+
+    if (current.length > 0 && current.length + 2 + para.length <= maxChars) {
+      current += "\n\n" + para;
+      continue;
+    }
+
+    // Flush current chunk if non-empty
+    if (current.length > 0) {
+      chunks.push(current);
+      current = "";
+    }
+
+    // If the paragraph itself fits in a chunk, start a new chunk with it
+    if (para.length <= maxChars) {
+      current = para;
+      continue;
+    }
+
+    // Oversized paragraph — split on sentence boundaries
+    const sentences = splitSentences(para);
+    for (const sentence of sentences) {
+      if (sentence.length > maxChars) {
+        // Hard-split an oversized sentence
+        for (let i = 0; i < sentence.length; i += maxChars) {
+          const piece = sentence.slice(i, i + maxChars);
+          if (current.length === 0) {
+            chunks.push(piece);
+          } else if (current.length + 1 + piece.length <= maxChars) {
+            current += " " + piece;
+          } else {
+            chunks.push(current);
+            chunks.push(piece);
+            current = "";
+          }
+        }
+        continue;
+      }
+
+      if (current.length === 0) {
+        current = sentence;
+      } else if (current.length + 1 + sentence.length <= maxChars) {
+        current += " " + sentence;
+      } else {
+        chunks.push(current);
+        current = sentence;
+      }
+    }
+  }
+
+  if (current.length > 0) {
+    chunks.push(current);
+  }
+
+  return chunks;
+}
+
+/**
+ * Split a paragraph into sentences. Uses sentence-ending punctuation
+ * followed by whitespace as the delimiter. Keeps the punctuation attached
+ * to the sentence.
+ */
+function splitSentences(text: string): string[] {
+  // Split after sentence-ending punctuation followed by whitespace
+  const parts = text.split(/(?<=[.!?])\s+/);
+  return parts.filter((s) => s.length > 0);
+}
+
+// ---------------------------------------------------------------------------
 // Ingest pipeline
 // ---------------------------------------------------------------------------
 
@@ -293,6 +398,18 @@ Include:
 - A brief summary section (## Summary)
 - Key points or takeaways (## Key Points)
 - Notable entities, concepts, or terms worth remembering (## Concepts)
+
+Output pure markdown and nothing else. Do not wrap in code fences.`;
+
+/**
+ * System prompt for continuation chunks when a long source document has been
+ * split into multiple parts. The LLM receives the article produced so far and
+ * a new batch of source material and should produce only the *additional*
+ * sections — no duplicate title or summary.
+ */
+const CONTINUATION_SYSTEM_PROMPT = `You are a wiki editor. You have already started a wiki article from earlier parts of a long source document. You are now given additional source material.
+
+Add new key points, concepts, and details from the additional source material. Do NOT repeat the title, summary, or any content already in the article. Only output the new sections or bullet points to append.
 
 Output pure markdown and nothing else. Do not wrap in code fences.`;
 
@@ -380,7 +497,26 @@ export async function ingest(
   // 2. Generate wiki page content
   let wikiContent: string;
   if (hasLLMKey()) {
-    wikiContent = await callLLM(await buildIngestSystemPrompt(), content);
+    const systemPrompt = await buildIngestSystemPrompt();
+    const chunks = chunkText(content, MAX_LLM_INPUT_CHARS);
+
+    if (chunks.length === 1) {
+      // Short content — single LLM call (no behaviour change)
+      wikiContent = await callLLM(systemPrompt, chunks[0]);
+    } else {
+      // Long content — call LLM per chunk, merge results
+      // First chunk produces the primary page structure
+      wikiContent = await callLLM(systemPrompt, chunks[0]);
+
+      // Subsequent chunks add supplemental content
+      for (let i = 1; i < chunks.length; i++) {
+        const continuation = await callLLM(
+          CONTINUATION_SYSTEM_PROMPT,
+          `# Existing article so far\n\n${wikiContent}\n\n# Additional source material (part ${i + 1} of ${chunks.length})\n\n${chunks[i]}`,
+        );
+        wikiContent += "\n\n" + continuation;
+      }
+    }
   } else {
     wikiContent = generateFallbackPage(title, content);
   }
