@@ -1,22 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { providerLabel } from "@/lib/providers";
 
 interface ProviderInfo {
   configured: boolean;
   provider: string | null;
   model: string | null;
   embeddingSupport: boolean;
-}
-
-function providerLabel(provider: string): string {
-  const labels: Record<string, string> = {
-    anthropic: "Anthropic",
-    openai: "OpenAI",
-    google: "Google",
-    ollama: "Ollama",
-  };
-  return labels[provider] ?? provider;
 }
 
 export function StatusBadge() {

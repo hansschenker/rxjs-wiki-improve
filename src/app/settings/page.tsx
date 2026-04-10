@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
+import { PROVIDER_INFO, DEFAULT_MODELS, providerLabel } from "@/lib/providers";
 
 // ---------------------------------------------------------------------------
 // Types matching the API responses
@@ -35,34 +36,14 @@ interface ProviderStatus {
 // Constants
 // ---------------------------------------------------------------------------
 
-const PROVIDERS = [
+const PROVIDER_OPTIONS = [
   { value: "", label: "— Select provider —" },
-  { value: "anthropic", label: "Anthropic" },
-  { value: "openai", label: "OpenAI" },
-  { value: "google", label: "Google" },
-  { value: "ollama", label: "Ollama" },
+  ...PROVIDER_INFO,
 ] as const;
-
-const DEFAULT_MODELS: Record<string, string> = {
-  anthropic: "claude-sonnet-4-20250514",
-  openai: "gpt-4o",
-  google: "gemini-2.0-flash",
-  ollama: "llama3.2",
-};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function providerLabel(provider: string): string {
-  const labels: Record<string, string> = {
-    anthropic: "Anthropic",
-    openai: "OpenAI",
-    google: "Google",
-    ollama: "Ollama",
-  };
-  return labels[provider] ?? provider;
-}
 
 function SourceBadge({ source }: { source: SettingSource }) {
   if (source === "env") {
@@ -381,7 +362,7 @@ export default function SettingsPage() {
               }}
               className="mt-1.5 block w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20"
             >
-              {PROVIDERS.map((p) => (
+              {PROVIDER_OPTIONS.map((p) => (
                 <option key={p.value} value={p.value}>
                   {p.label}
                 </option>

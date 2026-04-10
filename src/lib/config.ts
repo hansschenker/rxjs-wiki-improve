@@ -3,6 +3,11 @@ import fsSync from "fs";
 import path from "path";
 import type { ProviderInfo } from "./types";
 import { hasEmbeddingSupport } from "./embeddings";
+import { VALID_PROVIDERS, DEFAULT_MODELS } from "./providers";
+
+// Re-export provider constants so existing consumers can import from config
+export { PROVIDER_INFO, VALID_PROVIDERS, DEFAULT_MODELS, providerLabel } from "./providers";
+export type { ProviderValue } from "./providers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,8 +42,6 @@ export interface EffectiveSettings {
 // ---------------------------------------------------------------------------
 // Valid providers (for validation)
 // ---------------------------------------------------------------------------
-
-const VALID_PROVIDERS = new Set(["anthropic", "openai", "google", "ollama"]);
 
 export function isValidProvider(p: string): p is AppConfig["provider"] & string {
   return VALID_PROVIDERS.has(p);
@@ -113,17 +116,6 @@ export function loadConfigSync(): AppConfig {
 export function _resetConfigCache(): void {
   _configCache = null;
 }
-
-// ---------------------------------------------------------------------------
-// Default models per provider
-// ---------------------------------------------------------------------------
-
-const DEFAULT_MODELS: Record<string, string> = {
-  anthropic: "claude-sonnet-4-20250514",
-  openai: "gpt-4o",
-  google: "gemini-2.0-flash",
-  ollama: "llama3.2",
-};
 
 // ---------------------------------------------------------------------------
 // Key masking
