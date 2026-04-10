@@ -137,8 +137,32 @@ export default function IngestPage() {
   /** Direct ingest: skip preview, write immediately. */
   async function handleDirectIngest(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+
+    // Validate inputs (since this button bypasses HTML5 form validation)
+    if (mode === "url") {
+      if (!url.trim()) {
+        setError("Please enter a URL");
+        return;
+      }
+      try {
+        new URL(url.trim());
+      } catch {
+        setError("Please enter a valid URL (e.g. https://example.com)");
+        return;
+      }
+    } else {
+      if (!title.trim()) {
+        setError("Please enter a title");
+        return;
+      }
+      if (!content.trim()) {
+        setError("Please enter some content");
+        return;
+      }
+    }
+
+    setLoading(true);
     setResult(null);
 
     try {

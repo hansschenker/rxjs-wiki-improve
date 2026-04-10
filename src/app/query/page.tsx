@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { extractCitedSlugs } from "@/lib/citations";
@@ -26,10 +26,25 @@ export default function QueryPage() {
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [saveTitle, setSaveTitle] = useState("");
 
+  // Ref to hold the current AbortController for streaming requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight streaming request on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!question.trim()) return;
+
+      // Abort any previous in-flight request
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       setLoading(true);
       setStreaming(false);
@@ -45,6 +60,7 @@ export default function QueryPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question: trimmed }),
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -57,6 +73,7 @@ export default function QueryPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question: trimmed }),
+            signal: controller.signal,
           });
 
           const fallbackData = await fallbackRes.json();
@@ -70,9 +87,15 @@ export default function QueryPage() {
 
         // Parse sources from the custom header
         const sourcesHeader = res.headers.get("X-Wiki-Sources");
-        const sources: string[] = sourcesHeader
-          ? (JSON.parse(sourcesHeader) as string[])
-          : [];
+        let sources: string[] = [];
+        if (sourcesHeader) {
+          try {
+            sources = JSON.parse(sourcesHeader) as string[];
+          } catch {
+            // Malformed header — fall back to empty array
+            sources = [];
+          }
+        }
 
         // Stream the response body
         const reader = res.body?.getReader();
@@ -103,7 +126,11 @@ export default function QueryPage() {
           citedSources.length > 0 ? citedSources : sources;
         setResult({ answer, sources: finalSources });
         setStreaming(false);
-      } catch {
+      } catch (err) {
+        // Don't report abort errors as failures
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
         setError("Failed to connect to the server");
       } finally {
         setLoading(false);

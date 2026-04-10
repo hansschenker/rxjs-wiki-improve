@@ -16,6 +16,8 @@ interface EffectiveSettings {
   modelSource: SettingSource;
   configured: boolean;
   embeddingSupport: boolean;
+  embeddingModel: string | null;
+  embeddingModelSource: SettingSource;
   maskedApiKey: string | null;
   apiKeySource: SettingSource;
   ollamaBaseUrl: string | null;
@@ -144,6 +146,11 @@ export default function SettingsPage() {
         setOllamaBaseUrl(data.ollamaBaseUrl);
       } else {
         setOllamaBaseUrl("");
+      }
+      if (data.embeddingModelSource === "config" && data.embeddingModel) {
+        setEmbeddingModel(data.embeddingModel);
+      } else {
+        setEmbeddingModel("");
       }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Unknown error");

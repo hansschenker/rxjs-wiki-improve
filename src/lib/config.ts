@@ -26,6 +26,8 @@ export interface EffectiveSettings {
   modelSource: SettingSource;
   configured: boolean;
   embeddingSupport: boolean;
+  embeddingModel: string | null;
+  embeddingModelSource: SettingSource;
   maskedApiKey: string | null;
   apiKeySource: SettingSource;
   ollamaBaseUrl: string | null;
@@ -276,6 +278,17 @@ export function getEffectiveSettings(): EffectiveSettings {
     ollamaBaseUrlSource = "none";
   }
 
+  // Embedding model
+  let embeddingModel: string | null;
+  let embeddingModelSource: SettingSource;
+  if (cfg.embeddingModel) {
+    embeddingModel = cfg.embeddingModel;
+    embeddingModelSource = "config";
+  } else {
+    embeddingModel = null;
+    embeddingModelSource = "none";
+  }
+
   return {
     provider,
     providerSource,
@@ -283,6 +296,8 @@ export function getEffectiveSettings(): EffectiveSettings {
     modelSource,
     configured: provider !== null,
     embeddingSupport: hasEmbeddingSupport(),
+    embeddingModel,
+    embeddingModelSource,
     maskedApiKey: maskApiKey(apiKey),
     apiKeySource,
     ollamaBaseUrl,
