@@ -5,6 +5,8 @@ import {
   writeWikiPageWithSideEffects,
   readWikiPageWithFrontmatter,
   serializeFrontmatter,
+  listWikiPages,
+  findRelatedPages,
   type Frontmatter,
 } from "./wiki";
 import { callLLM, hasLLMKey } from "./llm";
@@ -211,9 +213,12 @@ export async function fetchUrlContent(
  * 1. Fetch and extract the page content
  * 2. Delegate to the standard `ingest()` pipeline
  */
-export async function ingestUrl(url: string): Promise<IngestResult> {
+export async function ingestUrl(
+  url: string,
+  options?: IngestOptions,
+): Promise<IngestResult> {
   const { title, content } = await fetchUrlContent(url);
-  return ingest(title, content);
+  return ingest(title, content, options);
 }
 
 // ---------------------------------------------------------------------------
@@ -469,19 +474,46 @@ ${conventions}
 Follow these conventions when generating the page.`;
 }
 
+// ---------------------------------------------------------------------------
+// Ingest options
+// ---------------------------------------------------------------------------
+
+/** Options for the two-phase ingest workflow. */
+export interface IngestOptions {
+  /**
+   * When `true`, run the LLM and return the generated wiki content without
+   * writing anything to disk. The caller can display this for human review
+   * before committing.
+   */
+  preview?: boolean;
+  /**
+   * Pre-generated wiki content from a prior preview call. When provided the
+   * LLM is skipped entirely and this content is written to disk as-is. This
+   * avoids paying for the LLM call twice (once for preview, once for commit).
+   */
+  generatedContent?: string;
+}
+
 /**
  * Ingest a source document into the wiki.
  *
- * 1. Generate a slug from the title
- * 2. Save the raw source
- * 3. Generate a wiki page via LLM (or fallback stub)
- * 4. Delegate write + index + cross-ref + log to
- *    {@link writeWikiPageWithSideEffects} so this path stays in lock-step
- *    with every other write-path in the codebase.
+ * Supports a two-phase preview workflow:
+ *
+ * 1. **Preview** (`options.preview = true`): run the LLM to generate wiki
+ *    content and identify related pages, but do NOT write anything to disk.
+ *    Returns the result with `previewContent` populated.
+ *
+ * 2. **Commit from preview** (`options.generatedContent` set): skip the LLM,
+ *    use the pre-generated content and write everything to disk. This is the
+ *    "approve" step after a human reviews the preview.
+ *
+ * 3. **Direct ingest** (no options / defaults): the original single-step
+ *    behaviour — call the LLM and write immediately. Fully backward-compatible.
  */
 export async function ingest(
   title: string,
   content: string,
+  options?: IngestOptions,
 ): Promise<IngestResult> {
   const slug = slugify(title);
 
@@ -491,12 +523,15 @@ export async function ingest(
     );
   }
 
-  // 1. Save raw source
-  const rawPath = await saveRawSource(slug, content);
+  const isPreview = options?.preview === true;
+  const preGeneratedContent = options?.generatedContent;
 
-  // 2. Generate wiki page content
+  // 1. Generate wiki page content (or use pre-generated from preview)
   let wikiContent: string;
-  if (hasLLMKey()) {
+  if (preGeneratedContent) {
+    // Commit-from-preview: skip the LLM, use the content the user approved
+    wikiContent = preGeneratedContent;
+  } else if (hasLLMKey()) {
     const systemPrompt = await buildIngestSystemPrompt();
     const chunks = chunkText(content, MAX_LLM_INPUT_CHARS);
 
@@ -521,9 +556,30 @@ export async function ingest(
     wikiContent = generateFallbackPage(title, content);
   }
 
-  // 3. Compute the index summary from the *raw* source so the index reflects
+  // 2. Compute the index summary from the *raw* source so the index reflects
   // the original document, not the LLM's reformatting.
   const summary = extractSummary(content);
+
+  // --- Preview mode: return the generated content without writing ---
+  if (isPreview) {
+    // Identify which related pages would be updated (read-only check)
+    const existingEntries = await listWikiPages();
+    const relatedSlugs = await findRelatedPages(slug, content, existingEntries);
+
+    return {
+      rawPath: "",
+      primarySlug: slug,
+      relatedUpdated: relatedSlugs,
+      wikiPages: [slug, ...relatedSlugs],
+      indexUpdated: false,
+      previewContent: wikiContent,
+    };
+  }
+
+  // --- Normal commit path (direct ingest or commit-from-preview) ---
+
+  // 3. Save raw source
+  const rawPath = await saveRawSource(slug, content);
 
   // 4. Build / refresh the YAML frontmatter block. New pages get
   // created = updated = today and source_count = 1. Re-ingesting the same

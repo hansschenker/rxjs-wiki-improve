@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingest, ingestUrl, isUrl } from "@/lib/ingest";
+import type { IngestOptions } from "@/lib/ingest";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { url, title, content } = body;
+    const { url, title, content, preview, generatedContent } = body;
+
+    // Build ingest options from the request body
+    const options: IngestOptions = {};
+    if (preview === true) {
+      options.preview = true;
+    }
+    if (typeof generatedContent === "string" && generatedContent.length > 0) {
+      options.generatedContent = generatedContent;
+    }
 
     // URL path takes precedence
     if (url && typeof url === "string" && isUrl(url.trim())) {
-      const result = await ingestUrl(url.trim());
+      const result = await ingestUrl(url.trim(), options);
       return NextResponse.json(result);
     }
 
@@ -32,7 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await ingest(title.trim(), content.trim());
+    const result = await ingest(title.trim(), content.trim(), options);
 
     return NextResponse.json(result);
   } catch (error) {

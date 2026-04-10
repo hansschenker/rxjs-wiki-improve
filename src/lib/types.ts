@@ -33,6 +33,11 @@ export interface IngestResult {
    */
   wikiPages: string[];
   indexUpdated: boolean;
+  /**
+   * When `preview: true`, contains the generated wiki markdown that would be
+   * written to disk. Absent during a normal (non-preview) ingest.
+   */
+  previewContent?: string;
 }
 
 /** Result from a query against the wiki. */
