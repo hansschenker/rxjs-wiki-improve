@@ -7,6 +7,7 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { getWikiDir } from "./wiki";
+import { loadConfigSync } from "./config";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,13 +40,26 @@ const DEFAULT_EMBEDDING_MODELS: Record<string, string> = {
   ollama: "nomic-embed-text",
 };
 
+/** Providers that support embeddings (i.e. everything except Anthropic). */
+const EMBEDDING_CAPABLE_PROVIDERS = new Set(["openai", "google", "ollama"]);
+
 /**
  * Returns the name of the currently selected embedding model, or null if no
  * embedding-capable provider is configured.
+ *
+ * Resolution order for model name:
+ *   1. `EMBEDDING_MODEL` env var (highest priority)
+ *   2. `config.embeddingModel` from config file
+ *   3. Provider-specific default
+ *
+ * Resolution order for provider:
+ *   1. Env var API keys (highest priority)
+ *   2. Config file provider + apiKey
  */
 export function getEmbeddingModelName(): string | null {
   const override = process.env.EMBEDDING_MODEL;
 
+  // --- Env var provider detection (existing, highest priority) ---
   if (process.env.OPENAI_API_KEY) {
     return override ?? DEFAULT_EMBEDDING_MODELS.openai;
   }
@@ -54,6 +68,16 @@ export function getEmbeddingModelName(): string | null {
   }
   if (process.env.OLLAMA_BASE_URL || process.env.OLLAMA_MODEL) {
     return override ?? DEFAULT_EMBEDDING_MODELS.ollama;
+  }
+
+  // --- Config file fallback ---
+  const cfg = loadConfigSync();
+  const cfgProvider = cfg.provider;
+  if (cfgProvider && EMBEDDING_CAPABLE_PROVIDERS.has(cfgProvider)) {
+    // Ollama is keyless; others need an apiKey in config
+    if (cfgProvider === "ollama" || cfg.apiKey) {
+      return override ?? cfg.embeddingModel ?? DEFAULT_EMBEDDING_MODELS[cfgProvider] ?? null;
+    }
   }
 
   // Anthropic has no embedding models — skip it entirely.
@@ -66,16 +90,21 @@ export function getEmbeddingModelName(): string | null {
  * `null` if the provider doesn't support embeddings.
  *
  * Provider detection order:
- *   1. OpenAI    (OPENAI_API_KEY)        → text-embedding-3-small
- *   2. Google    (GOOGLE_GENERATIVE_AI_API_KEY) → gemini-embedding-001
- *   3. Ollama    (OLLAMA_BASE_URL / OLLAMA_MODEL) → nomic-embed-text
- *   4. Anthropic (ANTHROPIC_API_KEY)     → null (no embedding support)
+ *   1. OpenAI    (OPENAI_API_KEY env var)
+ *   2. Google    (GOOGLE_GENERATIVE_AI_API_KEY env var)
+ *   3. Ollama    (OLLAMA_BASE_URL / OLLAMA_MODEL env var)
+ *   4. Config file (provider + apiKey, if provider is openai/google/ollama)
  *   5. No key    → null
  *
- * The model name can be overridden with the `EMBEDDING_MODEL` env var.
+ * Model name resolution:
+ *   1. `EMBEDDING_MODEL` env var (highest)
+ *   2. `config.embeddingModel` from config file
+ *   3. Provider-specific default
  */
 export function getEmbeddingModel(): EmbeddingModel | null {
   const override = process.env.EMBEDDING_MODEL;
+
+  // --- Env var provider detection (existing, highest priority) ---
 
   if (process.env.OPENAI_API_KEY) {
     const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -94,6 +123,35 @@ export function getEmbeddingModel(): EmbeddingModel | null {
       ? createOllama({ baseURL: process.env.OLLAMA_BASE_URL })
       : createOllama();
     return ollama.embedding(override ?? DEFAULT_EMBEDDING_MODELS.ollama);
+  }
+
+  // --- Config file fallback ---
+  const cfg = loadConfigSync();
+  const cfgProvider = cfg.provider;
+
+  if (cfgProvider && EMBEDDING_CAPABLE_PROVIDERS.has(cfgProvider)) {
+    if (cfgProvider === "openai" && cfg.apiKey) {
+      const openai = createOpenAI({ apiKey: cfg.apiKey });
+      return openai.embedding(
+        override ?? cfg.embeddingModel ?? DEFAULT_EMBEDDING_MODELS.openai,
+      );
+    }
+
+    if (cfgProvider === "google" && cfg.apiKey) {
+      const google = createGoogleGenerativeAI({ apiKey: cfg.apiKey });
+      return google.embedding(
+        override ?? cfg.embeddingModel ?? DEFAULT_EMBEDDING_MODELS.google,
+      );
+    }
+
+    if (cfgProvider === "ollama") {
+      const ollama = cfg.ollamaBaseUrl
+        ? createOllama({ baseURL: cfg.ollamaBaseUrl })
+        : createOllama();
+      return ollama.embedding(
+        override ?? cfg.embeddingModel ?? DEFAULT_EMBEDDING_MODELS.ollama,
+      );
+    }
   }
 
   // Anthropic has no embedding models.
