@@ -8,10 +8,126 @@ import {
   getResolvedCredentials,
   loadConfigSync,
 } from "./config";
+import {
+  LLM_MAX_RETRIES,
+  LLM_RETRY_BASE_MS,
+  LLM_RETRY_MAX_MS,
+} from "./constants";
 import type { ProviderInfo } from "./types";
 
 // Re-export ProviderInfo from types for backward compatibility
 export type { ProviderInfo } from "./types";
+
+// ---------------------------------------------------------------------------
+// Retry helpers
+// ---------------------------------------------------------------------------
+
+/** HTTP status codes that indicate a transient / retryable failure. */
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+
+/** Substrings in error messages that indicate a network-level transient error. */
+const RETRYABLE_MESSAGES = [
+  "econnreset",
+  "etimedout",
+  "fetch failed",
+  "socket hang up",
+  "network error",
+  "enotfound",
+  "econnrefused",
+];
+
+/**
+ * Determine whether an error is transient and therefore safe to retry.
+ *
+ * Retryable: HTTP 429 / 5xx, network errors (ECONNRESET, ETIMEDOUT, etc.)
+ * Not retryable: 400, 401, 403, missing API key, validation errors.
+ */
+export function isRetryableError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+
+  const message = error.message.toLowerCase();
+
+  // Explicitly non-retryable patterns — bail early
+  if (message.includes("no llm api key")) return false;
+
+  // Check for HTTP status codes embedded in the error
+  // Many AI SDK errors include the status code in the message or as a property
+  const statusMatch = message.match(/\b(4\d{2}|5\d{2})\b/);
+  if (statusMatch) {
+    const status = parseInt(statusMatch[1], 10);
+    // 4xx codes other than 429 are NOT retryable (auth, validation, not found)
+    if (status >= 400 && status < 500 && status !== 429) return false;
+    if (RETRYABLE_STATUS_CODES.has(status)) return true;
+  }
+
+  // Check for a `status` property (common in fetch / AI SDK errors)
+  const errWithStatus = error as Error & { status?: number };
+  if (typeof errWithStatus.status === "number") {
+    const s = errWithStatus.status;
+    if (s >= 400 && s < 500 && s !== 429) return false;
+    if (RETRYABLE_STATUS_CODES.has(s)) return true;
+  }
+
+  // Check for network-level error messages
+  if (RETRYABLE_MESSAGES.some((msg) => message.includes(msg))) return true;
+
+  return false;
+}
+
+/**
+ * Add ±20 % random jitter to a delay value so retries from multiple callers
+ * don't thundering-herd the provider at the same instant.
+ */
+function addJitter(ms: number): number {
+  const factor = 0.8 + Math.random() * 0.4; // 0.8 – 1.2
+  return Math.round(ms * factor);
+}
+
+/**
+ * Retry an async function with exponential backoff.
+ *
+ * Only retries on errors deemed transient by {@link isRetryableError}.
+ * Non-retryable errors are thrown immediately.
+ *
+ * @param fn          — The async operation to attempt.
+ * @param maxRetries  — Maximum number of *retry* attempts (so total attempts = maxRetries + 1).
+ * @param baseMs      — Base delay before the first retry (doubles each attempt).
+ * @param maxMs       — Cap on the computed delay.
+ */
+export async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = LLM_MAX_RETRIES,
+  baseMs: number = LLM_RETRY_BASE_MS,
+  maxMs: number = LLM_RETRY_MAX_MS,
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+
+      // If the error isn't transient, don't bother retrying
+      if (!isRetryableError(err)) throw err;
+
+      // If we've used all retry attempts, throw
+      if (attempt === maxRetries) break;
+
+      const rawDelay = Math.min(baseMs * 2 ** attempt, maxMs);
+      const delay = addJitter(rawDelay);
+
+      console.warn(
+        `[llm] Retryable error on attempt ${attempt + 1}/${maxRetries + 1}, ` +
+          `retrying in ${delay}ms: ${err instanceof Error ? err.message : String(err)}`,
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError;
+}
 
 // ---------------------------------------------------------------------------
 // Provider detection
@@ -127,6 +243,9 @@ function getModel() {
 /**
  * Call the configured LLM provider and return the assistant's text response.
  *
+ * Automatically retries on transient errors (429, 5xx, network issues) with
+ * exponential backoff. See {@link retryWithBackoff} for details.
+ *
  * Requires at least one supported provider env var to be set:
  * ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or
  * OLLAMA_BASE_URL / OLLAMA_MODEL.
@@ -140,12 +259,14 @@ export async function callLLM(
 ): Promise<string> {
   const model = getModel();
 
-  const { text } = await generateText({
-    model,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userMessage }],
-    maxOutputTokens: options?.maxOutputTokens ?? 4096,
-  });
+  const { text } = await retryWithBackoff(() =>
+    generateText({
+      model,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+      maxOutputTokens: options?.maxOutputTokens ?? 4096,
+    }),
+  );
 
   if (!text) {
     throw new Error("LLM response contained no text");
@@ -173,6 +294,9 @@ export function callLLMStream(
 ) {
   const model = getModel();
 
+  // TODO: Add retry support for streaming. Streaming retries need different
+  // handling because the stream may have already emitted partial data to the
+  // client. Consider buffering the first chunk or implementing reconnect logic.
   return streamText({
     model,
     system: systemPrompt,

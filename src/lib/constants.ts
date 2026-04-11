@@ -59,3 +59,14 @@ export const BM25_B = 0.75;
  * search results. Standard value is 60.
  */
 export const RRF_K = 60;
+
+// ---- LLM Retry ------------------------------------------------------------
+
+/** Maximum number of retry attempts for transient LLM errors. */
+export const LLM_MAX_RETRIES = 3;
+
+/** Base delay in ms for exponential backoff (1s → 2s → 4s). */
+export const LLM_RETRY_BASE_MS = 1_000;
+
+/** Maximum backoff delay cap in ms. */
+export const LLM_RETRY_MAX_MS = 10_000;
