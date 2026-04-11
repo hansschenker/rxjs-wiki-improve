@@ -26,12 +26,15 @@ export function GlobalSearch() {
     if (fetchedRef.current) return;
     fetchedRef.current = true;
     try {
-      const res = await fetch("/api/wiki/graph");
+      const res = await fetch("/api/wiki");
       if (!res.ok) return;
       const data = await res.json();
-      if (Array.isArray(data.nodes)) {
+      if (Array.isArray(data.pages)) {
         setPages(
-          data.nodes.map((n: SearchNode) => ({ id: n.id, label: n.label })),
+          data.pages.map((p: { slug: string; title: string }) => ({
+            id: p.slug,
+            label: p.title,
+          })),
         );
       }
     } catch {

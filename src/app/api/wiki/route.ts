@@ -2,11 +2,28 @@ import { NextResponse } from "next/server";
 import {
   validateSlug,
   readWikiPage,
+  listWikiPages,
   serializeFrontmatter,
   writeWikiPageWithSideEffects,
   type Frontmatter,
 } from "@/lib/wiki";
 import { extractSummary } from "@/lib/ingest";
+
+/**
+ * GET /api/wiki
+ *
+ * Lightweight list of all wiki pages (slug, title, summary).
+ * Much cheaper than /api/wiki/graph which reads every page and builds a link graph.
+ */
+export async function GET() {
+  try {
+    const entries = await listWikiPages();
+    return NextResponse.json({ pages: entries });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
 
 /**
  * POST /api/wiki
