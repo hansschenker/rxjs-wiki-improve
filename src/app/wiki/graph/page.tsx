@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 interface GraphNode {
   id: string;
   label: string;
+  linkCount: number;
+  tags: string[];
   x: number;
   y: number;
   vx: number;
@@ -28,6 +30,8 @@ interface ColorPalette {
   node: string;
   nodeStroke: string;
   label: string;
+  tooltip: string;
+  tooltipBg: string;
 }
 
 const DARK_PALETTE: ColorPalette = {
@@ -36,6 +40,8 @@ const DARK_PALETTE: ColorPalette = {
   node: "#60a5fa",
   nodeStroke: "#93c5fd",
   label: "#e2e8f0",
+  tooltip: "#f1f5f9",
+  tooltipBg: "rgba(30, 41, 59, 0.92)",
 };
 
 const LIGHT_PALETTE: ColorPalette = {
@@ -44,6 +50,8 @@ const LIGHT_PALETTE: ColorPalette = {
   node: "#3b82f6",
   nodeStroke: "#2563eb",
   label: "#1e293b",
+  tooltip: "#1e293b",
+  tooltipBg: "rgba(248, 250, 252, 0.92)",
 };
 
 function getColorPalette(): ColorPalette {
@@ -57,13 +65,25 @@ const ATTRACTION = 0.005;
 const CENTER_GRAVITY = 0.01;
 const DAMPING = 0.9;
 const VELOCITY_THRESHOLD = 0.1;
-const NODE_RADIUS = 8;
+
+// Node sizing constants
+const BASE_RADIUS = 6;
+const RADIUS_SCALE = 4;
+const MIN_RADIUS = 6;
+const MAX_RADIUS = 24;
+
+function nodeRadius(linkCount: number): number {
+  const r = BASE_RADIUS + Math.sqrt(linkCount) * RADIUS_SCALE;
+  return Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, r));
+}
 
 export default function GraphPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dataRef = useRef<GraphData | null>(null);
   const animRef = useRef<number>(0);
   const paletteRef = useRef<ColorPalette>(DARK_PALETTE);
+  const hoveredRef = useRef<GraphNode | null>(null);
+  const mouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
@@ -73,23 +93,36 @@ export default function GraphPage() {
   useEffect(() => {
     fetch("/api/wiki/graph")
       .then((r) => r.json())
-      .then((raw: { nodes: { id: string; label: string }[]; edges: GraphEdge[] }) => {
-        if (!raw.nodes || raw.nodes.length === 0) {
-          setEmpty(true);
+      .then(
+        (raw: {
+          nodes: {
+            id: string;
+            label: string;
+            linkCount?: number;
+            tags?: string[];
+          }[];
+          edges: GraphEdge[];
+        }) => {
+          if (!raw.nodes || raw.nodes.length === 0) {
+            setEmpty(true);
+            setLoading(false);
+            return;
+          }
+          // Initialize positions randomly
+          const nodes: GraphNode[] = raw.nodes.map((n) => ({
+            id: n.id,
+            label: n.label,
+            linkCount: n.linkCount ?? 0,
+            tags: n.tags ?? [],
+            x: Math.random() * 400 + 100,
+            y: Math.random() * 300 + 100,
+            vx: 0,
+            vy: 0,
+          }));
+          dataRef.current = { nodes, edges: raw.edges ?? [] };
           setLoading(false);
-          return;
-        }
-        // Initialize positions randomly
-        const nodes: GraphNode[] = raw.nodes.map((n) => ({
-          ...n,
-          x: Math.random() * 400 + 100,
-          y: Math.random() * 300 + 100,
-          vx: 0,
-          vy: 0,
-        }));
-        dataRef.current = { nodes, edges: raw.edges ?? [] };
-        setLoading(false);
-      })
+        },
+      )
       .catch(() => {
         setEmpty(true);
         setLoading(false);
@@ -188,12 +221,14 @@ export default function GraphPage() {
     ctx.fillRect(0, 0, W, H);
 
     // Edges
-    ctx.strokeStyle = palette.edge;
-    ctx.lineWidth = 1;
     for (const edge of edges) {
       const a = nodeMap.get(edge.source);
       const b = nodeMap.get(edge.target);
       if (!a || !b) continue;
+      // Subtle thickness scaling based on combined connection count
+      const combinedLinks = (a.linkCount + b.linkCount) / 2;
+      ctx.strokeStyle = palette.edge;
+      ctx.lineWidth = Math.min(0.5 + combinedLinks * 0.15, 3);
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
@@ -201,20 +236,56 @@ export default function GraphPage() {
     }
 
     // Nodes
+    const hovered = hoveredRef.current;
     for (const n of nodes) {
+      const r = nodeRadius(n.linkCount);
       ctx.beginPath();
-      ctx.arc(n.x, n.y, NODE_RADIUS, 0, Math.PI * 2);
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
       ctx.fillStyle = palette.node;
       ctx.fill();
       ctx.strokeStyle = palette.nodeStroke;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = hovered?.id === n.id ? 2.5 : 1.5;
       ctx.stroke();
 
       // Label
       ctx.fillStyle = palette.label;
       ctx.font = "12px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(n.label, n.x, n.y - NODE_RADIUS - 4);
+      ctx.fillText(n.label, n.x, n.y - r - 4);
+    }
+
+    // Tooltip for hovered node
+    if (hovered) {
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+      const connText = `${hovered.linkCount} connection${hovered.linkCount !== 1 ? "s" : ""}`;
+      const tooltipText = `${hovered.label} — ${connText}`;
+      ctx.font = "13px sans-serif";
+      const metrics = ctx.measureText(tooltipText);
+      const tipW = metrics.width + 16;
+      const tipH = 28;
+      // Position tooltip near cursor, keeping it within canvas bounds
+      let tipX = mx + 14;
+      let tipY = my - tipH - 6;
+      if (tipX + tipW > W) tipX = mx - tipW - 6;
+      if (tipY < 0) tipY = my + 20;
+
+      // Background
+      ctx.fillStyle = palette.tooltipBg;
+      ctx.beginPath();
+      ctx.roundRect(tipX, tipY, tipW, tipH, 5);
+      ctx.fill();
+
+      // Border
+      ctx.strokeStyle = palette.edge;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Text
+      ctx.fillStyle = palette.tooltip;
+      ctx.font = "13px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(tooltipText, tipX + 8, tipY + 18);
     }
 
     // Continue or stop
@@ -247,6 +318,52 @@ export default function GraphPage() {
     return () => window.removeEventListener("resize", resizeCanvas);
   }, [loading]);
 
+  // Mousemove handler — hover detection, cursor change, tooltip trigger
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const data = dataRef.current;
+      const canvas = canvasRef.current;
+      if (!data || !canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      mouseRef.current = { x: mx, y: my };
+
+      let found: GraphNode | null = null;
+      for (const n of data.nodes) {
+        const r = nodeRadius(n.linkCount);
+        const dx = n.x - mx;
+        const dy = n.y - my;
+        if (dx * dx + dy * dy <= (r + 4) ** 2) {
+          found = n;
+          break;
+        }
+      }
+
+      const prev = hoveredRef.current;
+      hoveredRef.current = found;
+      canvas.style.cursor = found ? "pointer" : "default";
+
+      // If hover state changed, trigger a re-render even if simulation settled
+      if (prev?.id !== found?.id) {
+        cancelAnimationFrame(animRef.current);
+        animRef.current = requestAnimationFrame(simulate);
+      }
+    },
+    [simulate],
+  );
+
+  // Mouseleave — clear hover
+  const handleMouseLeave = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (hoveredRef.current) {
+      hoveredRef.current = null;
+      if (canvas) canvas.style.cursor = "default";
+      cancelAnimationFrame(animRef.current);
+      animRef.current = requestAnimationFrame(simulate);
+    }
+  }, [simulate]);
+
   // Click handler — navigate to clicked node
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -257,9 +374,10 @@ export default function GraphPage() {
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
       for (const n of data.nodes) {
+        const r = nodeRadius(n.linkCount);
         const dx = n.x - mx;
         const dy = n.y - my;
-        if (dx * dx + dy * dy <= (NODE_RADIUS + 4) ** 2) {
+        if (dx * dx + dy * dy <= (r + 4) ** 2) {
           router.push(`/wiki/${n.id}`);
           return;
         }
@@ -298,10 +416,15 @@ export default function GraphPage() {
         <canvas
           ref={canvasRef}
           onClick={handleClick}
-          className="block w-full cursor-pointer"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          className="block w-full"
           style={{ height: 560, backgroundColor: canvasBg }}
         />
       </div>
+      <p className="text-xs text-foreground/40 mt-2">
+        Node size reflects connection count.
+      </p>
     </main>
   );
 }
