@@ -135,7 +135,8 @@ Current checks performed by `lint()` in `src/lib/lint.ts`:
   link to a `## Related` section.
 - **`contradiction`** (warning) — LLM detects conflicting claims between pages
   in a cross-reference cluster (max 5 pages per cluster). Requires an LLM key.
-  No auto-fix yet.
+  Auto-fix: call the LLM to rewrite the first page, resolving the conflicting
+  claims while preserving content and structure.
 
 ## Provider configuration
 
@@ -169,9 +170,9 @@ sessions should pick from this list:
   via RRF. Batch rebuild of the full vector index is available via the Settings
   page (`/api/settings/rebuild-embeddings`).
   Anthropic-only users see no regression (pure BM25 fallback).
-- Lint auto-fix handles `missing-crossref`, `orphan-page`, `stale-index`, and
-  `empty-page` issues via `POST /api/lint/fix`. Contradiction auto-fix (which
-  would require LLM rewriting) is not yet supported.
+- Lint auto-fix handles all five checks (`orphan-page`, `stale-index`,
+  `empty-page`, `missing-crossref`, `contradiction`) via `POST /api/lint/fix`.
+  The `contradiction` fix uses the LLM to rewrite the affected page.
 - Long documents are chunked at ingest time (12K chars per chunk ≈ 3K
   tokens) so they fit within provider context windows. Token counting is
   character-based (not tokenizer-exact), which is conservative but not
