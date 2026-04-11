@@ -1,0 +1,2 @@
+Verdict: PASS
+Reason: All task requirements are correctly implemented — GlobalSearch component fetches from /api/wiki/graph with caching, filters client-side with case-insensitive substring match (max 8 results), supports keyboard shortcuts (/, Cmd+K/Ctrl+K, Escape, arrows, Enter), handles click-outside dismissal, has proper ARIA combobox attributes, mobile collapse/expand behavior, and is cleanly integrated into NavHeader between nav links and utility links with dividers on desktop and in the mobile dropdown menu.

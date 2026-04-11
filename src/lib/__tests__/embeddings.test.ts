@@ -19,6 +19,16 @@ vi.mock("../config", async () => {
   };
 });
 
+// Mock wiki module for rebuildVectorStore tests
+vi.mock("../wiki", async () => {
+  const actual = await vi.importActual<typeof import("../wiki")>("../wiki");
+  return {
+    ...actual,
+    listWikiPages: vi.fn(actual.listWikiPages),
+    readWikiPage: vi.fn(actual.readWikiPage),
+  };
+});
+
 import { embed, embedMany } from "ai";
 import {
   cosineSimilarity,
@@ -33,12 +43,16 @@ import {
   searchByVector,
   embedText,
   embedTexts,
+  rebuildVectorStore,
   type VectorStore,
 } from "../embeddings";
 import { loadConfigSync } from "../config";
+import { listWikiPages, readWikiPage } from "../wiki";
 
 // Cast for convenience
 const mockLoadConfigSync = loadConfigSync as ReturnType<typeof vi.fn>;
+const mockListWikiPages = listWikiPages as ReturnType<typeof vi.fn>;
+const mockReadWikiPage = readWikiPage as ReturnType<typeof vi.fn>;
 
 // ---------------------------------------------------------------------------
 // Env var save/restore — keep tests isolated
@@ -757,5 +771,206 @@ describe("config file fallback for embeddings", () => {
       const model = getEmbeddingModel();
       expect(model).not.toBeNull();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// rebuildVectorStore
+// ---------------------------------------------------------------------------
+
+describe("rebuildVectorStore", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "embeddings-rebuild-"));
+    process.env.WIKI_DIR = tmpDir;
+    process.env.OPENAI_API_KEY = "sk-test-key";
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("throws when no embedding provider is configured", async () => {
+    delete process.env.OPENAI_API_KEY;
+    mockLoadConfigSync.mockReturnValue({});
+
+    await expect(rebuildVectorStore()).rejects.toThrow(
+      /No embedding provider configured/,
+    );
+  });
+
+  it("creates a fresh store with all wiki pages embedded", async () => {
+    mockListWikiPages.mockResolvedValue([
+      { title: "Page A", slug: "page-a", summary: "Summary A" },
+      { title: "Page B", slug: "page-b", summary: "Summary B" },
+    ]);
+    mockReadWikiPage.mockImplementation(async (slug: string) => {
+      if (slug === "page-a") {
+        return { slug: "page-a", title: "Page A", content: "Content A", path: "/fake/page-a.md" };
+      }
+      if (slug === "page-b") {
+        return { slug: "page-b", title: "Page B", content: "Content B", path: "/fake/page-b.md" };
+      }
+      return null;
+    });
+
+    let callCount = 0;
+    mockEmbed.mockImplementation(async () => {
+      callCount++;
+      return { embedding: [0.1 * callCount, 0.2 * callCount] };
+    });
+
+    const result = await rebuildVectorStore();
+
+    expect(result.total).toBe(2);
+    expect(result.embedded).toBe(2);
+    expect(result.skipped).toBe(0);
+    expect(result.model).toBe("text-embedding-3-small");
+
+    const store = await loadVectorStore();
+    expect(store).not.toBeNull();
+    expect(store!.model).toBe("text-embedding-3-small");
+    expect(store!.entries).toHaveLength(2);
+    expect(store!.entries[0].slug).toBe("page-a");
+    expect(store!.entries[0].contentHash).toBe(contentHash("Content A"));
+    expect(store!.entries[1].slug).toBe("page-b");
+  });
+
+  it("skips pages with empty content", async () => {
+    mockListWikiPages.mockResolvedValue([
+      { title: "Good", slug: "good", summary: "Has content" },
+      { title: "Empty", slug: "empty", summary: "No content" },
+    ]);
+    mockReadWikiPage.mockImplementation(async (slug: string) => {
+      if (slug === "good") {
+        return { slug: "good", title: "Good", content: "Real content", path: "/fake/good.md" };
+      }
+      if (slug === "empty") {
+        return { slug: "empty", title: "Empty", content: "   ", path: "/fake/empty.md" };
+      }
+      return null;
+    });
+
+    mockEmbed.mockResolvedValue({ embedding: [0.5, 0.5] });
+
+    const result = await rebuildVectorStore();
+
+    expect(result.total).toBe(2);
+    expect(result.embedded).toBe(1);
+    expect(result.skipped).toBe(1);
+
+    const store = await loadVectorStore();
+    expect(store!.entries).toHaveLength(1);
+    expect(store!.entries[0].slug).toBe("good");
+  });
+
+  it("skips pages where readWikiPage returns null", async () => {
+    mockListWikiPages.mockResolvedValue([
+      { title: "Missing", slug: "missing", summary: "Not found" },
+    ]);
+    mockReadWikiPage.mockResolvedValue(null);
+
+    const result = await rebuildVectorStore();
+
+    expect(result.total).toBe(1);
+    expect(result.embedded).toBe(0);
+    expect(result.skipped).toBe(1);
+  });
+
+  it("replaces existing store completely", async () => {
+    // Pre-seed a store with old data
+    const oldStore: VectorStore = {
+      model: "old-model",
+      entries: [
+        { slug: "old-page", embedding: [1, 0], contentHash: "old" },
+      ],
+    };
+    await saveVectorStore(oldStore);
+
+    mockListWikiPages.mockResolvedValue([
+      { title: "New", slug: "new-page", summary: "Brand new" },
+    ]);
+    mockReadWikiPage.mockResolvedValue({
+      slug: "new-page",
+      title: "New",
+      content: "New content",
+      path: "/fake/new-page.md",
+    });
+    mockEmbed.mockResolvedValue({ embedding: [0.9, 0.1] });
+
+    const result = await rebuildVectorStore();
+
+    expect(result.embedded).toBe(1);
+
+    const store = await loadVectorStore();
+    expect(store!.model).toBe("text-embedding-3-small");
+    // Old entry should be gone
+    expect(store!.entries).toHaveLength(1);
+    expect(store!.entries[0].slug).toBe("new-page");
+  });
+
+  it("calls onProgress callback", async () => {
+    mockListWikiPages.mockResolvedValue([
+      { title: "A", slug: "a", summary: "A" },
+      { title: "B", slug: "b", summary: "B" },
+    ]);
+    mockReadWikiPage.mockImplementation(async (slug: string) => ({
+      slug,
+      title: slug.toUpperCase(),
+      content: `Content for ${slug}`,
+      path: `/fake/${slug}.md`,
+    }));
+    mockEmbed.mockResolvedValue({ embedding: [0.5, 0.5] });
+
+    const progress: Array<[number, number]> = [];
+    await rebuildVectorStore((done, total) => {
+      progress.push([done, total]);
+    });
+
+    expect(progress).toEqual([
+      [1, 2],
+      [2, 2],
+    ]);
+  });
+
+  it("handles empty wiki gracefully", async () => {
+    mockListWikiPages.mockResolvedValue([]);
+
+    const result = await rebuildVectorStore();
+
+    expect(result.total).toBe(0);
+    expect(result.embedded).toBe(0);
+    expect(result.skipped).toBe(0);
+
+    const store = await loadVectorStore();
+    expect(store).not.toBeNull();
+    expect(store!.entries).toHaveLength(0);
+  });
+
+  it("skips pages where embedding throws an error", async () => {
+    mockListWikiPages.mockResolvedValue([
+      { title: "Good", slug: "good", summary: "Works" },
+      { title: "Bad", slug: "bad", summary: "Fails" },
+    ]);
+    mockReadWikiPage.mockImplementation(async (slug: string) => ({
+      slug,
+      title: slug,
+      content: `Content for ${slug}`,
+      path: `/fake/${slug}.md`,
+    }));
+
+    let callIndex = 0;
+    mockEmbed.mockImplementation(async () => {
+      callIndex++;
+      if (callIndex === 2) throw new Error("API rate limit");
+      return { embedding: [0.5, 0.5] };
+    });
+
+    const result = await rebuildVectorStore();
+
+    expect(result.total).toBe(2);
+    expect(result.embedded).toBe(1);
+    expect(result.skipped).toBe(1);
   });
 });

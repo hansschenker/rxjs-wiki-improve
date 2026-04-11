@@ -6,7 +6,7 @@ import type { EmbeddingModel } from "ai";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import { getWikiDir } from "./wiki";
+import { getWikiDir, listWikiPages, readWikiPage } from "./wiki";
 import { loadConfigSync } from "./config";
 
 // ---------------------------------------------------------------------------
@@ -363,4 +363,78 @@ export async function searchByVector(
 
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, topK);
+}
+
+// ---------------------------------------------------------------------------
+// Full vector store rebuild
+// ---------------------------------------------------------------------------
+
+export interface RebuildResult {
+  total: number;
+  embedded: number;
+  skipped: number;
+  model: string;
+}
+
+/**
+ * Rebuild the entire vector store from scratch.
+ *
+ * Lists all wiki pages, embeds each page's content, and saves a completely
+ * new vector store — replacing whatever was on disk before.
+ *
+ * Throws if no embedding provider is configured.
+ *
+ * @param onProgress Optional callback invoked after each page is processed.
+ */
+export async function rebuildVectorStore(
+  onProgress?: (done: number, total: number) => void,
+): Promise<RebuildResult> {
+  const modelName = getEmbeddingModelName();
+  if (!modelName) {
+    throw new Error(
+      "No embedding provider configured. Set up OpenAI, Google, or Ollama in Settings.",
+    );
+  }
+
+  const entries = await listWikiPages();
+  const total = entries.length;
+
+  const store: VectorStore = { model: modelName, entries: [] };
+  let embedded = 0;
+  let skipped = 0;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const page = await readWikiPage(entry.slug);
+
+    if (!page || !page.content || page.content.trim().length === 0) {
+      skipped++;
+      onProgress?.(i + 1, total);
+      continue;
+    }
+
+    try {
+      const embedding = await embedText(page.content);
+      if (!embedding) {
+        skipped++;
+        onProgress?.(i + 1, total);
+        continue;
+      }
+
+      store.entries.push({
+        slug: entry.slug,
+        embedding,
+        contentHash: contentHash(page.content),
+      });
+      embedded++;
+    } catch {
+      skipped++;
+    }
+
+    onProgress?.(i + 1, total);
+  }
+
+  await saveVectorStore(store);
+
+  return { total, embedded, skipped, model: modelName };
 }

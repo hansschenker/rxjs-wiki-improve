@@ -98,6 +98,11 @@ export default function SettingsPage() {
     ok: boolean;
     message: string;
   } | null>(null);
+  const [rebuilding, setRebuilding] = useState(false);
+  const [rebuildResult, setRebuildResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   // ------------------------------------------
   // Fetch settings & status
@@ -255,6 +260,42 @@ export default function SettingsPage() {
       });
     } finally {
       setTesting(false);
+    }
+  }
+
+  // ------------------------------------------
+  // Rebuild vector index
+  // ------------------------------------------
+
+  async function handleRebuildEmbeddings() {
+    setRebuilding(true);
+    setRebuildResult(null);
+
+    try {
+      const res = await fetch("/api/settings/rebuild-embeddings", {
+        method: "POST",
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setRebuildResult({
+          ok: false,
+          message: data.error ?? "Rebuild failed",
+        });
+      } else {
+        setRebuildResult({
+          ok: true,
+          message: `Rebuilt: ${data.embedded} page${data.embedded !== 1 ? "s" : ""} embedded using ${data.model}${data.skipped > 0 ? ` (${data.skipped} skipped)` : ""}`,
+        });
+      }
+    } catch (err) {
+      setRebuildResult({
+        ok: false,
+        message:
+          err instanceof Error ? err.message : "Failed to rebuild vector index",
+      });
+    } finally {
+      setRebuilding(false);
     }
   }
 
@@ -492,6 +533,37 @@ export default function SettingsPage() {
             Embeddings are supported with OpenAI and Google providers. Leave
             empty to use the provider default.
           </p>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleRebuildEmbeddings}
+              disabled={rebuilding}
+              className="rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:bg-foreground/5 disabled:opacity-50"
+            >
+              {rebuilding ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Rebuilding…
+                </span>
+              ) : (
+                "Rebuild Vector Index"
+              )}
+            </button>
+          </div>
+          {rebuildResult && (
+            <div
+              className={`mt-2 rounded-lg border p-3 text-sm ${
+                rebuildResult.ok
+                  ? "border-green-500/20 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                  : "border-red-500/20 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+              }`}
+            >
+              {rebuildResult.message}
+            </div>
+          )}
         </div>
 
         {/* Action buttons */}
