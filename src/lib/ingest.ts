@@ -137,12 +137,27 @@ export function extractWithReadability(
   }
 }
 
+// MIME types that fetchUrlContent will accept. Anything outside this list
+// (e.g. application/pdf, image/png) is rejected early to avoid feeding binary
+// garbage into the HTML-parsing pipeline.
+const ALLOWED_CONTENT_TYPES = [
+  "text/html",
+  "application/xhtml+xml",
+  "text/plain",
+  "text/markdown",
+  "application/xml",
+  "text/xml",
+];
+
 /**
  * Fetch a URL and extract its text content and title.
  *
  * Uses @mozilla/readability + linkedom for robust HTML-to-text extraction.
  * Falls back to regex-based `stripHtml()` when Readability can't parse the page.
  * Applies a 15-second timeout and a 5 MB response size limit for safety.
+ *
+ * For `text/plain` and `text/markdown` responses the raw text is returned
+ * directly (no HTML parsing).
  */
 export async function fetchUrlContent(
   url: string,
@@ -161,6 +176,19 @@ export async function fetchUrlContent(
     );
   }
 
+  // ---------- Content-Type validation ----------
+  const rawContentType = response.headers.get("content-type");
+  // Extract the MIME type (before any ";charset=..." parameters)
+  const mimeType = rawContentType
+    ? rawContentType.split(";")[0].trim().toLowerCase()
+    : null;
+
+  if (mimeType && !ALLOWED_CONTENT_TYPES.includes(mimeType)) {
+    throw new Error(
+      `Unsupported content type: ${mimeType}. Only HTML and text content can be ingested.`,
+    );
+  }
+
   // Check Content-Length header before reading body
   const contentLength = response.headers.get("content-length");
   if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
@@ -169,27 +197,33 @@ export async function fetchUrlContent(
     );
   }
 
-  const html = await response.text();
+  const body = await response.text();
 
   // Check actual body size after reading
-  if (html.length > MAX_RESPONSE_SIZE) {
+  if (body.length > MAX_RESPONSE_SIZE) {
     throw new Error(
-      `Content too large: ${html.length} chars (max ${MAX_RESPONSE_SIZE})`,
+      `Content too large: ${body.length} chars (max ${MAX_RESPONSE_SIZE})`,
     );
   }
 
   let title: string;
   let content: string;
 
-  // Try Readability first for proper article extraction
-  const article = extractWithReadability(html);
-  if (article) {
-    title = article.title || extractTitle(html) || new URL(url).hostname;
-    content = article.textContent;
+  // For plain-text and markdown responses, skip the HTML parsing path entirely
+  if (mimeType === "text/plain" || mimeType === "text/markdown") {
+    title = new URL(url).hostname;
+    content = body.trim();
   } else {
-    // Fallback to regex-based stripping for non-article pages
-    title = extractTitle(html) || new URL(url).hostname;
-    content = stripHtml(html);
+    // HTML / XHTML / XML path — try Readability first for proper article extraction
+    const article = extractWithReadability(body);
+    if (article) {
+      title = article.title || extractTitle(body) || new URL(url).hostname;
+      content = article.textContent;
+    } else {
+      // Fallback to regex-based stripping for non-article pages
+      title = extractTitle(body) || new URL(url).hostname;
+      content = stripHtml(body);
+    }
   }
 
   if (!content) {

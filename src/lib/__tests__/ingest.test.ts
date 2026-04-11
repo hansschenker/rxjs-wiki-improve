@@ -765,6 +765,111 @@ describe("fetchUrlContent", () => {
       global.fetch = originalFetch;
     }
   });
+
+  it("throws on unsupported content type (application/pdf)", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: mockHeaders({ "content-type": "application/pdf" }),
+      text: () => Promise.resolve("binary garbage"),
+    });
+
+    try {
+      await expect(
+        fetchUrlContent("https://example.com/doc.pdf"),
+      ).rejects.toThrow("Unsupported content type");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("throws on unsupported content type (image/png)", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: mockHeaders({ "content-type": "image/png" }),
+      text: () => Promise.resolve("binary garbage"),
+    });
+
+    try {
+      await expect(
+        fetchUrlContent("https://example.com/image.png"),
+      ).rejects.toThrow("Unsupported content type");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("returns raw text for text/plain content type (no HTML parsing)", async () => {
+    const originalFetch = global.fetch;
+    const plainText = "This is plain text content.\nSecond line of text.";
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: mockHeaders({ "content-type": "text/plain; charset=utf-8" }),
+      text: () => Promise.resolve(plainText),
+    });
+
+    try {
+      const result = await fetchUrlContent("https://example.com/readme.txt");
+      expect(result.title).toBe("example.com");
+      expect(result.content).toBe(plainText);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("returns raw text for text/markdown content type", async () => {
+    const originalFetch = global.fetch;
+    const markdown = "# Hello\n\nSome **bold** text.";
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: mockHeaders({ "content-type": "text/markdown" }),
+      text: () => Promise.resolve(markdown),
+    });
+
+    try {
+      const result = await fetchUrlContent("https://example.com/doc.md");
+      expect(result.title).toBe("example.com");
+      expect(result.content).toBe(markdown);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("proceeds with HTML parsing when Content-Type header is absent", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: mockHeaders(), // no content-type
+      text: () => Promise.resolve(sampleHtml),
+    });
+
+    try {
+      const result = await fetchUrlContent("https://example.com/article");
+      // Should still parse HTML successfully
+      expect(result.title).toBe("Test Article");
+      expect(result.content).toContain("main article content");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("handles content-type with charset parameter correctly", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: mockHeaders({ "content-type": "text/html; charset=utf-8" }),
+      text: () => Promise.resolve(sampleHtml),
+    });
+
+    try {
+      const result = await fetchUrlContent("https://example.com/article");
+      expect(result.title).toBe("Test Article");
+      expect(result.content).toContain("main article content");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
