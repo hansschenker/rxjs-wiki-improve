@@ -1,5 +1,9 @@
 # Growth Journal
 
+## 2026-04-11 08:35 — Error boundaries, centralized constants, and API bug fixes
+
+Added sub-route error boundaries to key pages (ingest, query, settings, wiki detail) so failures in nested routes get caught locally instead of bubbling up to the global fallback, then swept scattered magic numbers (BM25 tuning params, fetch timeouts, context limits, batch sizes) into a shared `constants.ts` module so they're tunable from one place. Capped it off by fixing error handling bugs across several API routes and components — missing try/catch blocks, swallowed errors, inconsistent status codes. Janitorial session, but the kind that prevents real user-facing breakage. Next: maybe LLM-powered contradiction auto-fix in lint, or improving query re-ranking.
+
 ## 2026-04-11 05:22 — Vector store rebuild, global search, and graph view enrichment
 
 Added a `/api/settings/rebuild-embeddings` endpoint with a UI trigger in settings so users can regenerate their entire vector store on demand instead of being stuck with stale embeddings, then built a global search bar into the NavHeader that filters wiki pages as you type from anywhere in the app. Capped it off by enriching the graph view with node sizing proportional to connection count, hover tooltips showing page titles and link counts, and visual weight on highly-connected nodes. Satisfying session — each commit made an existing feature more usable rather than adding net-new surface area. Next: maybe LLM-powered contradiction auto-fix in lint, or improving query with re-ranking.
