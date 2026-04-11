@@ -1,5 +1,9 @@
 # Growth Journal
 
+## 2026-04-11 20:24 — Content-Type validation, lightweight wiki list, and vector store locking
+
+Added Content-Type validation on URL fetch so ingest rejects non-text responses (PDFs, images, etc.) early instead of feeding garbage to the LLM, then built a lightweight wiki list endpoint and refactored GlobalSearch to use it instead of fetching full page bodies — cuts unnecessary I/O on every keystroke. Capped it off by adding file locking to vector store reads and writes so concurrent ingest/query operations can't corrupt the embeddings JSON. Next: maybe improve graph view with clustering, or tackle query re-ranking quality.
+
 ## 2026-04-11 16:29 — Streaming retry resilience, backlinks UI, and schema housekeeping
 
 Added a pre-stream retry wrapper to `callLLMStream` so streaming responses get the same exponential backoff resilience that non-streaming calls already had, then built a "What links here" backlinks section into wiki page views so users can see inbound references without jumping to the graph. Capped it off by updating SCHEMA.md to document the contradiction auto-fix that landed last session — the schema had drifted again. Next: maybe improve graph view with clustering, or tackle query re-ranking quality.
