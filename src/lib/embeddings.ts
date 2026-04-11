@@ -8,6 +8,7 @@ import path from "path";
 import crypto from "crypto";
 import { getWikiDir, listWikiPages, readWikiPage } from "./wiki";
 import { loadConfigSync } from "./config";
+import { withFileLock } from "./lock";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -252,55 +253,59 @@ export async function upsertEmbedding(
   slug: string,
   content: string,
 ): Promise<void> {
-  const modelName = getEmbeddingModelName();
-  if (!modelName) return; // No embedding support
+  return withFileLock("vectors", async () => {
+    const modelName = getEmbeddingModelName();
+    if (!modelName) return; // No embedding support
 
-  const hash = contentHash(content);
-  let store = await loadVectorStore();
+    const hash = contentHash(content);
+    let store = await loadVectorStore();
 
-  // Model migration: if the stored model doesn't match, start fresh.
-  if (store && store.model !== modelName) {
-    store = { model: modelName, entries: [] };
-  }
+    // Model migration: if the stored model doesn't match, start fresh.
+    if (store && store.model !== modelName) {
+      store = { model: modelName, entries: [] };
+    }
 
-  if (!store) {
-    store = { model: modelName, entries: [] };
-  }
+    if (!store) {
+      store = { model: modelName, entries: [] };
+    }
 
-  // Check if already up-to-date
-  const existing = store.entries.find((e) => e.slug === slug);
-  if (existing && existing.contentHash === hash) {
-    return; // Already embedded with same content
-  }
+    // Check if already up-to-date
+    const existing = store.entries.find((e) => e.slug === slug);
+    if (existing && existing.contentHash === hash) {
+      return; // Already embedded with same content
+    }
 
-  // Embed the content
-  const embedding = await embedText(content);
-  if (!embedding) return;
+    // Embed the content
+    const embedding = await embedText(content);
+    if (!embedding) return;
 
-  // Upsert
-  if (existing) {
-    existing.embedding = embedding;
-    existing.contentHash = hash;
-  } else {
-    store.entries.push({ slug, embedding, contentHash: hash });
-  }
+    // Upsert
+    if (existing) {
+      existing.embedding = embedding;
+      existing.contentHash = hash;
+    } else {
+      store.entries.push({ slug, embedding, contentHash: hash });
+    }
 
-  await saveVectorStore(store);
+    await saveVectorStore(store);
+  });
 }
 
 /**
  * Remove a slug's embedding from the vector store.
  */
 export async function removeEmbedding(slug: string): Promise<void> {
-  const store = await loadVectorStore();
-  if (!store) return;
+  return withFileLock("vectors", async () => {
+    const store = await loadVectorStore();
+    if (!store) return;
 
-  const before = store.entries.length;
-  store.entries = store.entries.filter((e) => e.slug !== slug);
+    const before = store.entries.length;
+    store.entries = store.entries.filter((e) => e.slug !== slug);
 
-  if (store.entries.length !== before) {
-    await saveVectorStore(store);
-  }
+    if (store.entries.length !== before) {
+      await saveVectorStore(store);
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -434,7 +439,9 @@ export async function rebuildVectorStore(
     onProgress?.(i + 1, total);
   }
 
-  await saveVectorStore(store);
+  await withFileLock("vectors", async () => {
+    await saveVectorStore(store);
+  });
 
   return { total, embedded, skipped, model: modelName };
 }

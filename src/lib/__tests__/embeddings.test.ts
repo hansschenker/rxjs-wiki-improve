@@ -487,6 +487,23 @@ describe("upsertEmbedding", () => {
     expect(loaded).toBeNull();
     expect(mockEmbed).not.toHaveBeenCalled();
   });
+
+  it("concurrent upserts don't clobber each other", async () => {
+    process.env.OPENAI_API_KEY = "sk-test-concurrent";
+
+    mockEmbed.mockResolvedValue({ embedding: [0.5, 0.5] });
+
+    // Fire two upserts concurrently with different slugs
+    await Promise.all([
+      upsertEmbedding("page-alpha", "content alpha"),
+      upsertEmbedding("page-beta", "content beta"),
+    ]);
+
+    const loaded = await loadVectorStore();
+    expect(loaded).not.toBeNull();
+    const slugs = loaded!.entries.map((e) => e.slug).sort();
+    expect(slugs).toEqual(["page-alpha", "page-beta"]);
+  });
 });
 
 // ---------------------------------------------------------------------------
