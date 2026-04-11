@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { GlobalSearch } from "./GlobalSearch";
 
 const navLinks = [
   { href: "/wiki", label: "Browse" },
@@ -75,6 +76,12 @@ export function NavHeader() {
               </li>
             );
           })}
+
+          {/* Search */}
+          <li className="mx-1 h-4 w-px bg-foreground/10" aria-hidden="true" />
+          <li>
+            <GlobalSearch />
+          </li>
 
           {/* Divider + utility links */}
           <li className="mx-1 h-4 w-px bg-foreground/10" aria-hidden="true" />
@@ -157,6 +164,11 @@ export function NavHeader() {
       {/* Mobile dropdown menu */}
       {mobileOpen && (
         <div className="sm:hidden absolute top-14 left-0 right-0 bg-background border-b border-foreground/10 py-2 z-50">
+          {/* Mobile search */}
+          <div className="px-4 pb-2">
+            <GlobalSearch />
+          </div>
+
           {navLinks.map(({ href, label }) => {
             const isActive = href === activeHref;
 
