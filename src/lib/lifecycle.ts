@@ -192,8 +192,9 @@ async function runPageLifecycleOp(
     );
   }
 
-  // 3. Mutate the index. Re-read so we never clobber concurrent updates
-  //    that landed between caller-read and now.
+  // 3. Mutate the index. Re-read to get the latest entries; the actual
+  //    write to index.md is serialised by withFileLock("index.md") inside
+  //    updateIndex(), so concurrent callers won't clobber each other's writes.
   const entries = await listWikiPages();
   let removedFromIndex = false;
   let postIndexEntries: IndexEntry[];

@@ -1,0 +1,2 @@
+Verdict: PASS
+Reason: Implementation matches all task requirements: three constants added to constants.ts, `isRetryableError` and `retryWithBackoff` exported from llm.ts with correct exponential backoff logic (jitter, maxMs cap, non-retryable short-circuit), `callLLM` wraps `generateText` in retry, `callLLMStream` has TODO comment without retry, and comprehensive tests cover all specified scenarios. Build and tests pass.

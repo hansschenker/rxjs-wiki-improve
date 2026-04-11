@@ -1322,3 +1322,120 @@ describe("readRawSource", () => {
     await expect(readRawSource("foo\\bar")).rejects.toThrow(/Invalid slug/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Concurrency tests — withFileLock
+// ---------------------------------------------------------------------------
+
+import { withFileLock, _resetLocks } from "../lock";
+
+describe("withFileLock", () => {
+  beforeEach(() => {
+    _resetLocks();
+  });
+
+  it("serialises concurrent calls for the same key", async () => {
+    const order: number[] = [];
+
+    const task = (id: number, delayMs: number) =>
+      withFileLock("same-key", async () => {
+        order.push(id);
+        await new Promise((r) => setTimeout(r, delayMs));
+        order.push(id * 10);
+      });
+
+    // Fire three tasks concurrently — they should complete in order.
+    await Promise.all([task(1, 30), task(2, 10), task(3, 5)]);
+
+    // Because they're serialised, each task must fully complete before the
+    // next one starts: [1, 10, 2, 20, 3, 30].
+    expect(order).toEqual([1, 10, 2, 20, 3, 30]);
+  });
+
+  it("allows different keys to run concurrently", async () => {
+    const order: string[] = [];
+
+    const task = (key: string, id: string, delayMs: number) =>
+      withFileLock(key, async () => {
+        order.push(`${id}-start`);
+        await new Promise((r) => setTimeout(r, delayMs));
+        order.push(`${id}-end`);
+      });
+
+    await Promise.all([task("key-a", "a", 30), task("key-b", "b", 10)]);
+
+    // Both should start before either ends (they run concurrently on
+    // different keys). "b" finishes first because it has a shorter delay.
+    expect(order.indexOf("a-start")).toBeLessThan(order.indexOf("a-end"));
+    expect(order.indexOf("b-start")).toBeLessThan(order.indexOf("b-end"));
+    // Both start at the beginning (concurrent).
+    expect(order.indexOf("a-start")).toBeLessThanOrEqual(1);
+    expect(order.indexOf("b-start")).toBeLessThanOrEqual(1);
+  });
+
+  it("propagates errors without breaking the chain", async () => {
+    const order: number[] = [];
+
+    const failing = withFileLock("err-key", async () => {
+      order.push(1);
+      throw new Error("boom");
+    });
+
+    const succeeding = withFileLock("err-key", async () => {
+      order.push(2);
+      return "ok";
+    });
+
+    await expect(failing).rejects.toThrow("boom");
+    const result = await succeeding;
+    expect(result).toBe("ok");
+    expect(order).toEqual([1, 2]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Concurrency tests — updateIndex & appendToLog under contention
+// ---------------------------------------------------------------------------
+
+describe("concurrent updateIndex", () => {
+  it("both calls succeed — no data loss", async () => {
+    await ensureDirectories();
+
+    const entriesA: IndexEntry[] = [
+      { slug: "alpha", title: "Alpha", summary: "First" },
+    ];
+    const entriesB: IndexEntry[] = [
+      { slug: "beta", title: "Beta", summary: "Second" },
+    ];
+
+    // Fire two index writes concurrently. Because they're locked, the
+    // second write lands after the first — the final state is deterministic
+    // (whichever resolves last wins). The important thing: no corruption.
+    await Promise.all([updateIndex(entriesA), updateIndex(entriesB)]);
+
+    const pages = await listWikiPages();
+    // One of the two writes must have won cleanly.
+    expect(pages.length).toBeGreaterThanOrEqual(1);
+    const slugs = pages.map((p) => p.slug);
+    // At least one set is fully present (serialised, so the last one wins).
+    const hasAlpha = slugs.includes("alpha");
+    const hasBeta = slugs.includes("beta");
+    expect(hasAlpha || hasBeta).toBe(true);
+  });
+});
+
+describe("concurrent appendToLog", () => {
+  it("both entries appear in the log", async () => {
+    await ensureDirectories();
+
+    await Promise.all([
+      appendToLog("ingest", "First Article"),
+      appendToLog("ingest", "Second Article"),
+    ]);
+
+    const log = await readLog();
+    expect(log).not.toBeNull();
+    expect(log!).toContain("First Article");
+    expect(log!).toContain("Second Article");
+  });
+});

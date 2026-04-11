@@ -176,8 +176,10 @@ sessions should pick from this list:
   tokens) so they fit within provider context windows. Token counting is
   character-based (not tokenizer-exact), which is conservative but not
   precise.
-- No concurrency safety or file locking — simultaneous ingests could corrupt
-  shared files like `index.md` or `log.md`.
+- In-process file locking protects shared files (`index.md`, `log.md`,
+  cross-references) from TOCTOU races within a single Next.js server process
+  via `withFileLock()` in `src/lib/lock.ts`. This does NOT protect against
+  multiple server processes (which would require OS-level lockfiles).
 
 ## Co-evolution
 

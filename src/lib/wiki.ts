@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import type { WikiPage, IndexEntry } from "./types";
 import { callLLM, hasLLMKey } from "./llm";
+import { withFileLock } from "./lock";
 
 // ---------------------------------------------------------------------------
 // Configurable base directories — override via env vars for testing
@@ -218,13 +219,15 @@ export async function listWikiPages(): Promise<IndexEntry[]> {
  * ```
  */
 export async function updateIndex(entries: IndexEntry[]): Promise<void> {
-  await ensureDirectories();
-  const lines = entries.map(
-    (e) => `- [${e.title}](${e.slug}.md) — ${e.summary}`,
-  );
-  const content = `# Wiki Index\n\n${lines.join("\n")}\n`;
-  const indexPath = path.join(getWikiDir(), "index.md");
-  await fs.writeFile(indexPath, content, "utf-8");
+  await withFileLock("index.md", async () => {
+    await ensureDirectories();
+    const lines = entries.map(
+      (e) => `- [${e.title}](${e.slug}.md) — ${e.summary}`,
+    );
+    const content = `# Wiki Index\n\n${lines.join("\n")}\n`;
+    const indexPath = path.join(getWikiDir(), "index.md");
+    await fs.writeFile(indexPath, content, "utf-8");
+  });
 }
 
 // Re-export raw source utilities for backward compatibility
@@ -286,16 +289,18 @@ export async function appendToLog(
     throw new Error("Invalid log title: must be a non-empty string");
   }
 
-  await ensureDirectories();
-  const logPath = path.join(getWikiDir(), "log.md");
-  const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const heading = `## [${date}] ${operation} | ${title.trim()}`;
+  await withFileLock("log.md", async () => {
+    await ensureDirectories();
+    const logPath = path.join(getWikiDir(), "log.md");
+    const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const heading = `## [${date}] ${operation} | ${title.trim()}`;
 
-  let block = `${heading}\n\n`;
-  if (details && details.trim().length > 0) {
-    block += `${details.trim()}\n\n`;
-  }
-  await fs.appendFile(logPath, block, "utf-8");
+    let block = `${heading}\n\n`;
+    if (details && details.trim().length > 0) {
+      block += `${details.trim()}\n\n`;
+    }
+    await fs.appendFile(logPath, block, "utf-8");
+  });
 }
 
 /** Read the contents of `wiki/log.md`. Returns `null` if the file doesn't exist. */
@@ -380,38 +385,40 @@ export async function updateRelatedPages(
   newTitle: string,
   relatedSlugs: string[],
 ): Promise<string[]> {
-  const updatedSlugs: string[] = [];
+  return withFileLock("cross-ref", async () => {
+    const updatedSlugs: string[] = [];
 
-  for (const slug of relatedSlugs) {
-    const page = await readWikiPage(slug);
-    if (!page) continue;
+    for (const slug of relatedSlugs) {
+      const page = await readWikiPage(slug);
+      if (!page) continue;
 
-    // Skip if already links to the new page
-    if (page.content.includes(`${newSlug}.md`)) continue;
+      // Skip if already links to the new page
+      if (page.content.includes(`${newSlug}.md`)) continue;
 
-    const link = `[${newTitle}](${newSlug}.md)`;
-    let updatedContent: string;
+      const link = `[${newTitle}](${newSlug}.md)`;
+      let updatedContent: string;
 
-    // Check if there's already a "See also" section
-    const seeAlsoPattern = /^(\*\*See also:\*\*.*)$/m;
-    const seeAlsoMatch = page.content.match(seeAlsoPattern);
+      // Check if there's already a "See also" section
+      const seeAlsoPattern = /^(\*\*See also:\*\*.*)$/m;
+      const seeAlsoMatch = page.content.match(seeAlsoPattern);
 
-    if (seeAlsoMatch) {
-      // Append to existing "See also" line
-      updatedContent = page.content.replace(
-        seeAlsoPattern,
-        `${seeAlsoMatch[1]}, ${link}`,
-      );
-    } else {
-      // Add a new "See also" section at the end
-      updatedContent = `${page.content.trimEnd()}\n\n**See also:** ${link}\n`;
+      if (seeAlsoMatch) {
+        // Append to existing "See also" line
+        updatedContent = page.content.replace(
+          seeAlsoPattern,
+          `${seeAlsoMatch[1]}, ${link}`,
+        );
+      } else {
+        // Add a new "See also" section at the end
+        updatedContent = `${page.content.trimEnd()}\n\n**See also:** ${link}\n`;
+      }
+
+      await writeWikiPage(slug, updatedContent);
+      updatedSlugs.push(slug);
     }
 
-    await writeWikiPage(slug, updatedContent);
-    updatedSlugs.push(slug);
-  }
-
-  return updatedSlugs;
+    return updatedSlugs;
+  });
 }
 
 // ---------------------------------------------------------------------------
