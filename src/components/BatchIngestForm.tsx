@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useState, useCallback } from "react";
-
-const MAX_URLS = 20;
+import { MAX_BATCH_URLS } from "@/lib/constants";
 
 interface BatchItem {
   url: string;
@@ -27,8 +26,8 @@ export function BatchIngestForm() {
 
   const validateUrls = useCallback((urls: string[]): string | null => {
     if (urls.length === 0) return "Please enter at least one URL.";
-    if (urls.length > MAX_URLS)
-      return `Too many URLs. Maximum is ${MAX_URLS}, got ${urls.length}.`;
+    if (urls.length > MAX_BATCH_URLS)
+      return `Too many URLs. Maximum is ${MAX_BATCH_URLS}, got ${urls.length}.`;
     const invalid: string[] = [];
     for (const u of urls) {
       try {
@@ -214,7 +213,7 @@ export function BatchIngestForm() {
               className="w-full rounded-lg border border-foreground/20 bg-transparent px-4 py-2.5 text-sm placeholder:text-foreground/40 focus:border-foreground/50 focus:outline-none transition-colors resize-y font-mono"
             />
             <p className="mt-2 text-xs text-foreground/40">
-              Paste up to {MAX_URLS} URLs, one per line. They will be processed
+              Paste up to {MAX_BATCH_URLS} URLs, one per line. They will be processed
               sequentially with progress updates.
             </p>
           </div>

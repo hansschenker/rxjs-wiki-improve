@@ -13,6 +13,12 @@ import { callLLM, hasLLMKey } from "./llm";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import type { IngestResult } from "./types";
+import {
+  MAX_RESPONSE_SIZE,
+  MAX_CONTENT_LENGTH,
+  FETCH_TIMEOUT_MS,
+  MAX_LLM_INPUT_CHARS,
+} from "./constants";
 
 // Re-exported so existing imports (and the test suite) keep working after we
 // moved the cross-ref helpers into wiki.ts to avoid a circular dependency
@@ -105,15 +111,6 @@ export function extractTitle(html: string): string {
   // Strip any inner tags and collapse whitespace
   return match[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 }
-
-/** Maximum response body size in bytes (5 MB). */
-const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
-
-/** Maximum extracted text content length passed downstream (100 K chars). */
-const MAX_CONTENT_LENGTH = 100_000;
-
-/** Fetch timeout in milliseconds (15 seconds). */
-const FETCH_TIMEOUT_MS = 15_000;
 
 /**
  * Extract article content from HTML using @mozilla/readability + linkedom.
@@ -290,14 +287,8 @@ export function extractSummary(content: string, maxLen = 200): string {
 // Content chunking
 // ---------------------------------------------------------------------------
 
-/**
- * Maximum number of characters to send to the LLM in a single call.
- *
- * 12,000 chars ≈ 3,000 tokens — conservative enough for all providers and
- * leaves ample room for the system prompt and output tokens within even the
- * smallest context windows (8K tokens).
- */
-export const MAX_LLM_INPUT_CHARS = 12_000;
+// Re-export so existing consumers (tests, etc.) can keep importing from here.
+export { MAX_LLM_INPUT_CHARS } from "./constants";
 
 /**
  * Split text into chunks of at most `maxChars` characters.

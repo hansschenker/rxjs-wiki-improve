@@ -8,13 +8,16 @@ import { slugify, loadPageConventions, extractSummary } from "./ingest";
 import { extractCitedSlugs } from "./citations";
 import { searchByVector } from "./embeddings";
 import type { IndexEntry, QueryResult } from "./types";
+import {
+  MAX_CONTEXT_PAGES,
+  BM25_K1,
+  BM25_B,
+  RRF_K,
+} from "./constants";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-/** Maximum number of pages to include in context for large wikis. */
-const MAX_CONTEXT_PAGES = 10;
 
 /** If the wiki has this many or fewer pages, load all of them (no filtering). */
 const SMALL_WIKI_THRESHOLD = 5;
@@ -68,11 +71,6 @@ function tokenize(text: string): string[] {
     .split(/[^a-z0-9]+/)
     .filter((w) => w.length >= 2 && !STOP_WORDS.has(w));
 }
-
-/** BM25 term-frequency saturation parameter. Standard default is 1.2–2.0. */
-const BM25_K1 = 1.5;
-/** BM25 length-normalization parameter. Standard default is 0.75. */
-const BM25_B = 0.75;
 
 /**
  * Precomputed corpus statistics needed to evaluate BM25 against a set of
@@ -202,9 +200,6 @@ export function bm25Score(
 // ---------------------------------------------------------------------------
 // Reciprocal Rank Fusion (RRF)
 // ---------------------------------------------------------------------------
-
-/** Standard RRF constant — dampens the influence of high-rank positions. */
-const RRF_K = 60;
 
 /**
  * Combine two ranked result lists using Reciprocal Rank Fusion.

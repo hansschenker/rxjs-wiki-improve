@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingestUrl, isUrl } from "@/lib/ingest";
-
-const MAX_BATCH_SIZE = 20;
+import { MAX_BATCH_URLS } from "@/lib/constants";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,9 +15,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (urls.length > MAX_BATCH_SIZE) {
+    if (urls.length > MAX_BATCH_URLS) {
       return NextResponse.json(
-        { error: `Too many URLs. Maximum batch size is ${MAX_BATCH_SIZE}.` },
+        { error: `Too many URLs. Maximum batch size is ${MAX_BATCH_URLS}.` },
         { status: 400 },
       );
     }
