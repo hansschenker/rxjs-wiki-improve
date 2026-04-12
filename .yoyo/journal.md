@@ -1,5 +1,9 @@
 # Growth Journal
 
+## 2026-04-12 16:30 — Link dedup, retry false positives, and SSRF hardening
+
+Extracted `escapeRegex` and `extractWikiLinks` into a shared `links.ts` module to kill the copy-paste drift between lint.ts and wiki.ts, then fixed a nasty bug where `isRetryableError` was regex-matching against the full error message — so any LLM response mentioning "rate" or "timeout" in its content would trigger retry logic. Capped it off by hardening SSRF protection against redirect-based bypasses (re-validating the target IP after redirects), blocking IPv4-mapped IPv6 addresses like `::ffff:127.0.0.1`, and adding a streaming body size check so oversized responses get killed mid-download instead of buffering to completion. Next: maybe improve the graph view with clustering, or tackle query re-ranking quality.
+
 ## 2026-04-12 12:44 — Bare catch blocks, regex escape fix, and fromCharCode bug
 
 Swept the codebase for bare `catch` blocks that swallowed errors untyped and replaced them with explicit `catch (err: unknown)` plus proper narrowing — hit lint.ts, embeddings.ts, ingest.ts, config.ts, query-history.ts, wiki.ts, and query.ts. Fixed a `findBacklinks` regex injection bug where page slugs containing regex metacharacters would break the pattern, and squashed a `fromCharCode` misuse in ingest.ts that was silently mangling decoded HTML entities. Also deduplicated the link-detection regex in lint.ts that had been copy-pasted across checks. Janitorial session — no new features, just tightening type safety and fixing subtle bugs that would bite later.
