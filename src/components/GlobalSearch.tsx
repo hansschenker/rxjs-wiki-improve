@@ -25,9 +25,16 @@ export function GlobalSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFetchRef = useRef<number>(0);
 
-  // Fetch page list for title matching — refresh on every open
+  const PAGES_CACHE_MS = 5000;
+
+  // Fetch page list for title matching — cached with staleness guard
   const fetchPages = useCallback(async () => {
+    const now = Date.now();
+    if (pages.length > 0 && now - lastFetchRef.current < PAGES_CACHE_MS) {
+      return;
+    }
     try {
       const res = await fetch("/api/wiki");
       if (!res.ok) return;
@@ -39,11 +46,12 @@ export function GlobalSearch() {
             label: p.title,
           })),
         );
+        lastFetchRef.current = Date.now();
       }
     } catch {
       // silently fail — search just won't have results
     }
-  }, []);
+  }, [pages.length]);
 
   // Debounced content search
   const searchContent = useCallback((q: string) => {
@@ -242,7 +250,6 @@ export function GlobalSearch() {
             onChange={(e) => {
               setQuery(e.target.value);
               setOpen(true);
-              fetchPages();
               searchContent(e.target.value);
             }}
             onFocus={() => {
