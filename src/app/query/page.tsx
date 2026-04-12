@@ -324,6 +324,7 @@ export default function QueryPage() {
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="What would you like to know?"
+              aria-label="Your question"
               rows={3}
               className="w-full rounded-lg border border-foreground/20 bg-transparent px-4 py-3 text-sm placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/30 resize-vertical"
             />

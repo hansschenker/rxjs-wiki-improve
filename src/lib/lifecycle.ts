@@ -174,7 +174,14 @@ async function runPageLifecycleOp(
     await writeWikiPage(slug, op.content);
   } else {
     const filePath = path.join(getWikiDir(), `${slug}.md`);
-    await fs.unlink(filePath);
+    try {
+      await fs.unlink(filePath);
+    } catch (err: unknown) {
+      // If the file is already gone (concurrent delete), that's fine — treat as success.
+      if (!(err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT')) {
+        throw err;
+      }
+    }
   }
 
   // 2b. Update vector index (blocking but failure-tolerant — errors are
