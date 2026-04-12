@@ -180,6 +180,27 @@ function isPrivateIPv6(ip: string): boolean {
   if (normalized === "::1") return true;
   if (normalized.startsWith("fd")) return true;
   if (normalized.startsWith("fe80")) return true;
+
+  // IPv4-mapped IPv6: ::ffff:A.B.C.D or ::ffff:XXXX:XXXX (hex form)
+  if (normalized.startsWith("::ffff:")) {
+    const suffix = normalized.slice(7); // after "::ffff:"
+    if (net.isIPv4(suffix)) {
+      // Dotted-decimal form: ::ffff:127.0.0.1
+      return isPrivateIPv4(suffix);
+    }
+    // Hex form: ::ffff:7f00:1 (URL class normalizes to this)
+    const hexMatch = suffix.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (hexMatch) {
+      const hi = parseInt(hexMatch[1], 16);
+      const lo = parseInt(hexMatch[2], 16);
+      const a = (hi >> 8) & 0xff;
+      const b = hi & 0xff;
+      const c = (lo >> 8) & 0xff;
+      const d = lo & 0xff;
+      return isPrivateIPv4(`${a}.${b}.${c}.${d}`);
+    }
+  }
+
   return false;
 }
 
@@ -271,13 +292,48 @@ export async function fetchUrlContent(
   // SSRF protection: reject private/reserved addresses before fetching
   validateUrlSafety(url);
 
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "llm-wiki/1.0",
-      Accept: "text/html,application/xhtml+xml,*/*",
-    },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+  // Maximum number of redirect hops to follow
+  const MAX_REDIRECTS = 5;
+  const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+  let currentUrl = url;
+  let response: Response | undefined;
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    response = await fetch(currentUrl, {
+      headers: {
+        "User-Agent": "llm-wiki/1.0",
+        Accept: "text/html,application/xhtml+xml,*/*",
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      redirect: "manual",
+    });
+
+    if (!REDIRECT_STATUSES.has(response.status)) {
+      break; // Not a redirect — proceed with this response
+    }
+
+    const location = response.headers.get("location");
+    if (!location) {
+      throw new Error(`Redirect (${response.status}) without Location header`);
+    }
+
+    // Resolve relative redirects against the current URL
+    const resolvedUrl = new URL(location, currentUrl).toString();
+
+    // SSRF: validate the redirect target before following it
+    validateUrlSafety(resolvedUrl);
+
+    currentUrl = resolvedUrl;
+
+    if (hop === MAX_REDIRECTS) {
+      throw new Error(`Too many redirects (max ${MAX_REDIRECTS})`);
+    }
+  }
+
+  if (!response) {
+    throw new Error("No response received");
+  }
 
   if (!response.ok) {
     throw new Error(
@@ -298,7 +354,7 @@ export async function fetchUrlContent(
     );
   }
 
-  // Check Content-Length header before reading body
+  // Check Content-Length header before reading body (early rejection)
   const contentLength = response.headers.get("content-length");
   if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
     throw new Error(
@@ -306,13 +362,36 @@ export async function fetchUrlContent(
     );
   }
 
-  const body = await response.text();
-
-  // Check actual body size after reading
-  if (body.length > MAX_RESPONSE_SIZE) {
-    throw new Error(
-      `Content too large: ${body.length} chars (max ${MAX_RESPONSE_SIZE})`,
-    );
+  // Stream the body and enforce size limit incrementally to prevent
+  // unbounded memory consumption from servers with missing/spoofed
+  // Content-Length headers.
+  let body: string;
+  const reader = response.body?.getReader();
+  if (reader) {
+    const decoder = new TextDecoder();
+    let accumulated = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      accumulated += decoder.decode(value, { stream: true });
+      if (accumulated.length > MAX_RESPONSE_SIZE) {
+        await reader.cancel();
+        throw new Error(
+          `Content too large (max ${MAX_RESPONSE_SIZE})`,
+        );
+      }
+    }
+    // Flush any remaining bytes in the decoder
+    accumulated += decoder.decode();
+    body = accumulated;
+  } else {
+    // Fallback: no streaming body available (e.g. in some test environments)
+    body = await response.text();
+    if (body.length > MAX_RESPONSE_SIZE) {
+      throw new Error(
+        `Content too large (max ${MAX_RESPONSE_SIZE})`,
+      );
+    }
   }
 
   let title: string;

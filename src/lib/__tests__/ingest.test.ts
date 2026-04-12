@@ -1398,4 +1398,213 @@ describe("validateUrlSafety", () => {
   it("allows public IP addresses", () => {
     expect(() => validateUrlSafety("http://8.8.8.8/")).not.toThrow();
   });
+
+  // IPv4-mapped IPv6 addresses
+  it("blocks IPv4-mapped IPv6 loopback (::ffff:127.0.0.1)", () => {
+    expect(() => validateUrlSafety("http://[::ffff:127.0.0.1]/")).toThrow(
+      /URL blocked/,
+    );
+  });
+
+  it("blocks IPv4-mapped IPv6 private (::ffff:10.0.0.1)", () => {
+    expect(() => validateUrlSafety("http://[::ffff:10.0.0.1]/")).toThrow(
+      /URL blocked/,
+    );
+  });
+
+  it("blocks IPv4-mapped IPv6 link-local (::ffff:169.254.169.254)", () => {
+    expect(() =>
+      validateUrlSafety("http://[::ffff:169.254.169.254]/"),
+    ).toThrow(/URL blocked/);
+  });
+
+  it("allows IPv4-mapped IPv6 public (::ffff:8.8.8.8)", () => {
+    expect(() =>
+      validateUrlSafety("http://[::ffff:8.8.8.8]/"),
+    ).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchUrlContent — redirect handling
+// ---------------------------------------------------------------------------
+
+describe("fetchUrlContent — redirect handling", () => {
+  /** Helper to create a mock headers object */
+  function mockHeaders(h: Record<string, string> = {}) {
+    return { get: (key: string) => h[key.toLowerCase()] ?? null };
+  }
+
+  it("uses redirect: 'manual' in fetch options", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: mockHeaders(),
+      text: () => Promise.resolve("<html><body><p>Hello</p></body></html>"),
+      body: null,
+    });
+
+    try {
+      await fetchUrlContent("https://example.com/page");
+      const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(fetchCall[1]).toHaveProperty("redirect", "manual");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("follows safe redirects", async () => {
+    const originalFetch = global.fetch;
+    let callCount = 0;
+    global.fetch = vi.fn().mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        // First call: redirect
+        return Promise.resolve({
+          ok: false,
+          status: 302,
+          headers: mockHeaders({ location: "https://safe.example.com/final" }),
+          text: () => Promise.resolve(""),
+          body: null,
+        });
+      }
+      // Second call: final page
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: mockHeaders({ "content-type": "text/html" }),
+        text: () =>
+          Promise.resolve("<html><head><title>Final</title></head><body><p>Content here</p></body></html>"),
+        body: null,
+      });
+    });
+
+    try {
+      const result = await fetchUrlContent("https://example.com/start");
+      expect(result.title).toBe("Final");
+      expect(result.content).toContain("Content here");
+      expect(callCount).toBe(2);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("blocks redirect to private IP", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 301,
+      headers: mockHeaders({
+        location: "http://169.254.169.254/latest/meta-data/",
+      }),
+      text: () => Promise.resolve(""),
+      body: null,
+    });
+
+    try {
+      await expect(
+        fetchUrlContent("https://example.com/evil-redirect"),
+      ).rejects.toThrow(/URL blocked/);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("blocks redirect to localhost", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 302,
+      headers: mockHeaders({ location: "http://127.0.0.1/secret" }),
+      text: () => Promise.resolve(""),
+      body: null,
+    });
+
+    try {
+      await expect(
+        fetchUrlContent("https://example.com/evil-redirect"),
+      ).rejects.toThrow(/URL blocked/);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("throws on too many redirects", async () => {
+    const originalFetch = global.fetch;
+    let callNum = 0;
+    global.fetch = vi.fn().mockImplementation(() => {
+      callNum++;
+      return Promise.resolve({
+        ok: false,
+        status: 302,
+        headers: mockHeaders({
+          location: `https://example.com/hop-${callNum}`,
+        }),
+        text: () => Promise.resolve(""),
+        body: null,
+      });
+    });
+
+    try {
+      await expect(
+        fetchUrlContent("https://example.com/loop"),
+      ).rejects.toThrow(/Too many redirects/);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("throws when redirect has no Location header", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 301,
+      headers: mockHeaders(), // no location
+      text: () => Promise.resolve(""),
+      body: null,
+    });
+
+    try {
+      await expect(
+        fetchUrlContent("https://example.com/bad-redirect"),
+      ).rejects.toThrow(/Location header/);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("streams body and enforces size limit incrementally", async () => {
+    const originalFetch = global.fetch;
+    // Create a mock readable stream that yields chunks
+    const chunk1 = new TextEncoder().encode("x".repeat(100));
+    const chunk2 = new TextEncoder().encode("x".repeat(6 * 1024 * 1024)); // exceeds MAX_RESPONSE_SIZE
+
+    let readCount = 0;
+    const mockReader = {
+      read: vi.fn().mockImplementation(() => {
+        readCount++;
+        if (readCount === 1) return Promise.resolve({ done: false, value: chunk1 });
+        if (readCount === 2) return Promise.resolve({ done: false, value: chunk2 });
+        return Promise.resolve({ done: true, value: undefined });
+      }),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    };
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: mockHeaders(),
+      body: { getReader: () => mockReader },
+    });
+
+    try {
+      await expect(
+        fetchUrlContent("https://example.com/huge-stream"),
+      ).rejects.toThrow(/Content too large/);
+      expect(mockReader.cancel).toHaveBeenCalled();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
