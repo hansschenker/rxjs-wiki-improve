@@ -90,6 +90,39 @@ async function checkEmptyPages(diskSlugs: string[]): Promise<LintIssue[]> {
 }
 
 /**
+ * Check for broken links — internal wiki links pointing to non-existent pages.
+ */
+async function checkBrokenLinks(
+  diskSlugs: string[],
+): Promise<LintIssue[]> {
+  const issues: LintIssue[] = [];
+  const diskSlugSet = new Set(diskSlugs);
+
+  for (const slug of diskSlugs) {
+    const page = await readWikiPage(slug);
+    if (!page) continue;
+
+    const linkRe = /\[([^\]]*)\]\(([^)]+)\.md\)/g;
+    let match;
+    while ((match = linkRe.exec(page.content)) !== null) {
+      const targetSlug = match[2];
+      // Skip infrastructure files (index.md, log.md)
+      if (INFRASTRUCTURE_FILES.has(`${targetSlug}.md`)) continue;
+      if (!diskSlugSet.has(targetSlug)) {
+        issues.push({
+          type: "broken-link",
+          slug,
+          message: `Page "${slug}.md" links to "${targetSlug}.md" which does not exist`,
+          severity: "warning",
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
+/**
  * Check for missing cross-references — pages that mention another page's title
  * or slug in their body but don't link to it.
  */
@@ -493,7 +526,7 @@ async function checkMissingConceptPages(
   }
 }
 
-export { parseLLMJsonArray, extractCrossRefSlugs, buildClusters, parseContradictionResponse, checkContradictions, parseMissingConceptResponse, checkMissingConceptPages };
+export { parseLLMJsonArray, extractCrossRefSlugs, buildClusters, parseContradictionResponse, checkContradictions, parseMissingConceptResponse, checkMissingConceptPages, checkBrokenLinks };
 
 /**
  * Run all lint checks against the wiki and return the results.
@@ -508,11 +541,12 @@ export async function lint(): Promise<LintResult> {
   const diskSlugSet = new Set(diskSlugs);
 
   // Run all checks (structural checks in parallel, then contradiction check)
-  const [orphans, stale, empty, crossRefs] = await Promise.all([
+  const [orphans, stale, empty, crossRefs, brokenLinks] = await Promise.all([
     checkOrphanPages(diskSlugs, indexSlugs),
     checkStaleIndex(indexSlugs, diskSlugSet),
     checkEmptyPages(diskSlugs),
     checkMissingCrossRefs(diskSlugs),
+    checkBrokenLinks(diskSlugs),
   ]);
 
   // Contradiction + missing-concept detection both require LLM calls but are
@@ -522,7 +556,7 @@ export async function lint(): Promise<LintResult> {
     checkMissingConceptPages(diskSlugs),
   ]);
 
-  const issues = [...orphans, ...stale, ...empty, ...crossRefs, ...contradictions, ...missingConcepts];
+  const issues = [...orphans, ...stale, ...empty, ...crossRefs, ...brokenLinks, ...contradictions, ...missingConcepts];
 
   // Append a log entry so lint passes are visible in the wiki timeline.
   // The title is a stable string ("wiki lint pass") so log readers can group

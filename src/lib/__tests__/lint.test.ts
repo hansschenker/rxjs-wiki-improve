@@ -24,6 +24,7 @@ import {
   checkContradictions,
   parseMissingConceptResponse,
   checkMissingConceptPages,
+  checkBrokenLinks,
 } from "../lint";
 
 let tmpDir: string;
@@ -817,5 +818,86 @@ Every page must start with a level-1 heading.
     );
     expect(conceptIssues.length).toBeGreaterThanOrEqual(1);
     expect(conceptIssues[0].message).toContain("Attention Mechanism");
+  });
+
+  describe("checkBrokenLinks", () => {
+    it("should detect a link to a non-existent page", async () => {
+      await writeWikiPage(
+        "page-a",
+        '# Page A\n\nThis links to [Missing Page](nonexistent.md) which does not exist.',
+      );
+      await updateIndex([
+        { slug: "page-a", title: "Page A", summary: "Test" },
+      ]);
+
+      const issues = await checkBrokenLinks(["page-a"]);
+      expect(issues).toHaveLength(1);
+      expect(issues[0].type).toBe("broken-link");
+      expect(issues[0].slug).toBe("page-a");
+      expect(issues[0].severity).toBe("warning");
+      expect(issues[0].message).toContain("nonexistent.md");
+    });
+
+    it("should not flag links to existing pages", async () => {
+      await writeWikiPage(
+        "page-a",
+        '# Page A\n\nThis links to [Page B](page-b.md) which exists.',
+      );
+      await writeWikiPage(
+        "page-b",
+        "# Page B\n\nThis is page B with enough content to pass checks.",
+      );
+
+      const issues = await checkBrokenLinks(["page-a", "page-b"]);
+      expect(issues).toHaveLength(0);
+    });
+
+    it("should produce one issue per broken link when multiple exist", async () => {
+      await writeWikiPage(
+        "page-a",
+        '# Page A\n\nLinks to [Gone 1](gone-one.md) and [Gone 2](gone-two.md) and [Exists](page-b.md).',
+      );
+      await writeWikiPage(
+        "page-b",
+        "# Page B\n\nThis is page B with enough content to pass checks.",
+      );
+
+      const issues = await checkBrokenLinks(["page-a", "page-b"]);
+      expect(issues).toHaveLength(2);
+      expect(issues.map((i) => i.message)).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("gone-one.md"),
+          expect.stringContaining("gone-two.md"),
+        ]),
+      );
+    });
+
+    it("should not flag links to infrastructure files (index.md, log.md)", async () => {
+      await writeWikiPage(
+        "page-a",
+        '# Page A\n\nLinks to [Index](index.md) and [Log](log.md) which are infrastructure.',
+      );
+
+      const issues = await checkBrokenLinks(["page-a"]);
+      expect(issues).toHaveLength(0);
+    });
+  });
+
+  it("lint result includes broken-link issues", async () => {
+    await writeWikiPage(
+      "linker",
+      '# Linker\n\nThis page links to [Missing](does-not-exist.md) which is broken.',
+    );
+    await updateIndex([
+      { slug: "linker", title: "Linker", summary: "Test" },
+    ]);
+
+    const result = await lint();
+    const brokenLinkIssues = result.issues.filter(
+      (i) => i.type === "broken-link",
+    );
+    expect(brokenLinkIssues).toHaveLength(1);
+    expect(brokenLinkIssues[0].slug).toBe("linker");
+    expect(brokenLinkIssues[0].message).toContain("does-not-exist.md");
   });
 });

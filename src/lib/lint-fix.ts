@@ -353,6 +353,66 @@ export async function fixMissingConceptPage(
   };
 }
 
+/**
+ * Fix a broken-link lint issue by removing the broken link from the page.
+ *
+ * Replaces all occurrences of `[text](targetSlug.md)` with just `text`.
+ */
+export async function fixBrokenLink(
+  slug: string,
+  targetSlug: string,
+): Promise<FixResult> {
+  if (!slug) {
+    throw new FixValidationError("Missing required field: slug");
+  }
+  if (!targetSlug) {
+    throw new FixValidationError("Missing required field: targetSlug");
+  }
+
+  const page = await readWikiPage(slug);
+  if (!page) {
+    throw new FixNotFoundError(`Page not found: ${slug}`);
+  }
+
+  // Escape the target slug for use in regex
+  const escaped = targetSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const linkRe = new RegExp(
+    `\\[([^\\]]*)\\]\\(${escaped}\\.md\\)`,
+    "g",
+  );
+
+  const updatedContent = page.content.replace(linkRe, "$1");
+
+  if (updatedContent === page.content) {
+    return {
+      success: true,
+      slug,
+      message: `No broken links to ${targetSlug}.md found in ${slug}.md — no changes needed`,
+    };
+  }
+
+  // Extract summary from the first paragraph
+  const summaryMatch = updatedContent.match(/^#\s+.+\n+(.+)/m);
+  const summary = summaryMatch ? summaryMatch[1].slice(0, 120) : slug;
+
+  await writeWikiPageWithSideEffects({
+    slug,
+    title: page.title,
+    content: updatedContent,
+    summary,
+    logOp: "edit",
+    logDetails: () =>
+      `auto-fix: removed broken link(s) to "${targetSlug}.md"`,
+    crossRefSource: null,
+  });
+
+  return {
+    success: true,
+    slug,
+    message: `Removed broken link(s) to ${targetSlug}.md from ${slug}.md`,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Dispatcher
 // ---------------------------------------------------------------------------
@@ -382,6 +442,8 @@ export async function fixLintIssue(
       return fixContradiction(slug, targetSlug ?? "", message ?? "");
     case "missing-concept-page":
       return fixMissingConceptPage(message ?? "");
+    case "broken-link":
+      return fixBrokenLink(slug, targetSlug ?? "");
     default:
       throw new FixValidationError(
         "Auto-fix not supported for this issue type",

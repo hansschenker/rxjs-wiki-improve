@@ -58,6 +58,19 @@ function parseContradictionTargetSlug(message: string): string | null {
   return match ? match[1] : null;
 }
 
+/**
+ * Parse the target slug from a broken-link lint message.
+ *
+ * Expected format:
+ *   Page "foo.md" links to "nonexistent.md" which does not exist
+ *
+ * Returns the target slug (e.g. "nonexistent") or null if not parseable.
+ */
+function parseTargetSlugFromBrokenLink(message: string): string | null {
+  const match = message.match(/links to "([a-z0-9][a-z0-9-]*)\.md" which does not exist$/);
+  return match ? match[1] : null;
+}
+
 export default function LintPage() {
   const [result, setResult] = useState<LintResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -94,7 +107,7 @@ export default function LintPage() {
   const handleFix = useCallback(
     async (issue: LintIssue, targetSlug?: string) => {
       const key =
-        (issue.type === "missing-crossref" || issue.type === "contradiction") && targetSlug
+        (issue.type === "missing-crossref" || issue.type === "contradiction" || issue.type === "broken-link") && targetSlug
           ? `${issue.slug}:${targetSlug}`
           : issue.type === "missing-concept-page"
             ? `missing-concept-page:${issue.message}`
@@ -117,6 +130,9 @@ export default function LintPage() {
         }
         if (issue.type === "missing-concept-page") {
           bodyObj.message = issue.message;
+        }
+        if (issue.type === "broken-link" && targetSlug) {
+          bodyObj.targetSlug = targetSlug;
         }
 
         const res = await fetch("/api/lint/fix", {
@@ -241,7 +257,9 @@ export default function LintPage() {
                     ? parseTargetSlug(issue.message)
                     : issue.type === "contradiction"
                       ? parseContradictionTargetSlug(issue.message)
-                      : null;
+                      : issue.type === "broken-link"
+                        ? parseTargetSlugFromBrokenLink(issue.message)
+                        : null;
 
                 const fixableTypes = new Set([
                   "missing-crossref",
@@ -250,15 +268,17 @@ export default function LintPage() {
                   "empty-page",
                   "contradiction",
                   "missing-concept-page",
+                  "broken-link",
                 ]);
                 const isFixable =
                   fixableTypes.has(issue.type) &&
                   (issue.type !== "missing-crossref" || targetSlug !== null) &&
                   (issue.type !== "contradiction" || targetSlug !== null) &&
-                  (issue.type !== "missing-concept-page" || issue.message.startsWith('Concept "'));
+                  (issue.type !== "missing-concept-page" || issue.message.startsWith('Concept "')) &&
+                  (issue.type !== "broken-link" || targetSlug !== null);
 
                 const fixKey =
-                  (issue.type === "missing-crossref" || issue.type === "contradiction") && targetSlug
+                  (issue.type === "missing-crossref" || issue.type === "contradiction" || issue.type === "broken-link") && targetSlug
                     ? `${issue.slug}:${targetSlug}`
                     : issue.type === "missing-concept-page"
                       ? `missing-concept-page:${issue.message}`
@@ -272,6 +292,7 @@ export default function LintPage() {
                   "empty-page": "Delete page",
                   "contradiction": "Resolve",
                   "missing-concept-page": "Create page",
+                  "broken-link": "Remove link",
                 };
 
                 return (
