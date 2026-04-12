@@ -219,6 +219,71 @@ describe("isRetryableError", () => {
     expect(isRetryableError(null)).toBe(false);
     expect(isRetryableError(undefined)).toBe(false);
   });
+
+  // --- False-positive prevention tests ---
+
+  it("does not retry on 'limit of 500 tokens' message", () => {
+    const err = new Error("limit of 500 tokens");
+    expect(isRetryableError(err)).toBe(false);
+  });
+
+  it("does not treat 'maximum 400 characters' as non-retryable when status is 429", () => {
+    // The message contains "400" but .status is 429 (rate limit) —
+    // .status should win since it's checked first.
+    const err = Object.assign(new Error("maximum 400 characters"), {
+      status: 429,
+    });
+    expect(isRetryableError(err)).toBe(true);
+  });
+
+  it("prefers .status property over message text", () => {
+    // .status: 429 (retryable) but message mentions "400" incidentally
+    const err = Object.assign(
+      new Error("exceeded the 400 character limit"),
+      { status: 429 },
+    );
+    expect(isRetryableError(err)).toBe(true);
+
+    // .status: 401 (not retryable) but message mentions "503"
+    const err2 = Object.assign(
+      new Error("something about 503 in text"),
+      { status: 401 },
+    );
+    expect(isRetryableError(err2)).toBe(false);
+  });
+
+  it("does not retry on 'context window of 512 tokens' message", () => {
+    const err = new Error("context window of 512 tokens");
+    expect(isRetryableError(err)).toBe(false);
+  });
+
+  // --- HTTP status code in message pattern tests ---
+
+  it("retries on 'status: 503' in message", () => {
+    const err = new Error("Request failed with status: 503");
+    expect(isRetryableError(err)).toBe(true);
+  });
+
+  it("retries on 'status 429' in message", () => {
+    const err = new Error("Request failed with status 429");
+    expect(isRetryableError(err)).toBe(true);
+  });
+
+  it("retries on '503 error' in message", () => {
+    const err = new Error("503 error from upstream");
+    expect(isRetryableError(err)).toBe(true);
+  });
+
+  it("retries on '429 too many' in message", () => {
+    const err = new Error("429 too many requests");
+    expect(isRetryableError(err)).toBe(true);
+  });
+
+  it("does not retry on plain number in message without HTTP context", () => {
+    expect(isRetryableError(new Error("processed 500 items"))).toBe(false);
+    expect(isRetryableError(new Error("timeout after 503 ms"))).toBe(false);
+    expect(isRetryableError(new Error("batch size 429"))).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -258,7 +323,9 @@ describe("retryWithBackoff", () => {
   it("retries on retryable errors and succeeds on later attempt", async () => {
     const fn = vi
       .fn()
-      .mockRejectedValueOnce(new Error("Service temporarily unavailable 503"))
+      .mockRejectedValueOnce(
+        Object.assign(new Error("service unavailable"), { status: 503 }),
+      )
       .mockRejectedValueOnce(new Error("fetch failed"))
       .mockResolvedValue("success");
 
@@ -283,10 +350,18 @@ describe("retryWithBackoff", () => {
   it("throws the last error after exhausting all retries", async () => {
     const fn = vi
       .fn()
-      .mockRejectedValueOnce(new Error("503 first"))
-      .mockRejectedValueOnce(new Error("503 second"))
-      .mockRejectedValueOnce(new Error("503 third"))
-      .mockRejectedValueOnce(new Error("503 final"));
+      .mockRejectedValueOnce(
+        Object.assign(new Error("server error first"), { status: 503 }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error("server error second"), { status: 503 }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error("server error third"), { status: 503 }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error("server error final"), { status: 503 }),
+      );
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -302,7 +377,7 @@ describe("retryWithBackoff", () => {
 
     await promise;
     expect(caughtError).toBeDefined();
-    expect(caughtError!.message).toBe("503 final");
+    expect(caughtError!.message).toBe("server error final");
     // 1 initial + 3 retries = 4 total calls
     expect(fn).toHaveBeenCalledTimes(4);
 

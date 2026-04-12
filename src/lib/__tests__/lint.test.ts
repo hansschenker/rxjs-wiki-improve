@@ -787,18 +787,21 @@ Every page must start with a level-1 heading.
   it("lint result includes missing-concept-page issues when LLM is available", async () => {
     mockedHasLLMKey.mockReturnValue(true);
 
-    // First call is for contradiction check, second for missing concepts
-    mockedCallLLM
-      .mockResolvedValueOnce("[]") // contradiction check returns empty
-      .mockResolvedValueOnce(
-        JSON.stringify([
-          {
-            concept: "Attention Mechanism",
-            mentioned_in: ["transformer", "bert"],
-            reason: "Core concept in both pages",
-          },
-        ]),
-      );
+    // Both checks run in parallel via Promise.all, so call order is
+    // non-deterministic. Dispatch based on the system prompt content instead.
+    const missingConceptResponse = JSON.stringify([
+      {
+        concept: "Attention Mechanism",
+        mentioned_in: ["transformer", "bert"],
+        reason: "Core concept in both pages",
+      },
+    ]);
+    mockedCallLLM.mockImplementation(async (systemPrompt: string) => {
+      if (systemPrompt.includes("knowledge gap detector")) {
+        return missingConceptResponse;
+      }
+      return "[]"; // contradiction check returns empty
+    });
 
     await writeWikiPage(
       "transformer",

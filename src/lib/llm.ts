@@ -41,26 +41,23 @@ const RETRYABLE_MESSAGES = [
  *
  * Retryable: HTTP 429 / 5xx, network errors (ECONNRESET, ETIMEDOUT, etc.)
  * Not retryable: 400, 401, 403, missing API key, validation errors.
+ *
+ * Priority order:
+ *   1. Explicitly non-retryable patterns (bail early)
+ *   2. `.status` property (most reliable — set by fetch / AI SDK)
+ *   3. Network-level error messages (ECONNRESET, ETIMEDOUT, etc.)
+ *   4. HTTP status codes in the message text (last resort, tighter regex to
+ *      avoid false positives from incidental numbers like "limit of 500 tokens")
  */
 export function isRetryableError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
 
   const message = error.message.toLowerCase();
 
-  // Explicitly non-retryable patterns — bail early
+  // 1. Explicitly non-retryable patterns — bail early
   if (message.includes("no llm api key")) return false;
 
-  // Check for HTTP status codes embedded in the error
-  // Many AI SDK errors include the status code in the message or as a property
-  const statusMatch = message.match(/\b(4\d{2}|5\d{2})\b/);
-  if (statusMatch) {
-    const status = parseInt(statusMatch[1], 10);
-    // 4xx codes other than 429 are NOT retryable (auth, validation, not found)
-    if (status >= 400 && status < 500 && status !== 429) return false;
-    if (RETRYABLE_STATUS_CODES.has(status)) return true;
-  }
-
-  // Check for a `status` property (common in fetch / AI SDK errors)
+  // 2. Check for a `status` property FIRST (most reliable signal)
   const errWithStatus = error as Error & { status?: number };
   if (typeof errWithStatus.status === "number") {
     const s = errWithStatus.status;
@@ -68,8 +65,27 @@ export function isRetryableError(error: unknown): boolean {
     if (RETRYABLE_STATUS_CODES.has(s)) return true;
   }
 
-  // Check for network-level error messages
+  // 3. Check for network-level error messages
   if (RETRYABLE_MESSAGES.some((msg) => message.includes(msg))) return true;
+
+  // 4. Last resort: look for HTTP status codes in the message, but only in
+  //    patterns that look like actual HTTP status reports — not incidental
+  //    numbers in limit descriptions like "limit of 500 tokens".
+  //    Matches: "status: 503", "status 429", "503 error", "429 too many",
+  //    "error 500", "gateway 502", "timeout 504", "unavailable 503", etc.
+  const HTTP_STATUS_KEYWORDS =
+    "error|too many|rate limit|overloaded|unavailable|bad gateway|gateway timeout|unauthorized|forbidden|bad request|server error|service";
+  const statusPattern = new RegExp(
+    `\\bstatus[:\\s]+(\\d{3})\\b|\\b(\\d{3})\\s+(?:${HTTP_STATUS_KEYWORDS})|(?:${HTTP_STATUS_KEYWORDS})\\s+(\\d{3})\\b`,
+    "i",
+  );
+  const statusMatch = message.match(statusPattern);
+  if (statusMatch) {
+    const status = parseInt(statusMatch[1] || statusMatch[2] || statusMatch[3], 10);
+    // 4xx codes other than 429 are NOT retryable (auth, validation, not found)
+    if (status >= 400 && status < 500 && status !== 429) return false;
+    if (RETRYABLE_STATUS_CODES.has(status)) return true;
+  }
 
   return false;
 }
