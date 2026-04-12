@@ -3,14 +3,7 @@ import path from "path";
 import type { WikiPage, IndexEntry } from "./types";
 import { callLLM, hasLLMKey } from "./llm";
 import { withFileLock } from "./lock";
-
-// ---------------------------------------------------------------------------
-// Regex escaping helper
-// ---------------------------------------------------------------------------
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+import { hasLinkTo } from "./links";
 
 // ---------------------------------------------------------------------------
 // Configurable base directories — override via env vars for testing
@@ -525,13 +518,12 @@ export async function findBacklinks(
 ): Promise<Array<{ slug: string; title: string }>> {
   const pages = await listWikiPages();
   const backlinks: Array<{ slug: string; title: string }> = [];
-  const linkPattern = new RegExp(`\\]\\(${escapeRegExp(targetSlug)}\\.md\\)`);
 
   for (const page of pages) {
     if (page.slug === targetSlug || page.slug === "index" || page.slug === "log")
       continue;
     const wikiPage = await readWikiPage(page.slug);
-    if (wikiPage && linkPattern.test(wikiPage.content)) {
+    if (wikiPage && hasLinkTo(wikiPage.content, targetSlug)) {
       backlinks.push({ slug: page.slug, title: page.title });
     }
   }

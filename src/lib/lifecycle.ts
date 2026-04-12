@@ -14,6 +14,7 @@ import {
   getWikiDir,
 } from "./wiki";
 import { withFileLock } from "./lock";
+import { escapeRegex } from "./links";
 import type { LogOperation } from "./wiki";
 
 // ---------------------------------------------------------------------------
@@ -70,9 +71,6 @@ export interface DeletePageResult {
   /** Slugs of pages that had a backlink to the deleted page stripped out. */
   strippedBacklinksFrom: string[];
 }
-
-/** Escape a string for use inside a regular expression. */
-const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // ---------------------------------------------------------------------------
 // runPageLifecycleOp — the shared lifecycle-op pipeline

@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import { appendToLog, getWikiDir, listWikiPages, readWikiPage } from "./wiki";
 import { hasLLMKey, callLLM } from "./llm";
 import { loadPageConventions } from "./ingest";
+import { extractWikiLinks } from "./links";
 import type { LintIssue, LintResult } from "./types";
 
 // Files that are part of the wiki infrastructure, not content pages.
@@ -88,20 +89,6 @@ async function checkEmptyPages(diskSlugs: string[]): Promise<LintIssue[]> {
     }
   }
   return issues;
-}
-
-/**
- * Extract all wiki-style markdown links from content.
- * Returns an array of { text, targetSlug } for each `[text](slug.md)` link found.
- */
-function extractWikiLinks(content: string): Array<{ text: string; targetSlug: string }> {
-  const results: Array<{ text: string; targetSlug: string }> = [];
-  const re = /\[([^\]]*)\]\(([^)]+)\.md\)/g;
-  let match;
-  while ((match = re.exec(content)) !== null) {
-    results.push({ text: match[1], targetSlug: match[2] });
-  }
-  return results;
 }
 
 /**
