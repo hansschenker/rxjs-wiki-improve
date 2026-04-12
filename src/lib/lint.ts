@@ -362,7 +362,131 @@ function buildSummary(issues: LintIssue[]): string {
   return `Found ${issues.length} issue${issues.length !== 1 ? "s" : ""}: ${parts.join(", ")}.`;
 }
 
-export { extractCrossRefSlugs, buildClusters, parseContradictionResponse, checkContradictions };
+const MISSING_CONCEPT_SYSTEM_PROMPT = `You are a wiki knowledge gap detector. Given the following wiki pages and the list of existing page titles, identify important concepts, entities, or topics that are mentioned multiple times across pages but do NOT have their own dedicated wiki page yet.
+
+Return a JSON array of objects: [{"concept": "Name of Concept", "mentioned_in": ["slug-a", "slug-b"], "reason": "Brief explanation of why this deserves its own page"}]
+
+Only include concepts that are genuinely important and mentioned in at least 2 different pages. Respond ONLY with the JSON array — no additional text, no markdown code fences.`;
+
+/**
+ * Parse the LLM response for missing concept page detection.
+ * Returns structured concept data or an empty array on malformed responses.
+ */
+function parseMissingConceptResponse(
+  response: string,
+): { concept: string; mentioned_in: string[]; reason: string }[] {
+  try {
+    // Strip optional markdown code fences
+    let cleaned = response.trim();
+    cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/, "");
+    cleaned = cleaned.trim();
+
+    const parsed = JSON.parse(cleaned);
+    if (!Array.isArray(parsed)) return [];
+
+    const results: { concept: string; mentioned_in: string[]; reason: string }[] = [];
+    for (const item of parsed) {
+      if (
+        item &&
+        typeof item.concept === "string" &&
+        item.concept.length > 0 &&
+        Array.isArray(item.mentioned_in) &&
+        item.mentioned_in.length >= 2 &&
+        typeof item.reason === "string" &&
+        item.reason.length > 0
+      ) {
+        results.push({
+          concept: item.concept,
+          mentioned_in: item.mentioned_in.map(String),
+          reason: item.reason,
+        });
+      }
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Check for missing concept pages — important concepts mentioned across
+ * multiple wiki pages that don't have their own dedicated page yet.
+ * Uses the LLM to identify conceptual gaps. If no LLM key is configured,
+ * returns an info-level message and skips.
+ */
+async function checkMissingConceptPages(
+  diskSlugs: string[],
+): Promise<LintIssue[]> {
+  if (!hasLLMKey()) {
+    return [
+      {
+        type: "missing-concept-page",
+        slug: "",
+        message:
+          "Missing concept page detection skipped — no LLM API key configured",
+        severity: "info",
+      },
+    ];
+  }
+
+  // Read page contents (sample first ~500 chars of each, up to 20 pages)
+  const pages: { slug: string; title: string; snippet: string }[] = [];
+  const MAX_PAGES = 20;
+  const SNIPPET_LENGTH = 500;
+
+  for (const slug of diskSlugs.slice(0, MAX_PAGES)) {
+    const page = await readWikiPage(slug);
+    if (page) {
+      pages.push({
+        slug: page.slug,
+        title: page.title,
+        snippet: page.content.slice(0, SNIPPET_LENGTH),
+      });
+    }
+  }
+
+  if (pages.length < 2) {
+    // Need at least 2 pages to detect cross-page concepts
+    return [];
+  }
+
+  // Build the user message
+  const existingTitles = pages.map((p) => `- ${p.title} (${p.slug})`).join("\n");
+  const pagesText = pages
+    .map((p) => `--- Page: ${p.slug} (${p.title}) ---\n${p.snippet}`)
+    .join("\n\n");
+
+  const userMessage = `Existing wiki pages:\n${existingTitles}\n\nPage contents (samples):\n\n${pagesText}`;
+
+  // Load SCHEMA.md conventions
+  const conventions = await loadPageConventions();
+  let systemPrompt = MISSING_CONCEPT_SYSTEM_PROMPT;
+  if (conventions) {
+    systemPrompt += `\n\nThe wiki follows these conventions (from SCHEMA.md):\n\n${conventions}`;
+  }
+
+  try {
+    const response = await callLLM(systemPrompt, userMessage);
+    const concepts = parseMissingConceptResponse(response);
+
+    const issues: LintIssue[] = [];
+    for (const c of concepts) {
+      const firstSlug = c.mentioned_in[0] ?? "";
+      issues.push({
+        type: "missing-concept-page",
+        slug: firstSlug,
+        message: `Concept "${c.concept}" is mentioned in ${c.mentioned_in.join(", ")} but has no dedicated page. ${c.reason}`,
+        severity: "info",
+      });
+    }
+    return issues;
+  } catch {
+    // LLM call failed — don't crash the lint, just skip
+    return [];
+  }
+}
+
+export { extractCrossRefSlugs, buildClusters, parseContradictionResponse, checkContradictions, parseMissingConceptResponse, checkMissingConceptPages };
 
 /**
  * Run all lint checks against the wiki and return the results.
@@ -387,7 +511,10 @@ export async function lint(): Promise<LintResult> {
   // Contradiction detection requires LLM calls, run after structural checks
   const contradictions = await checkContradictions(diskSlugs);
 
-  const issues = [...orphans, ...stale, ...empty, ...crossRefs, ...contradictions];
+  // Missing concept page detection also requires LLM, run after contradiction check
+  const missingConcepts = await checkMissingConceptPages(diskSlugs);
+
+  const issues = [...orphans, ...stale, ...empty, ...crossRefs, ...contradictions, ...missingConcepts];
 
   // Append a log entry so lint passes are visible in the wiki timeline.
   // The title is a stable string ("wiki lint pass") so log readers can group

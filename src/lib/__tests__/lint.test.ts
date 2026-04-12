@@ -22,6 +22,8 @@ import {
   buildClusters,
   parseContradictionResponse,
   checkContradictions,
+  parseMissingConceptResponse,
+  checkMissingConceptPages,
 } from "../lint";
 
 let tmpDir: string;
@@ -56,7 +58,7 @@ afterEach(async () => {
 });
 
 describe("lint", () => {
-  it("should return only contradiction-skipped info for a clean wiki", async () => {
+  it("should return only LLM-skipped info issues for a clean wiki", async () => {
     // Create a page and list it in the index
     await writeWikiPage(
       "hello",
@@ -69,11 +71,11 @@ describe("lint", () => {
 
     const result = await lint();
 
-    // Only the contradiction-skipped info issue (no LLM key)
-    const nonContradiction = result.issues.filter(
-      (i) => i.type !== "contradiction",
+    // Only the contradiction-skipped and missing-concept-page-skipped info issues (no LLM key)
+    const nonLLMSkipped = result.issues.filter(
+      (i) => i.type !== "contradiction" && i.type !== "missing-concept-page",
     );
-    expect(nonContradiction).toHaveLength(0);
+    expect(nonLLMSkipped).toHaveLength(0);
     expect(result.checkedAt).toBeTruthy();
   });
 
@@ -205,11 +207,11 @@ describe("lint", () => {
 
     const result = await lint();
 
-    // Only the contradiction-skipped info issue
-    const nonContradiction = result.issues.filter(
-      (i) => i.type !== "contradiction",
+    // Only the LLM-skipped info issues (contradiction + missing-concept-page)
+    const nonLLMSkipped = result.issues.filter(
+      (i) => i.type !== "contradiction" && i.type !== "missing-concept-page",
     );
-    expect(nonContradiction).toHaveLength(0);
+    expect(nonLLMSkipped).toHaveLength(0);
   });
 
   it("should NOT flag cross-refs when short title appears inside other words", async () => {
@@ -628,5 +630,192 @@ Every page must start with a level-1 heading.
     } finally {
       process.chdir(origCwd);
     }
+  });
+
+  // ── Missing concept page detection ──────────────────────────────────
+
+  describe("parseMissingConceptResponse", () => {
+    it("parses valid JSON array of concept objects", () => {
+      const input = JSON.stringify([
+        {
+          concept: "Transformer",
+          mentioned_in: ["attention", "gpt"],
+          reason: "Core architecture mentioned in multiple pages",
+        },
+        {
+          concept: "Backpropagation",
+          mentioned_in: ["training", "gradients"],
+          reason: "Fundamental training algorithm",
+        },
+      ]);
+      const result = parseMissingConceptResponse(input);
+      expect(result).toHaveLength(2);
+      expect(result[0].concept).toBe("Transformer");
+      expect(result[0].mentioned_in).toEqual(["attention", "gpt"]);
+      expect(result[0].reason).toBe("Core architecture mentioned in multiple pages");
+      expect(result[1].concept).toBe("Backpropagation");
+    });
+
+    it("returns empty array for malformed JSON", () => {
+      expect(parseMissingConceptResponse("not json")).toEqual([]);
+      expect(parseMissingConceptResponse("{invalid")).toEqual([]);
+    });
+
+    it("returns empty array for empty JSON array", () => {
+      expect(parseMissingConceptResponse("[]")).toEqual([]);
+    });
+
+    it("strips markdown code fences", () => {
+      const input = '```json\n[{"concept":"X","mentioned_in":["a","b"],"reason":"Y"}]\n```';
+      const result = parseMissingConceptResponse(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].concept).toBe("X");
+    });
+
+    it("filters out items with less than 2 mentioned_in entries", () => {
+      const input = JSON.stringify([
+        {
+          concept: "Only Once",
+          mentioned_in: ["single-page"],
+          reason: "Mentioned in just one page",
+        },
+      ]);
+      const result = parseMissingConceptResponse(input);
+      expect(result).toEqual([]);
+    });
+
+    it("filters out items with missing fields", () => {
+      const input = JSON.stringify([
+        { concept: "No reason", mentioned_in: ["a", "b"] },
+        { concept: "", mentioned_in: ["a", "b"], reason: "empty concept" },
+        { mentioned_in: ["a", "b"], reason: "no concept field" },
+      ]);
+      const result = parseMissingConceptResponse(input);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("checkMissingConceptPages", () => {
+    it("returns info-level skip message when no LLM key is configured", async () => {
+      mockedHasLLMKey.mockReturnValue(false);
+      await ensureDirectories();
+
+      const issues = await checkMissingConceptPages(["page-a", "page-b"]);
+      expect(issues).toHaveLength(1);
+      expect(issues[0].type).toBe("missing-concept-page");
+      expect(issues[0].severity).toBe("info");
+      expect(issues[0].message).toContain("skipped");
+      expect(mockedCallLLM).not.toHaveBeenCalled();
+    });
+
+    it("returns empty array when fewer than 2 pages exist", async () => {
+      mockedHasLLMKey.mockReturnValue(true);
+
+      await writeWikiPage("solo", "# Solo Page\n\nJust one page with enough content.");
+
+      const issues = await checkMissingConceptPages(["solo"]);
+      expect(issues).toEqual([]);
+      expect(mockedCallLLM).not.toHaveBeenCalled();
+    });
+
+    it("returns missing-concept-page issues when LLM identifies concepts", async () => {
+      mockedHasLLMKey.mockReturnValue(true);
+      mockedCallLLM.mockResolvedValue(
+        JSON.stringify([
+          {
+            concept: "Neural Networks",
+            mentioned_in: ["deep-learning", "backprop"],
+            reason: "Fundamental concept discussed across multiple pages",
+          },
+        ]),
+      );
+
+      await writeWikiPage(
+        "deep-learning",
+        "# Deep Learning\n\nDeep learning uses neural networks for complex tasks.",
+      );
+      await writeWikiPage(
+        "backprop",
+        "# Backpropagation\n\nBackpropagation trains neural networks using gradients.",
+      );
+
+      const issues = await checkMissingConceptPages(["deep-learning", "backprop"]);
+      expect(issues).toHaveLength(1);
+      expect(issues[0].type).toBe("missing-concept-page");
+      expect(issues[0].slug).toBe("deep-learning");
+      expect(issues[0].message).toContain("Neural Networks");
+      expect(issues[0].severity).toBe("info");
+    });
+
+    it("returns empty array when LLM returns empty array", async () => {
+      mockedHasLLMKey.mockReturnValue(true);
+      mockedCallLLM.mockResolvedValue("[]");
+
+      await writeWikiPage(
+        "page-a",
+        "# Page A\n\nSome content about a specific topic that is self-contained.",
+      );
+      await writeWikiPage(
+        "page-b",
+        "# Page B\n\nAnother page with completely different content and context.",
+      );
+
+      const issues = await checkMissingConceptPages(["page-a", "page-b"]);
+      expect(issues).toEqual([]);
+    });
+
+    it("handles LLM call failure gracefully", async () => {
+      mockedHasLLMKey.mockReturnValue(true);
+      mockedCallLLM.mockRejectedValue(new Error("API error"));
+
+      await writeWikiPage(
+        "fail-a",
+        "# Fail A\n\nContent for page A with enough text to pass checks.",
+      );
+      await writeWikiPage(
+        "fail-b",
+        "# Fail B\n\nContent for page B with enough text to pass checks.",
+      );
+
+      const issues = await checkMissingConceptPages(["fail-a", "fail-b"]);
+      expect(issues).toEqual([]);
+    });
+  });
+
+  it("lint result includes missing-concept-page issues when LLM is available", async () => {
+    mockedHasLLMKey.mockReturnValue(true);
+
+    // First call is for contradiction check, second for missing concepts
+    mockedCallLLM
+      .mockResolvedValueOnce("[]") // contradiction check returns empty
+      .mockResolvedValueOnce(
+        JSON.stringify([
+          {
+            concept: "Attention Mechanism",
+            mentioned_in: ["transformer", "bert"],
+            reason: "Core concept in both pages",
+          },
+        ]),
+      );
+
+    await writeWikiPage(
+      "transformer",
+      "# Transformer\n\nThe transformer architecture uses attention mechanism for sequence modeling. See [BERT](bert.md).",
+    );
+    await writeWikiPage(
+      "bert",
+      "# BERT\n\nBERT builds on the transformer with bidirectional attention mechanism. See [Transformer](transformer.md).",
+    );
+    await updateIndex([
+      { slug: "transformer", title: "Transformer", summary: "Test" },
+      { slug: "bert", title: "BERT", summary: "Test" },
+    ]);
+
+    const result = await lint();
+    const conceptIssues = result.issues.filter(
+      (i) => i.type === "missing-concept-page",
+    );
+    expect(conceptIssues.length).toBeGreaterThanOrEqual(1);
+    expect(conceptIssues[0].message).toContain("Attention Mechanism");
   });
 });
