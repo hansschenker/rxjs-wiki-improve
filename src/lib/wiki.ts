@@ -450,6 +450,115 @@ export async function findBacklinks(
 }
 
 // ---------------------------------------------------------------------------
+// Full-text content search
+// ---------------------------------------------------------------------------
+
+/** A search result with snippet context. */
+export interface ContentSearchResult {
+  slug: string;
+  title: string;
+  summary: string;
+  /** Short snippet showing the match context */
+  snippet: string;
+}
+
+/**
+ * Search wiki page content for a query string.
+ *
+ * Simple case-insensitive term matching across all wiki pages.
+ * Designed for the real-time search bar — uses OR semantics (any term matches)
+ * and scores by number of matching terms.
+ */
+export async function searchWikiContent(
+  query: string,
+  maxResults = 10,
+): Promise<ContentSearchResult[]> {
+  const terms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
+  if (terms.length === 0) return [];
+
+  const wikiDir = getWikiDir();
+  let files: string[];
+  try {
+    files = await fs.readdir(wikiDir);
+  } catch {
+    return [];
+  }
+
+  const SKIP = new Set(["index.md", "log.md"]);
+
+  const scored: Array<{
+    slug: string;
+    title: string;
+    summary: string;
+    snippet: string;
+    score: number;
+  }> = [];
+
+  for (const file of files) {
+    if (!file.endsWith(".md") || SKIP.has(file)) continue;
+    const slug = file.replace(/\.md$/, "");
+
+    let content: string;
+    try {
+      content = await fs.readFile(path.join(wikiDir, file), "utf-8");
+    } catch {
+      continue;
+    }
+
+    const lower = content.toLowerCase();
+
+    // Count how many query terms appear
+    let score = 0;
+    let firstMatchIndex = -1;
+    for (const term of terms) {
+      const idx = lower.indexOf(term);
+      if (idx !== -1) {
+        score++;
+        if (firstMatchIndex === -1 || idx < firstMatchIndex) {
+          firstMatchIndex = idx;
+        }
+      }
+    }
+
+    if (score === 0) continue;
+
+    // Extract title from first heading or slug
+    const titleMatch = content.match(/^#\s+(.+)$/m);
+    const title = titleMatch ? titleMatch[1].trim() : slug;
+
+    // Extract summary from index-style content (first paragraph after heading)
+    const parsed = parseFrontmatter(content);
+    const body = parsed.body;
+    const summaryLine = body
+      .replace(/^#\s+.+$/m, "")
+      .trim()
+      .split("\n")
+      .find((l) => l.trim().length > 0);
+    const summary = summaryLine
+      ? summaryLine.trim().slice(0, 120) + (summaryLine.length > 120 ? "…" : "")
+      : "";
+
+    // Build a snippet around the first match
+    const snippetRadius = 60;
+    const start = Math.max(0, firstMatchIndex - snippetRadius);
+    const end = Math.min(content.length, firstMatchIndex + snippetRadius);
+    let snippet = content.slice(start, end).replace(/\n/g, " ").trim();
+    if (start > 0) snippet = "…" + snippet;
+    if (end < content.length) snippet = snippet + "…";
+
+    scored.push({ slug, title, summary, snippet, score });
+  }
+
+  // Sort by score descending, then alphabetically by title
+  scored.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+
+  return scored.slice(0, maxResults);
+}
+
+// ---------------------------------------------------------------------------
 // Lifecycle pipeline — re-exported from lifecycle.ts for backward compatibility
 // ---------------------------------------------------------------------------
 

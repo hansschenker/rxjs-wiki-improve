@@ -20,6 +20,7 @@ import {
   listRawSources,
   readRawSource,
   findBacklinks,
+  searchWikiContent,
 } from "../wiki";
 import type { IndexEntry } from "../types";
 
@@ -1516,5 +1517,97 @@ describe("findBacklinks", () => {
 
     const backlinks = await findBacklinks("target");
     expect(backlinks).toHaveLength(0);
+  });
+});
+
+describe("searchWikiContent", () => {
+  it("finds pages containing query terms", async () => {
+    await writeWikiPage("machine-learning", "# Machine Learning\n\nDeep neural networks are a class of machine learning algorithms.");
+    await writeWikiPage("cooking", "# Cooking\n\nHow to make pasta from scratch.");
+    await writeWikiPage("ai-safety", "# AI Safety\n\nAlignment of neural networks with human values.");
+
+    const results = await searchWikiContent("neural networks");
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    const slugs = results.map((r) => r.slug);
+    expect(slugs).toContain("machine-learning");
+    expect(slugs).toContain("ai-safety");
+  });
+
+  it("returns empty array for no matches", async () => {
+    await writeWikiPage("cooking", "# Cooking\n\nHow to make pasta from scratch.");
+
+    const results = await searchWikiContent("quantum entanglement");
+    expect(results).toHaveLength(0);
+  });
+
+  it("returns empty array for empty query", async () => {
+    await writeWikiPage("something", "# Something\n\nContent here.");
+    const results = await searchWikiContent("");
+    expect(results).toHaveLength(0);
+    const results2 = await searchWikiContent("   ");
+    expect(results2).toHaveLength(0);
+  });
+
+  it("skips index.md and log.md", async () => {
+    await writeWikiPage("index", "# Index\n\nSome index content with special keyword.");
+    await writeWikiPage("log", "# Log\n\nSome log content with special keyword.");
+    await writeWikiPage("real-page", "# Real Page\n\nThis has the special keyword too.");
+
+    const results = await searchWikiContent("special keyword");
+    const slugs = results.map((r) => r.slug);
+    expect(slugs).toContain("real-page");
+    expect(slugs).not.toContain("index");
+    expect(slugs).not.toContain("log");
+  });
+
+  it("is case-insensitive", async () => {
+    await writeWikiPage("test-case", "# Test Case\n\nThe QUICK Brown Fox Jumps.");
+
+    const results = await searchWikiContent("quick brown fox");
+    expect(results.length).toBe(1);
+    expect(results[0].slug).toBe("test-case");
+  });
+
+  it("ranks pages with more matching terms higher", async () => {
+    await writeWikiPage("one-term", "# One Term\n\nThis has alpha only.");
+    await writeWikiPage("two-terms", "# Two Terms\n\nThis has alpha and beta words.");
+
+    const results = await searchWikiContent("alpha beta");
+    expect(results.length).toBe(2);
+    expect(results[0].slug).toBe("two-terms");
+    expect(results[1].slug).toBe("one-term");
+  });
+
+  it("respects maxResults", async () => {
+    for (let i = 0; i < 5; i++) {
+      await writeWikiPage(`page-${i}`, `# Page ${i}\n\nCommon keyword here.`);
+    }
+
+    const results = await searchWikiContent("common keyword", 2);
+    expect(results).toHaveLength(2);
+  });
+
+  it("includes snippets with match context", async () => {
+    await writeWikiPage("snippet-test", "# Snippet Test\n\nThe answer to life, the universe, and everything is forty-two.");
+
+    const results = await searchWikiContent("universe");
+    expect(results.length).toBe(1);
+    expect(results[0].snippet).toBeDefined();
+    expect(results[0].snippet.toLowerCase()).toContain("universe");
+  });
+
+  it("returns correct title from heading", async () => {
+    await writeWikiPage("titled", "# My Custom Title\n\nSome searchable content.");
+
+    const results = await searchWikiContent("searchable");
+    expect(results.length).toBe(1);
+    expect(results[0].title).toBe("My Custom Title");
+  });
+
+  it("returns empty array when wiki directory does not exist", async () => {
+    // Point to a non-existent directory
+    process.env.WIKI_DIR = path.join(tmpDir, "nonexistent");
+    const results = await searchWikiContent("anything");
+    expect(results).toHaveLength(0);
   });
 });

@@ -6,25 +6,28 @@ import { useRouter } from "next/navigation";
 interface SearchNode {
   id: string;
   label: string;
+  /** If present, this is a content match with a snippet */
+  snippet?: string;
 }
 
 const MAX_RESULTS = 8;
+const CONTENT_SEARCH_DEBOUNCE_MS = 300;
+const CONTENT_SEARCH_MIN_CHARS = 3;
 
 export function GlobalSearch() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [pages, setPages] = useState<SearchNode[]>([]);
+  const [contentResults, setContentResults] = useState<SearchNode[]>([]);
   const [highlighted, setHighlighted] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch page list once on first open/focus
-  const fetchedRef = useRef(false);
+  // Fetch page list for title matching — refresh on every open
   const fetchPages = useCallback(async () => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
     try {
       const res = await fetch("/api/wiki");
       if (!res.ok) return;
@@ -40,6 +43,46 @@ export function GlobalSearch() {
     } catch {
       // silently fail — search just won't have results
     }
+  }, []);
+
+  // Debounced content search
+  const searchContent = useCallback((q: string) => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    if (q.trim().length < CONTENT_SEARCH_MIN_CHARS) {
+      setContentResults([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/wiki/search?q=${encodeURIComponent(q.trim())}`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data.results)) {
+          setContentResults(
+            data.results.map(
+              (r: { slug: string; title: string; snippet: string }) => ({
+                id: r.slug,
+                label: r.title,
+                snippet: r.snippet,
+              }),
+            ),
+          );
+        }
+      } catch {
+        // silently fail
+      }
+    }, CONTENT_SEARCH_DEBOUNCE_MS);
+  }, []);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
   // Keyboard shortcuts: "/" and Cmd/Ctrl+K
@@ -80,20 +123,33 @@ export function GlobalSearch() {
         setOpen(false);
         setExpanded(false);
         setQuery("");
+        setContentResults([]);
       }
     }
     document.addEventListener("mousedown", handleMouseDown);
     return () => document.removeEventListener("mousedown", handleMouseDown);
   }, []);
 
-  // Filter results
+  // Filter results: title matches first, then content matches (deduplicated)
   const lowerQuery = query.toLowerCase().trim();
-  const results =
+  const titleMatches =
     lowerQuery.length > 0
       ? pages
           .filter((p) => p.label.toLowerCase().includes(lowerQuery))
           .slice(0, MAX_RESULTS)
       : [];
+
+  // Deduplicate content results against title matches
+  const titleMatchSlugs = new Set(titleMatches.map((p) => p.id));
+  const dedupedContentResults = contentResults.filter(
+    (r) => !titleMatchSlugs.has(r.id),
+  );
+
+  // Merge: title matches first, then content matches
+  const results = [
+    ...titleMatches,
+    ...dedupedContentResults.slice(0, MAX_RESULTS - titleMatches.length),
+  ];
 
   const showDropdown = open && lowerQuery.length > 0 && results.length > 0;
 
@@ -106,6 +162,7 @@ export function GlobalSearch() {
     setQuery("");
     setOpen(false);
     setExpanded(false);
+    setContentResults([]);
     router.push(`/wiki/${slug}`);
   }
 
@@ -114,6 +171,7 @@ export function GlobalSearch() {
       setQuery("");
       setOpen(false);
       setExpanded(false);
+      setContentResults([]);
       inputRef.current?.blur();
       return;
     }
@@ -185,6 +243,7 @@ export function GlobalSearch() {
               setQuery(e.target.value);
               setOpen(true);
               fetchPages();
+              searchContent(e.target.value);
             }}
             onFocus={() => {
               setOpen(true);
@@ -227,7 +286,12 @@ export function GlobalSearch() {
                     navigate(page.id);
                   }}
                 >
-                  {page.label}
+                  <div>{page.label}</div>
+                  {page.snippet && (
+                    <div className="text-xs text-foreground/40 mt-0.5 truncate">
+                      {page.snippet}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -250,6 +314,7 @@ export function GlobalSearch() {
               setExpanded(false);
               setQuery("");
               setOpen(false);
+              setContentResults([]);
             }}
             aria-label="Close search"
           >
