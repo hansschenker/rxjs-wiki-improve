@@ -96,7 +96,9 @@ export default function LintPage() {
       const key =
         (issue.type === "missing-crossref" || issue.type === "contradiction") && targetSlug
           ? `${issue.slug}:${targetSlug}`
-          : `${issue.type}:${issue.slug}`;
+          : issue.type === "missing-concept-page"
+            ? `missing-concept-page:${issue.message}`
+            : `${issue.type}:${issue.slug}`;
       setFixingSet((prev) => new Set(prev).add(key));
       setFixMessage(null);
 
@@ -111,6 +113,9 @@ export default function LintPage() {
         }
         if (issue.type === "contradiction" && targetSlug) {
           bodyObj.targetSlug = targetSlug;
+          bodyObj.message = issue.message;
+        }
+        if (issue.type === "missing-concept-page") {
           bodyObj.message = issue.message;
         }
 
@@ -244,16 +249,20 @@ export default function LintPage() {
                   "stale-index",
                   "empty-page",
                   "contradiction",
+                  "missing-concept-page",
                 ]);
                 const isFixable =
                   fixableTypes.has(issue.type) &&
                   (issue.type !== "missing-crossref" || targetSlug !== null) &&
-                  (issue.type !== "contradiction" || targetSlug !== null);
+                  (issue.type !== "contradiction" || targetSlug !== null) &&
+                  (issue.type !== "missing-concept-page" || issue.message.startsWith('Concept "'));
 
                 const fixKey =
                   (issue.type === "missing-crossref" || issue.type === "contradiction") && targetSlug
                     ? `${issue.slug}:${targetSlug}`
-                    : `${issue.type}:${issue.slug}`;
+                    : issue.type === "missing-concept-page"
+                      ? `missing-concept-page:${issue.message}`
+                      : `${issue.type}:${issue.slug}`;
                 const isFixing = fixingSet.has(fixKey);
 
                 const fixLabel: Record<string, string> = {
@@ -262,6 +271,7 @@ export default function LintPage() {
                   "stale-index": "Remove from index",
                   "empty-page": "Delete page",
                   "contradiction": "Resolve",
+                  "missing-concept-page": "Create page",
                 };
 
                 return (
