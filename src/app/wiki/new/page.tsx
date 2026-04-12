@@ -2,15 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useMemo } from "react";
-
-/** Derive a URL-safe slug from a human title. */
-function slugify(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/-{2,}/g, "-")
-    .replace(/^-|-$/g, "");
-}
+import { slugify } from "@/lib/slugify";
 
 export default function NewWikiPage() {
   const router = useRouter();

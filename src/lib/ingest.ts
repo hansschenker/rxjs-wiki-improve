@@ -19,6 +19,7 @@ import {
   FETCH_TIMEOUT_MS,
   MAX_LLM_INPUT_CHARS,
 } from "./constants";
+import { slugify } from "./slugify";
 
 // Re-exported so existing imports (and the test suite) keep working after we
 // moved the cross-ref helpers into wiki.ts to avoid a circular dependency
@@ -26,18 +27,8 @@ import {
 // write-paths drift".
 export { findRelatedPages, updateRelatedPages } from "./wiki";
 
-// ---------------------------------------------------------------------------
-// Slug generation
-// ---------------------------------------------------------------------------
-
-/** Convert a title into a URL-safe slug (lowercase, hyphens, no special chars). */
-export function slugify(title: string): string {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+// Re-export slugify so existing `import { slugify } from "./ingest"` keeps working.
+export { slugify } from "./slugify";
 
 // ---------------------------------------------------------------------------
 // URL detection & fetching
