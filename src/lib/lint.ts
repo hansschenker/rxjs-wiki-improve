@@ -14,7 +14,8 @@ async function getOnDiskSlugs(wikiDir: string): Promise<string[]> {
   let files: string[];
   try {
     files = await fs.readdir(wikiDir);
-  } catch {
+  } catch (err) {
+    console.warn("[lint] readdir wiki directory failed:", err);
     return [];
   }
 
@@ -290,7 +291,8 @@ function parseLLMJsonArray<T>(
       }
     }
     return results;
-  } catch {
+  } catch (err) {
+    console.warn("[lint] parse LLM JSON array failed:", err);
     return [];
   }
 }
@@ -388,8 +390,8 @@ async function checkContradictions(
           severity: "warning",
         });
       }
-    } catch {
-      // LLM call failed — don't crash the lint, just skip this cluster
+    } catch (err) {
+      console.warn("[lint] LLM contradiction check failed:", err);
     }
   }
 
@@ -523,8 +525,8 @@ async function checkMissingConceptPages(
       });
     }
     return issues;
-  } catch {
-    // LLM call failed — don't crash the lint, just skip
+  } catch (err) {
+    console.warn("[lint] LLM coverage gap check failed:", err);
     return [];
   }
 }

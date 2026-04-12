@@ -123,8 +123,8 @@ export function extractWithReadability(
       };
     }
     return null;
-  } catch {
-    // If linkedom/Readability throws, fall back to regex stripping
+  } catch (err) {
+    console.warn("[ingest] Readability extraction failed:", err);
     return null;
   }
 }
@@ -194,7 +194,8 @@ export function validateUrlSafety(url: string): void {
   let parsed: URL;
   try {
     parsed = new URL(url);
-  } catch {
+  } catch (err) {
+    console.warn("[ingest] URL parse failed:", err);
     throw new Error("URL blocked: invalid URL");
   }
 
@@ -584,7 +585,8 @@ export async function loadPageConventions(
         )
       : afterStart;
     return section.trim();
-  } catch {
+  } catch (err) {
+    console.warn("[ingest] load page conventions failed:", err);
     return "";
   }
 }

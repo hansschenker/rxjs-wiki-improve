@@ -67,7 +67,8 @@ export async function loadConfig(): Promise<AppConfig> {
   try {
     const raw = await fs.readFile(getConfigPath(), "utf-8");
     return JSON.parse(raw) as AppConfig;
-  } catch {
+  } catch (err) {
+    console.warn("[config] load config failed:", err);
     return {};
   }
 }
@@ -106,7 +107,8 @@ export function loadConfigSync(): AppConfig {
     const data = JSON.parse(raw) as AppConfig;
     _configCache = { data, ts: now };
     return data;
-  } catch {
+  } catch (err) {
+    console.warn("[config] load config (sync) failed:", err);
     _configCache = { data: {}, ts: now };
     return {};
   }

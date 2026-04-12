@@ -224,7 +224,8 @@ export async function loadVectorStore(): Promise<VectorStore | null> {
   try {
     const raw = await fs.readFile(vectorStorePath(), "utf-8");
     return JSON.parse(raw) as VectorStore;
-  } catch {
+  } catch (err) {
+    console.warn("[embeddings] load vector store failed:", err);
     return null;
   }
 }
@@ -432,7 +433,8 @@ export async function rebuildVectorStore(
         contentHash: contentHash(page.content),
       });
       embedded++;
-    } catch {
+    } catch (err) {
+      console.warn(`[embeddings] embed page "${entry.slug}" failed:`, err);
       skipped++;
     }
 

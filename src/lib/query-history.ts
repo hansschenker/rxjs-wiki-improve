@@ -49,8 +49,8 @@ async function readHistory(): Promise<QueryHistoryEntry[]> {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed as QueryHistoryEntry[];
-  } catch {
-    // File doesn't exist or is malformed — start fresh
+  } catch (err) {
+    console.warn("[query-history] load history failed:", err);
     return [];
   }
 }
