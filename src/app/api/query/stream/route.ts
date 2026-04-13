@@ -6,6 +6,7 @@ import {
   buildContext,
   buildQuerySystemPrompt,
 } from "@/lib/query";
+import { getErrorMessage } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,8 +72,7 @@ export async function POST(request: NextRequest) {
     console.error("Query stream error:", error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Internal server error",
+        error: getErrorMessage(error),
       },
       { status: 500 },
     );

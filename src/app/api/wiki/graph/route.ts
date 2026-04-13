@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { listWikiPages, readWikiPageWithFrontmatter } from "@/lib/wiki";
+import { getErrorMessage } from "@/lib/errors";
 
 interface GraphNode {
   id: string;
@@ -65,8 +66,7 @@ export async function GET() {
     console.error("Graph API error:", error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Internal server error",
+        error: getErrorMessage(error),
       },
       { status: 500 },
     );

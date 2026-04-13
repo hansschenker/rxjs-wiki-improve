@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { lint } from "@/lib/lint";
+import { getErrorMessage } from "@/lib/errors";
 
 export async function POST() {
   try {
@@ -9,8 +10,7 @@ export async function POST() {
     console.error("Lint error:", error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Internal server error",
+        error: getErrorMessage(error),
       },
       { status: 500 },
     );

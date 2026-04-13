@@ -7,6 +7,7 @@ import {
   type Frontmatter,
 } from "@/lib/wiki";
 import { extractSummary } from "@/lib/ingest";
+import { getErrorMessage } from "@/lib/errors";
 
 export async function DELETE(
   _req: Request,
@@ -17,7 +18,7 @@ export async function DELETE(
     const result = await deleteWikiPage(slug);
     return NextResponse.json(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
+    const message = getErrorMessage(err);
     const status = message.startsWith("page not found") ? 404 : 400;
     return NextResponse.json({ error: message }, { status });
   }
@@ -119,7 +120,7 @@ export async function PUT(
 
     return NextResponse.json(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
+    const message = getErrorMessage(err);
     const status = message.toLowerCase().startsWith("invalid slug") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }

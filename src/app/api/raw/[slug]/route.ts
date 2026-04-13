@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readRawSource } from "@/lib/wiki";
+import { getErrorMessage } from "@/lib/errors";
 
 /**
  * GET /api/raw/[slug]
@@ -26,7 +27,7 @@ export async function GET(
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
+    const message = getErrorMessage(err);
     // Both "invalid slug" and "not found" collapse to 404 from the
     // caller's perspective — neither reveals whether a file exists.
     return NextResponse.json({ error: message }, { status: 404 });

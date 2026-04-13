@@ -8,6 +8,7 @@ import {
   getResolvedCredentials,
   loadConfigSync,
 } from "./config";
+import { getErrorMessage } from "./errors";
 import {
   LLM_MAX_RETRIES,
   LLM_RETRY_BASE_MS,
@@ -135,7 +136,7 @@ export async function retryWithBackoff<T>(
 
       console.warn(
         `[llm] Retryable error on attempt ${attempt + 1}/${maxRetries + 1}, ` +
-          `retrying in ${delay}ms: ${err instanceof Error ? err.message : String(err)}`,
+          `retrying in ${delay}ms: ${getErrorMessage(err, String(err))}`,
       );
 
       await new Promise((resolve) => setTimeout(resolve, delay));

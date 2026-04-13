@@ -8,6 +8,7 @@ import {
   type Frontmatter,
 } from "@/lib/wiki";
 import { extractSummary } from "@/lib/ingest";
+import { getErrorMessage } from "@/lib/errors";
 
 /**
  * GET /api/wiki
@@ -20,7 +21,7 @@ export async function GET() {
     const entries = await listWikiPages();
     return NextResponse.json({ pages: entries });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
+    const message = getErrorMessage(err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -102,7 +103,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
+    const message = getErrorMessage(err);
     const status = message.toLowerCase().startsWith("invalid slug") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }

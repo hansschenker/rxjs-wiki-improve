@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingestUrl, isUrl } from "@/lib/ingest";
 import { MAX_BATCH_URLS } from "@/lib/constants";
+import { getErrorMessage } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,8 +55,7 @@ export async function POST(request: NextRequest) {
             const result = await ingestUrl(url);
             line = JSON.stringify({ index: i, url, success: true, result });
           } catch (err) {
-            const message =
-              err instanceof Error ? err.message : "Unknown error";
+            const message = getErrorMessage(err, "Unknown error");
             line = JSON.stringify({
               index: i,
               url,
@@ -81,8 +81,7 @@ export async function POST(request: NextRequest) {
     console.error("Batch ingest error:", error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Internal server error",
+        error: getErrorMessage(error),
       },
       { status: 500 },
     );

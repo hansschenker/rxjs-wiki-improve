@@ -4,6 +4,7 @@ import {
   FixValidationError,
   FixNotFoundError,
 } from "@/lib/lint-fix";
+import { getErrorMessage } from "@/lib/errors";
 
 /**
  * POST /api/lint/fix — auto-fix a lint issue.
@@ -41,8 +42,7 @@ export async function POST(req: NextRequest) {
     console.error("Lint fix error:", error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Internal server error",
+        error: getErrorMessage(error),
       },
       { status: 500 },
     );

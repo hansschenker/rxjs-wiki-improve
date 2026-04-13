@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { appendQuery, listQueries, markSaved } from "@/lib/query-history";
+import { getErrorMessage } from "@/lib/errors";
 
 /**
  * GET /api/query/history?limit=20
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Query history GET error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: getErrorMessage(error) },
       { status: 500 },
     );
   }
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Query history POST error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: getErrorMessage(error) },
       { status: 500 },
     );
   }

@@ -15,6 +15,7 @@ import {
 } from "./wiki";
 import { withFileLock } from "./lock";
 import { escapeRegex } from "./links";
+import { getErrorMessage } from "./errors";
 import type { LogOperation } from "./wiki";
 
 // ---------------------------------------------------------------------------
@@ -197,7 +198,7 @@ async function runPageLifecycleOp(
   } catch (err) {
     console.warn(
       `[wiki] embedding ${op.kind === "write" ? "upsert" : "remove"} failed for "${slug}":`,
-      err instanceof Error ? err.message : err,
+      getErrorMessage(err, String(err)),
     );
   }
 

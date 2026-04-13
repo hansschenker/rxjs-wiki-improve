@@ -7,6 +7,7 @@ import {
   type AppConfig,
 } from "@/lib/config";
 import { getEffectiveProvider } from "@/lib/config";
+import { getErrorMessage } from "@/lib/errors";
 
 // ---------------------------------------------------------------------------
 // GET /api/settings — return effective settings with source annotations
@@ -111,7 +112,7 @@ export async function PUT(request: Request) {
       effective,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = getErrorMessage(err);
     return Response.json({ error: message }, { status: 500 });
   }
 }

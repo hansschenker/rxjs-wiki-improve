@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchWikiContent } from "@/lib/wiki";
+import { getErrorMessage } from "@/lib/errors";
 
 /**
  * GET /api/wiki/search?q=search+terms
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
     const results = await searchWikiContent(q);
     return NextResponse.json({ results });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
+    const message = getErrorMessage(err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

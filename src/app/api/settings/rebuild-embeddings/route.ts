@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { rebuildVectorStore } from "@/lib/embeddings";
+import { getErrorMessage } from "@/lib/errors";
 
 export async function POST() {
   try {
     const result = await rebuildVectorStore();
     return NextResponse.json(result);
   } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "Failed to rebuild vector store";
+    const message = getErrorMessage(err, "Failed to rebuild vector store");
 
     // "No embedding provider configured" → 400; everything else → 500
     const status = message.includes("No embedding provider") ? 400 : 500;

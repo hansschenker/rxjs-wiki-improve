@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingest, ingestUrl, isUrl } from "@/lib/ingest";
 import type { IngestOptions } from "@/lib/ingest";
+import { getErrorMessage } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,8 +50,7 @@ export async function POST(request: NextRequest) {
     console.error("Ingest error:", error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Internal server error",
+        error: getErrorMessage(error),
       },
       { status: 500 },
     );
