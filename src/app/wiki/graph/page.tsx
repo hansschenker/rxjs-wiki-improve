@@ -165,8 +165,10 @@ export default function GraphPage() {
     if (!ctx) return;
 
     const palette = paletteRef.current;
-    const W = canvas.width;
-    const H = canvas.height;
+    // Use CSS dimensions (not canvas.width/height which are DPR-scaled)
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.width / dpr;
+    const H = canvas.height / dpr;
     const cx = W / 2;
     const cy = H / 2;
     const { nodes, edges } = data;
@@ -306,21 +308,33 @@ export default function GraphPage() {
     return () => cancelAnimationFrame(animRef.current);
   }, [loading, empty, simulate]);
 
-  // Handle canvas resizing
+  // Handle canvas resizing (HiDPI-aware)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const resizeCanvas = () => {
       const parent = canvas.parentElement;
       if (parent) {
-        canvas.width = parent.clientWidth;
-        canvas.height = 560;
+        const dpr = window.devicePixelRatio || 1;
+        const w = parent.clientWidth;
+        const h = 560;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.scale(dpr, dpr);
+        // Trigger a re-render after resize so content redraws at new resolution
+        if (dataRef.current) {
+          cancelAnimationFrame(animRef.current);
+          animRef.current = requestAnimationFrame(simulate);
+        }
       }
     };
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
     return () => window.removeEventListener("resize", resizeCanvas);
-  }, [loading]);
+  }, [loading, simulate]);
 
   // Mousemove handler — hover detection, cursor change, tooltip trigger
   const handleMouseMove = useCallback(
@@ -435,7 +449,12 @@ export default function GraphPage() {
           onMouseLeave={handleMouseLeave}
           className="block w-full"
           style={{ height: 560, backgroundColor: canvasBg }}
-        />
+          role="img"
+          aria-label="Wiki page relationship graph. Visit the wiki index for a text-based list of all pages."
+          tabIndex={0}
+        >
+          Wiki relationship graph — see wiki index for accessible page listing.
+        </canvas>
       </div>
       <p className="text-xs text-foreground/40 mt-2">
         Node size reflects connection count.
