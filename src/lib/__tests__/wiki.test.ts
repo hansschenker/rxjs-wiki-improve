@@ -24,6 +24,7 @@ import {
   beginPageCache,
   withPageCache,
   _getPageCacheSize,
+  updateRelatedPages,
 } from "../wiki";
 import type { IndexEntry } from "../types";
 
@@ -1778,5 +1779,125 @@ describe("page cache", () => {
     } finally {
       cleanup();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateRelatedPages — cross-ref false-positive fix
+// ---------------------------------------------------------------------------
+
+describe("updateRelatedPages", () => {
+  it("adds cross-ref when slug appears in prose but not as a wiki link", async () => {
+    await ensureDirectories();
+
+    // Create a page that mentions "neural-networks.md" in prose but does NOT
+    // have a proper wiki link to it.
+    await writeWikiPage(
+      "deep-learning",
+      "# Deep Learning\n\nThe file neural-networks.md contains details.\n",
+    );
+
+    // updateRelatedPages should add a See-also link because the page doesn't
+    // have a real [text](neural-networks.md) link — the old content.includes()
+    // check would have false-positived here.
+    const updated = await updateRelatedPages(
+      "neural-networks",
+      "Neural Networks",
+      ["deep-learning"],
+    );
+
+    expect(updated).toContain("deep-learning");
+    const page = await readWikiPage("deep-learning");
+    expect(page).not.toBeNull();
+    expect(page!.content).toContain("[Neural Networks](neural-networks.md)");
+  });
+
+  it("skips cross-ref when a proper wiki link already exists", async () => {
+    await ensureDirectories();
+
+    // Create a page that already has a proper wiki link.
+    await writeWikiPage(
+      "deep-learning",
+      "# Deep Learning\n\nSee [Neural Networks](neural-networks.md) for details.\n",
+    );
+
+    const updated = await updateRelatedPages(
+      "neural-networks",
+      "Neural Networks",
+      ["deep-learning"],
+    );
+
+    // Should NOT modify the page — it already links properly.
+    expect(updated).not.toContain("deep-learning");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteWikiPage — orphaned comma cleanup (stripBacklinksTo)
+// ---------------------------------------------------------------------------
+
+describe("deleteWikiPage — orphaned comma cleanup", () => {
+  it("collapses orphaned commas when a middle link is removed", async () => {
+    await ensureDirectories();
+
+    // Set up three pages: A, B, C. Page "hub" links to all three in a
+    // See-also line.
+    await writeWikiPage("page-a", "# Page A\n\nContent A.\n");
+    await writeWikiPage("page-b", "# Page B\n\nContent B.\n");
+    await writeWikiPage("page-c", "# Page C\n\nContent C.\n");
+    await writeWikiPage(
+      "hub",
+      "# Hub\n\nSome content.\n\n**See also:** [Page A](page-a.md), [Page B](page-b.md), [Page C](page-c.md)\n",
+    );
+
+    // Index must include all pages for the delete pipeline to find them.
+    await updateIndex([
+      { title: "Page A", slug: "page-a", summary: "A" },
+      { title: "Page B", slug: "page-b", summary: "B" },
+      { title: "Page C", slug: "page-c", summary: "C" },
+      { title: "Hub", slug: "hub", summary: "Hub" },
+    ]);
+
+    // Delete page-b — should strip its link from hub and collapse the
+    // resulting ", , " into ", ".
+    await deleteWikiPage("page-b");
+
+    const hub = await readWikiPage("hub");
+    expect(hub).not.toBeNull();
+
+    // Must NOT contain double commas.
+    expect(hub!.content).not.toContain(", ,");
+    // Should still link to A and C.
+    expect(hub!.content).toContain("[Page A](page-a.md)");
+    expect(hub!.content).toContain("[Page C](page-c.md)");
+    // The See-also line should be clean: "A, C"
+    expect(hub!.content).toMatch(
+      /\*\*See also:\*\* \[Page A\]\(page-a\.md\), \[Page C\]\(page-c\.md\)/,
+    );
+  });
+
+  it("cleans up when the first link is removed from See-also", async () => {
+    await ensureDirectories();
+
+    await writeWikiPage("page-x", "# Page X\n\nContent X.\n");
+    await writeWikiPage("page-y", "# Page Y\n\nContent Y.\n");
+    await writeWikiPage(
+      "ref",
+      "# Ref\n\nText.\n\n**See also:** [Page X](page-x.md), [Page Y](page-y.md)\n",
+    );
+
+    await updateIndex([
+      { title: "Page X", slug: "page-x", summary: "X" },
+      { title: "Page Y", slug: "page-y", summary: "Y" },
+      { title: "Ref", slug: "ref", summary: "Ref" },
+    ]);
+
+    await deleteWikiPage("page-x");
+
+    const ref = await readWikiPage("ref");
+    expect(ref).not.toBeNull();
+    // Should cleanly have just page-y left, no leading comma.
+    expect(ref!.content).toContain("**See also:** [Page Y](page-y.md)");
+    expect(ref!.content).not.toMatch(/\*\*See also:\*\*\s*,/);
   });
 });

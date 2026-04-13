@@ -475,8 +475,10 @@ export async function updateRelatedPages(
       const page = await readWikiPage(slug);
       if (!page) continue;
 
-      // Skip if already links to the new page
-      if (page.content.includes(`${newSlug}.md`)) continue;
+      // Skip if already links to the new page (use proper link detection
+      // rather than substring matching to avoid false positives when the slug
+      // appears in prose without being a wiki link).
+      if (hasLinkTo(page.content, newSlug)) continue;
 
       const link = `[${newTitle}](${newSlug}.md)`;
       let updatedContent: string;

@@ -143,9 +143,11 @@ function stripBacklinksTo(slug: string, content: string): string {
   updated = updated.replace(/^\*\*See also:\*\*\s*$/gm, "");
   //    b) Fix leading comma: `**See also:** , X` → `**See also:** X`
   updated = updated.replace(/(\*\*See also:\*\*)\s*,\s*/g, "$1 ");
-  //    c) Fix trailing comma at end-of-line: `..., \n` → `\n`
+  //    c) Collapse orphaned commas: "A, , C" → "A, C"
+  updated = updated.replace(/,(\s*,)+/g, ",");
+  //    d) Fix trailing comma at end-of-line: `..., \n` → `\n`
   updated = updated.replace(/,\s*$/gm, "");
-  //    d) Collapse runs of 3+ blank lines that the empty-line removal may
+  //    e) Collapse runs of 3+ blank lines that the empty-line removal may
   //       have produced into a single blank line, so we don't leave a hole.
   updated = updated.replace(/\n{3,}/g, "\n\n");
 
