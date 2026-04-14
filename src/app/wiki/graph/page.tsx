@@ -130,6 +130,7 @@ export default function GraphPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [canvasBg, setCanvasBg] = useState<string>(DARK_PALETTE.bg);
   const clusterCountRef = useRef<number>(0);
+  const nodeMapRef = useRef<Map<string, GraphNode>>(new Map());
 
   // Fetch graph data
   useEffect(() => {
@@ -181,6 +182,7 @@ export default function GraphPage() {
           clusterCountRef.current = count;
 
           dataRef.current = { nodes, edges: raw.edges ?? [] };
+          nodeMapRef.current = new Map(nodes.map((n) => [n.id, n]));
           setLoading(false);
         },
       )
@@ -229,7 +231,7 @@ export default function GraphPage() {
     const cx = W / 2;
     const cy = H / 2;
     const { nodes, edges } = data;
-    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+    const nodeMap = nodeMapRef.current;
 
     // --- Physics step ---
     // Repulsion between all pairs
@@ -300,9 +302,7 @@ export default function GraphPage() {
 
     // Nodes
     const hovered = hoveredRef.current;
-    const isDark =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const isDark = palette === DARK_PALETTE;
     const clusterFills = isDark ? CLUSTER_COLORS_DARK : CLUSTER_COLORS_LIGHT;
     const clusterStrokes = isDark
       ? CLUSTER_STROKES_DARK
