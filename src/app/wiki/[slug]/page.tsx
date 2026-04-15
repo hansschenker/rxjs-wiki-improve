@@ -2,6 +2,7 @@ import Link from "next/link";
 import { readWikiPageWithFrontmatter, findBacklinks, type Frontmatter } from "@/lib/wiki";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { DeletePageButton } from "@/components/DeletePageButton";
+import { RevisionHistory } from "@/components/RevisionHistory";
 
 interface WikiPageProps {
   params: Promise<{ slug: string }>;
@@ -125,6 +126,7 @@ export default async function WikiPageView({ params }: WikiPageProps) {
           </ul>
         </section>
       )}
+      <RevisionHistory slug={slug} />
       <div className="mt-12 border-t border-foreground/10 pt-6 flex items-center gap-3">
         <Link
           href={`/wiki/${slug}/edit`}
