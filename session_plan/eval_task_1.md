@@ -1,0 +1,2 @@
+Verdict: PASS
+Reason: All task requirements implemented correctly — `target` field added to `LintIssue`, populated in all three lint checks (broken-link, missing-crossref, contradiction), brittle parse helpers removed from the lint page, fix-key and list-item key updated to include `issue.type` and `issue.target` eliminating collisions, and test assertions for the new field added. No bugs or inconsistencies found.
