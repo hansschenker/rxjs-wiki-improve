@@ -32,45 +32,6 @@ const severityClasses: Record<
   },
 };
 
-/**
- * Parse the target slug from a missing-crossref lint message.
- *
- * Expected format:
- *   Page "foo.md" mentions "Bar Title" but doesn't link to bar-title.md
- *
- * Returns the target slug (e.g. "bar-title") or null if not parseable.
- */
-function parseTargetSlug(message: string): string | null {
-  const match = message.match(/doesn't link to ([a-z0-9][a-z0-9-]*)\.md$/);
-  return match ? match[1] : null;
-}
-
-/**
- * Parse the target slug from a contradiction lint message.
- *
- * Expected format:
- *   Contradiction between slug-a, slug-b: description
- *
- * Returns the second slug (e.g. "slug-b") or null if not parseable.
- */
-function parseContradictionTargetSlug(message: string): string | null {
-  const match = message.match(/^Contradiction between \S+, (\S+):/);
-  return match ? match[1] : null;
-}
-
-/**
- * Parse the target slug from a broken-link lint message.
- *
- * Expected format:
- *   Page "foo.md" links to "nonexistent.md" which does not exist
- *
- * Returns the target slug (e.g. "nonexistent") or null if not parseable.
- */
-function parseTargetSlugFromBrokenLink(message: string): string | null {
-  const match = message.match(/links to "([a-z0-9][a-z0-9-]*)\.md" which does not exist$/);
-  return match ? match[1] : null;
-}
-
 const fixableTypes = new Set([
   "missing-crossref",
   "orphan-page",
@@ -147,7 +108,7 @@ export default function LintPage() {
     async (issue: LintIssue, targetSlug?: string) => {
       const key =
         (issue.type === "missing-crossref" || issue.type === "contradiction" || issue.type === "broken-link") && targetSlug
-          ? `${issue.slug}:${targetSlug}`
+          ? `${issue.type}:${issue.slug}:${targetSlug}`
           : issue.type === "missing-concept-page"
             ? `missing-concept-page:${issue.message}`
             : `${issue.type}:${issue.slug}`;
@@ -308,16 +269,9 @@ export default function LintPage() {
           {/* Issues list */}
           {result.issues.length > 0 && (
             <ul className="space-y-3">
-              {result.issues.map((issue) => {
+              {result.issues.map((issue, i) => {
                 const styles = severityClasses[issue.severity];
-                const targetSlug =
-                  issue.type === "missing-crossref"
-                    ? parseTargetSlug(issue.message)
-                    : issue.type === "contradiction"
-                      ? parseContradictionTargetSlug(issue.message)
-                      : issue.type === "broken-link"
-                        ? parseTargetSlugFromBrokenLink(issue.message)
-                        : null;
+                const targetSlug = issue.target ?? null;
 
                 const isFixable =
                   fixableTypes.has(issue.type) &&
@@ -328,7 +282,7 @@ export default function LintPage() {
 
                 const fixKey =
                   (issue.type === "missing-crossref" || issue.type === "contradiction" || issue.type === "broken-link") && targetSlug
-                    ? `${issue.slug}:${targetSlug}`
+                    ? `${issue.type}:${issue.slug}:${targetSlug}`
                     : issue.type === "missing-concept-page"
                       ? `missing-concept-page:${issue.message}`
                       : `${issue.type}:${issue.slug}`;
@@ -337,7 +291,7 @@ export default function LintPage() {
 
                 return (
                   <li
-                    key={`${issue.slug}-${issue.type}-${issue.message.slice(0, 40)}`}
+                    key={`${issue.type}-${issue.slug}-${issue.target ?? ''}-${i}`}
                     className={`rounded-lg border ${styles.border} p-4 flex flex-wrap items-start gap-2`}
                   >
                     <span

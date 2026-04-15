@@ -112,6 +112,7 @@ async function checkBrokenLinks(
         issues.push({
           type: "broken-link",
           slug,
+          target: targetSlug,
           message: `Page "${slug}.md" links to "${targetSlug}.md" which does not exist`,
           severity: "warning",
         });
@@ -164,6 +165,7 @@ async function checkMissingCrossRefs(
         issues.push({
           type: "missing-crossref",
           slug: current.slug,
+          target: other.slug,
           message: `Page "${current.slug}.md" mentions "${other.title}" but doesn't link to ${other.slug}.md`,
           severity: "info",
         });
@@ -373,6 +375,7 @@ async function checkContradictions(
         issues.push({
           type: "contradiction",
           slug: affectedSlug,
+          target: c.pages[1] ?? c.pages[0],
           message: `Contradiction between ${c.pages.join(", ")}: ${c.description}`,
           severity: "warning",
         });

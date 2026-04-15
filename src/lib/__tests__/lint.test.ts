@@ -151,6 +151,7 @@ describe("lint", () => {
 
     expect(crossRefIssues.length).toBeGreaterThanOrEqual(1);
     expect(crossRefIssues[0].slug).toBe("alpha");
+    expect(crossRefIssues[0].target).toBe("beta");
     expect(crossRefIssues[0].message).toContain("Beta Topic");
   });
 
@@ -263,6 +264,7 @@ describe("lint", () => {
 
     expect(crossRefIssues).toHaveLength(1);
     expect(crossRefIssues[0].slug).toBe("intro");
+    expect(crossRefIssues[0].target).toBe("neural-network");
   });
 
   it("should NOT flag cross-refs when short title appears as substring of another word", async () => {
@@ -542,6 +544,7 @@ describe("checkContradictions", () => {
     expect(issues[0].type).toBe("contradiction");
     expect(issues[0].severity).toBe("warning");
     expect(issues[0].slug).toBe("page-a");
+    expect(issues[0].target).toBe("page-b");
     expect(issues[0].message).toContain("page-a");
     expect(issues[0].message).toContain("page-b");
     expect(issues[0].message).toContain("2020");
@@ -893,6 +896,7 @@ Every page must start with a level-1 heading.
       expect(issues).toHaveLength(1);
       expect(issues[0].type).toBe("broken-link");
       expect(issues[0].slug).toBe("page-a");
+      expect(issues[0].target).toBe("nonexistent");
       expect(issues[0].severity).toBe("warning");
       expect(issues[0].message).toContain("nonexistent.md");
     });
@@ -923,6 +927,9 @@ Every page must start with a level-1 heading.
 
       const issues = await checkBrokenLinks(["page-a", "page-b"]);
       expect(issues).toHaveLength(2);
+      const targets = issues.map((i) => i.target);
+      expect(targets).toContain("gone-one");
+      expect(targets).toContain("gone-two");
       expect(issues.map((i) => i.message)).toEqual(
         expect.arrayContaining([
           expect.stringContaining("gone-one.md"),
@@ -957,6 +964,7 @@ Every page must start with a level-1 heading.
     );
     expect(brokenLinkIssues).toHaveLength(1);
     expect(brokenLinkIssues[0].slug).toBe("linker");
+    expect(brokenLinkIssues[0].target).toBe("does-not-exist");
     expect(brokenLinkIssues[0].message).toContain("does-not-exist.md");
   });
 });

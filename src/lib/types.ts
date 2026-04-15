@@ -50,6 +50,9 @@ export interface QueryResult {
 export interface LintIssue {
   type: "orphan-page" | "stale-index" | "missing-crossref" | "empty-page" | "contradiction" | "missing-concept-page" | "broken-link";
   slug: string;
+  /** Structured target slug for cross-ref, contradiction, and broken-link fixes.
+   * Eliminates the need to parse human-readable messages to extract targets. */
+  target?: string;
   message: string;
   severity: "error" | "warning" | "info";
 }
