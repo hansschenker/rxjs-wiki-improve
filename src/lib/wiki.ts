@@ -4,6 +4,7 @@ import type { WikiPage, IndexEntry } from "./types";
 import { callLLM, hasLLMKey } from "./llm";
 import { withFileLock } from "./lock";
 import { hasLinkTo } from "./links";
+import { saveRevision } from "./revisions";
 
 // ---------------------------------------------------------------------------
 // Configurable base directories — override via env vars for testing
@@ -185,6 +186,17 @@ export async function writeWikiPage(
   validateSlug(slug);
   await ensureDirectories();
   const filePath = path.join(getWikiDir(), `${slug}.md`);
+
+  // Snapshot the current content as a revision before overwriting.
+  // Only save a revision if the file already exists (new pages don't have
+  // a previous version to save).
+  try {
+    const existing = await fs.readFile(filePath, "utf-8");
+    await saveRevision(slug, existing);
+  } catch {
+    // File doesn't exist yet — first write, no revision needed.
+  }
+
   await fs.writeFile(filePath, content, "utf-8");
 
   // Invalidate cache entry so next read fetches fresh data

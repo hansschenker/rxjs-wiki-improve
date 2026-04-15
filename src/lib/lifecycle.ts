@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import type { IndexEntry } from "./types";
 import { upsertEmbedding, removeEmbedding } from "./embeddings";
+import { deleteRevisions } from "./revisions";
 import {
   validateSlug,
   writeWikiPage,
@@ -200,6 +201,18 @@ async function runPageLifecycleOp(
       `[wiki] embedding ${op.kind === "write" ? "upsert" : "remove"} failed for "${slug}":`,
       getErrorMessage(err, String(err)),
     );
+  }
+
+  // 2c. Clean up revision history when deleting a page.
+  if (op.kind === "delete") {
+    try {
+      await deleteRevisions(slug);
+    } catch (err) {
+      console.warn(
+        `[wiki] deleteRevisions failed for "${slug}":`,
+        getErrorMessage(err, String(err)),
+      );
+    }
   }
 
   // 3. Mutate the index. The read → mutate → write cycle is performed under
