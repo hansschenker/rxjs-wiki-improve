@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/query";
+import { query, type QueryFormat } from "@/lib/query";
 import { getErrorMessage } from "@/lib/errors";
+
+function parseFormat(value: unknown): QueryFormat {
+  return value === "table" ? "table" : "prose";
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { question } = body;
+    const { question, format } = body;
 
     if (
       !question ||
@@ -19,7 +23,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await query(question.trim());
+    // Validate `format` if present; default to "prose" when missing/invalid.
+    if (
+      format !== undefined &&
+      format !== "prose" &&
+      format !== "table"
+    ) {
+      return NextResponse.json(
+        { error: "format must be 'prose' or 'table'" },
+        { status: 400 },
+      );
+    }
+
+    const result = await query(question.trim(), parseFormat(format));
 
     return NextResponse.json(result);
   } catch (error) {

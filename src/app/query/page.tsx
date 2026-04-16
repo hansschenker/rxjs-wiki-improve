@@ -35,6 +35,7 @@ function truncate(text: string, maxLen: number): string {
 
 export default function QueryPage() {
   const [question, setQuestion] = useState("");
+  const [format, setFormat] = useState<"prose" | "table">("prose");
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
@@ -122,7 +123,7 @@ export default function QueryPage() {
         const res = await fetch("/api/query/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: trimmed }),
+          body: JSON.stringify({ question: trimmed, format }),
           signal: controller.signal,
         });
 
@@ -135,7 +136,7 @@ export default function QueryPage() {
           const fallbackRes = await fetch("/api/query", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: trimmed }),
+            body: JSON.stringify({ question: trimmed, format }),
             signal: controller.signal,
           });
 
@@ -209,7 +210,7 @@ export default function QueryPage() {
         setStreaming(false);
       }
     },
-    [question, saveToHistory],
+    [question, format, saveToHistory],
   );
 
   /** Load a history entry into the UI without re-querying. */
@@ -314,6 +315,32 @@ export default function QueryPage() {
               rows={3}
               className="w-full rounded-lg border border-foreground/20 bg-transparent px-4 py-3 text-sm placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/30 resize-vertical"
             />
+            <fieldset className="flex items-center gap-4 text-sm">
+              <legend className="sr-only">Answer format</legend>
+              <span className="text-foreground/60">Answer format:</span>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="format"
+                  value="prose"
+                  checked={format === "prose"}
+                  onChange={() => setFormat("prose")}
+                  disabled={isProcessing}
+                />
+                <span>Prose</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="format"
+                  value="table"
+                  checked={format === "table"}
+                  onChange={() => setFormat("table")}
+                  disabled={isProcessing}
+                />
+                <span>Table</span>
+              </label>
+            </fieldset>
             <button
               type="submit"
               disabled={isProcessing || !question.trim()}

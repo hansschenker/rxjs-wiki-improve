@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { searchIndex, buildContext, query, saveAnswerToWiki, buildCorpusStats, bm25Score, extractCitedSlugs, reciprocalRankFusion } from "../query";
+import { searchIndex, buildContext, query, saveAnswerToWiki, buildCorpusStats, bm25Score, extractCitedSlugs, reciprocalRankFusion, buildQuerySystemPrompt, TABLE_FORMAT_INSTRUCTION } from "../query";
 import { writeWikiPage, updateIndex, ensureDirectories, readWikiPage, listWikiPages } from "../wiki";
 import type { IndexEntry } from "../types";
 
@@ -1106,5 +1106,45 @@ describe("hybrid search in searchIndex", () => {
     // Should fall back to BM25 without crashing
     expect(result.length).toBeGreaterThan(0);
     expect(result).toContain("ml");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildQuerySystemPrompt — answer format hint
+// ---------------------------------------------------------------------------
+describe("buildQuerySystemPrompt — format option", () => {
+  const entries: IndexEntry[] = [
+    { slug: "alpha", title: "Alpha", summary: "Alpha summary" },
+    { slug: "beta", title: "Beta", summary: "Beta summary" },
+  ];
+
+  it("appends the table-formatting instruction when format is 'table'", async () => {
+    const prompt = await buildQuerySystemPrompt(
+      "context body",
+      entries,
+      ["alpha"],
+      "table",
+    );
+    expect(prompt).toContain(TABLE_FORMAT_INSTRUCTION);
+    expect(prompt).toMatch(/markdown comparison table/i);
+  });
+
+  it("omits the table instruction when format is 'prose' (default)", async () => {
+    const proseExplicit = await buildQuerySystemPrompt(
+      "context body",
+      entries,
+      ["alpha"],
+      "prose",
+    );
+    const proseDefault = await buildQuerySystemPrompt(
+      "context body",
+      entries,
+      ["alpha"],
+    );
+    expect(proseExplicit).not.toContain(TABLE_FORMAT_INSTRUCTION);
+    expect(proseDefault).not.toContain(TABLE_FORMAT_INSTRUCTION);
+    // Default behavior must match explicit "prose" — guards against the
+    // default ever drifting away from existing callers' expectations.
+    expect(proseDefault).toBe(proseExplicit);
   });
 });

@@ -49,6 +49,17 @@ const RERANK_CANDIDATE_POOL = MAX_CONTEXT_PAGES * 2;
 /** Maximum characters of page body included as a snippet for re-ranking. */
 const RERANK_SNIPPET_CHARS = 500;
 
+/**
+ * Extra system-prompt instruction appended when the caller requests a
+ * table-formatted answer. Kept as a top-level constant so tests can assert on
+ * its presence without duplicating the string.
+ */
+export const TABLE_FORMAT_INSTRUCTION =
+  "Format your answer as a markdown comparison table where possible. Include a short prose lead-in (1-2 sentences) before the table. Every column header should be meaningful. Cite sources as [[slug]] in a final 'Sources' row or paragraph.";
+
+/** Answer format hint supported by `query()` / `buildQuerySystemPrompt()`. */
+export type QueryFormat = "prose" | "table";
+
 const RERANK_PROMPT = `You are a wiki search assistant. Given a user's question and a set of candidate wiki pages (with content snippets), re-rank them by relevance to the question.
 
 Return ONLY a JSON array of slug strings, most relevant first. You may omit pages that are clearly irrelevant. Maximum {max} slugs.
@@ -279,6 +290,7 @@ export async function buildQuerySystemPrompt(
   context: string,
   entries: IndexEntry[],
   selectedSlugs: string[],
+  format: QueryFormat = "prose",
 ): Promise<string> {
   // Build the full index listing so the LLM knows what else exists
   const indexListing = entries
@@ -299,6 +311,12 @@ export async function buildQuerySystemPrompt(
   const conventions = await loadPageConventions();
   if (conventions) {
     systemPrompt += `\n\nThe wiki you are querying follows these conventions (from SCHEMA.md):\n\n${conventions}`;
+  }
+
+  // Append the table-formatting hint when requested. Prose is the default and
+  // adds nothing, so existing callers see identical output.
+  if (format === "table") {
+    systemPrompt += `\n\n${TABLE_FORMAT_INSTRUCTION}`;
   }
 
   return systemPrompt;
@@ -339,8 +357,15 @@ export async function selectPagesForQuery(
  *
  * Index-first approach: reads the index to find relevant pages, then loads
  * only those pages for context. For small wikis (<= 5 pages), loads all.
+ *
+ * The optional `format` controls how the LLM is asked to shape its answer.
+ * `"prose"` (the default) is the current free-form markdown behavior;
+ * `"table"` adds a system-prompt hint asking for a markdown comparison table.
  */
-export async function query(question: string): Promise<QueryResult> {
+export async function query(
+  question: string,
+  format: QueryFormat = "prose",
+): Promise<QueryResult> {
   return withPageCache(async () => {
     const entries = await listWikiPages();
 
@@ -368,7 +393,12 @@ export async function query(question: string): Promise<QueryResult> {
       };
     }
 
-    const systemPrompt = await buildQuerySystemPrompt(context, entries, selectedSlugs);
+    const systemPrompt = await buildQuerySystemPrompt(
+      context,
+      entries,
+      selectedSlugs,
+      format,
+    );
 
     const answer = await callLLM(systemPrompt, question);
 

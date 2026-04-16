@@ -5,13 +5,14 @@ import {
   selectPagesForQuery,
   buildContext,
   buildQuerySystemPrompt,
+  type QueryFormat,
 } from "@/lib/query";
 import { getErrorMessage } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { question } = body;
+    const { question, format } = body;
 
     if (
       !question ||
@@ -23,6 +24,19 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    // Validate `format` if present; default to "prose" when missing.
+    if (
+      format !== undefined &&
+      format !== "prose" &&
+      format !== "table"
+    ) {
+      return NextResponse.json(
+        { error: "format must be 'prose' or 'table'" },
+        { status: 400 },
+      );
+    }
+    const queryFormat: QueryFormat = format === "table" ? "table" : "prose";
 
     const trimmedQuestion = question.trim();
     const entries = await listWikiPages();
@@ -58,6 +72,7 @@ export async function POST(request: NextRequest) {
       context,
       entries,
       selectedSlugs,
+      queryFormat,
     );
 
     // Stream the LLM response
