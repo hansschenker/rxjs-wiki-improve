@@ -1,0 +1,24 @@
+Algebra is primarily concerned with creating, manipulating, and evaluating expressions. These expressions are built using variables, constants, and operators. Programmers often visualize expressions as trees
+
+𝑥2 + 2𝑥 + 1
+
+This expression is formed using variables like 𝑥, and constants like 1 or
+2, bound together with operators like plus or times. As programmers,
+we often think of expressions as trees.
+
+
+
+To a mathematician, monads are about algebras
+
+an algebra is defined by a set of n-ary operations (functions that take n arguments) 
+and a set of equational identities that these operations must satisfy. 
+These identities are universally quantified (e.g., an associativity equation must hold for all combinations of three elements). 
+This definition can be extended from sets to other categories by replacing operations (functions) with morphisms.
+
+Functional programming is not only about composing
+functions and algebraic data structures — it makes concurrency com-
+posable — something that’s virtually impossible with other program-
+ming paradigms
+
+
+

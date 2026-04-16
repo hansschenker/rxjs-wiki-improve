@@ -1,0 +1,82 @@
+----------- flatten*
+
+concat()
+concat All()
+concat Map()
+concat MapTo()
+concat With()
+
+
+merge()
+merge All()
+merge Map() 
+merge MapTo()
+merge Scan()
+merge With()
+
+
+exhaust
+exhaustAll()
+exhaustMap()
+
+switch
+switch All()
+switch Map()
+switch MapTo()
+switch Scan()
+
+------------ selection
+
+filter
+
+first
+
+last
+
+single 
+skip
+skip Last
+
+skip Until
+skip While
+
+take
+take Last
+take Until
+take While
+
+----------- aggregation
+count
+max
+min
+reduce
+
+---------- Observable creation
+
+
+      ---- creation from Javascript datasource
+ajax
+bindCallback
+bindNodeCallback
+from
+fromEvent
+fromEventPattern
+
+    ---- creation with Rxjs Operator
+generate
+interval
+of
+range
+throwError
+timer
+iif
+
+
+     ----- creation from Observables
+combineLatest
+concat
+forkJoin
+merge
+partition
+race
+zip

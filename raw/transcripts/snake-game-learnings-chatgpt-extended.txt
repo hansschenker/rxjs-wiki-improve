@@ -1,0 +1,3977 @@
+Here’s a concise 10-bullet summary of the “Reactive Game Development with RxJS” talk by Markel Tuzynskyi, based on the provided transcript. (No directly relevant Glasp insights were found during search that meaningfully enhanced the summary.)
+
+Intro & FRP Basics (00:00–01:27): The speaker contrasts traditional object-oriented patterns with functional programming, introducing Functional Reactive Programming (FRP) as the combination of reactive ideas with function composition—observables are streams of values changing over time.
+
+Observable as a Monad (01:27–02:51): Observables are like functors and monads—they represent values over time, allowing chaining and composition with context, unlike plain mutable state.
+
+RxJS “Pipe” Practice (02:51–04:20): Shows transforming observable streams with pipe instead of doing logic inside subscribe, enabling clearer and more declarative stream flows.
+
+Angular State Discussion (04:20–06:39): Discusses limitations of Angular/React state (mutable, class-based), noting that traditional FRP is more purely functional. Mentions frameworks like Cycle.js that embrace full FRP.
+
+Game Project Setup (08:04–10:28): Introduces the Snake game as a way to practice pure RxJS: inputs are keyboard events and a tick interval stream representing the game loop.
+
+Direction Stream (13:04–17:16): Keyboard events are mapped to direction values; RxJS operators (map, filter, distinctUntilChanged) clean up input and avoid forbidden opposite turns.
+
+Scan for State Logic (17:59–21:05): Uses scan to enforce rules (like not reversing direction), explaining its similarity to reduce but over a stream of events.
+
+Snake Length & Score Streams (22:06–30:09): Introduces a BehaviorSubject for growth events; derives snake length and score as streams using scan, showing state as streams not shared mutation.
+
+Full Snake Body Logic (31:01–36:04): Combines tick, direction, and length into a stream that calculates snake positions (head + body) every tick as a pure stream without external mutable state.
+
+Apples & Collision (37:03–39:57): Adds apples as another observable; uses scan and pure transformations to detect eaten apples and grow the snake. Concludes with FRP guidance: rely on observables over mutable state and keep logic inside streams.
+
+Learn more on Glasp: https://glasp.co/reader?url=https://www.youtube.com/watch?v=6nayX_fqWb4
+
+give me more details on 1.
+
+Here’s a deeper dive into point 1 — the conceptual foundation Markel sets up at the beginning of the talk.
+
+1. Intro & FRP Basics (00:00–01:27) — What problem FRP is trying to solve
+(00:00–00:44) Functional programming vs OOP
+
+Markel starts by reframing what programming is really about:
+
+Programming is function composition
+
+OOP constructs (classes, inheritance, encapsulation, polymorphism) are not required to achieve composition
+
+If you strip those away, you’re left with:
+
+Small functions
+
+Explicit inputs
+
+Explicit outputs
+
+Clear dataflow
+
+His claim here is subtle but important:
+
+OOP is a structuring convenience, not a fundamental requirement.
+
+By relying on direct, low-level function composition, you:
+
+Reduce hidden state
+
+Reduce implicit control flow
+
+Move closer to a “math-like” programming model
+
+This sets the stage for FRP, because FRP extends function composition into time.
+
+(00:44–01:27) What “reactive” actually means
+
+Reactive Programming is introduced through its core abstraction:
+
+An observable is a value that changes over time.
+
+Key points he makes:
+
+Different ecosystems use different names:
+
+Observable
+
+Stream
+
+Signal
+
+Cell (Excel analogy)
+
+The name doesn’t matter — the idea does:
+
+It’s not a value
+
+It’s not a callback
+
+It’s not a Promise
+
+It’s a time-varying value
+
+The Excel analogy is important:
+
+A cell doesn’t “run code”
+
+It reacts when dependencies change
+
+You don’t tell it when to recompute — the dataflow does
+
+That’s the mental model he wants you to adopt.
+
+Observable vs Promise (early distinction)
+
+He briefly contrasts observables with promises:
+
+Promise:
+
+Resolves once
+
+Single value
+
+Observable:
+
+Can emit many values
+
+Over an unbounded time span
+
+Can represent:
+
+User input
+
+Animation frames
+
+Game ticks
+
+Network events
+
+This distinction matters later for games, because:
+
+Games are continuous systems
+
+Not request/response workflows
+
+Why this matters for games
+
+Even though he hasn’t shown code yet, the motivation is already clear:
+
+Games are:
+
+Event-driven
+
+Time-driven
+
+State-heavy
+
+Traditional approach:
+
+Global mutable state
+
+Imperative update loops
+
+FRP approach:
+
+Inputs are streams
+
+State is derived, not mutated
+
+Time is explicit
+
+So point 1 is not just theory — it’s the philosophical contract of the talk:
+
+“If we treat everything as values over time, even a game can be described as pure composition.”
+
+That’s the lens through which everything else (tick$, direction$, scan, BehaviorSubject, etc.) will make sense later.
+
+If you want, next we can:
+
+Drill into why “observable = function” matters, or
+
+Reframe this intro purely in RxJS mental-model terms (streams, policies, state-as-scan), or
+
+Map this opening directly to your Snake-in-RxJS worldview (tick as clock source, keyboard as intent stream).
+
+give me more details on 2.
+
+Alright, let’s zoom in on point 2 and really unpack what Markel is doing there — because this is where the mental model for the rest of the talk is locked in.
+
+2. Observable as Functor & Monad (01:27–02:51) — Why RxJS composition works at all
+
+This section answers a very practical question:
+
+Why am I allowed to compose observables the same way I compose normal functions?
+
+Markel’s answer is:
+because Observable already belongs to the same family as Array and Promise.
+
+Observable = value + context
+
+He introduces a key abstraction:
+
+A functor is a value with a context.
+
+Examples he implicitly relies on:
+
+Array<T> → context = many values
+
+Promise<T> → context = value in the future
+
+Observable<T> → context = value(s) over time
+
+The important bit:
+
+You never touch T directly
+
+You use map to transform inside the context
+
+So when you write:
+
+source$.pipe(map(x => x + 1))
+
+
+You are not:
+
+Pulling a value out
+
+Mutating it
+
+Pushing it back
+
+You are:
+
+Rewriting the description of how future values should flow
+
+That’s the functor guarantee.
+
+Why this matters for RxJS
+
+Because Observable is a functor:
+
+You can:
+
+Rename values (map)
+
+Project values
+
+Transform meaning
+
+Without:
+
+Knowing when values arrive
+
+Knowing how many arrive
+
+Knowing if they arrive at all
+
+This is exactly what you want when dealing with:
+
+User input
+
+Game ticks
+
+Network responses
+
+Animations
+
+You stay agnostic to time.
+
+From Functor → Monad (the flattening moment)
+
+Markel then introduces the next step:
+
+A monad is a functor that can flatten.
+
+In RxJS terms:
+
+map gives you Observable<Observable<T>>
+
+Flattening operators turn that into Observable<T>
+
+This is where operators like:
+
+mergeMap
+
+switchMap
+
+concatMap
+
+exhaustMap
+
+come from.
+
+Crucially, he doesn’t present these as “async helpers”
+but as composition rules.
+
+Each one answers:
+
+What should happen when a new inner stream appears?
+
+This framing is essential for games.
+
+Observable’s “context” is uncertainty
+
+Markel highlights something subtle but powerful:
+
+The observable context is not just “future” — it’s unknown behavior over time.
+
+That includes:
+
+Value may arrive now, later, or never
+
+Value may change
+
+Value may stop changing
+
+Value may error
+
+So when you compose observables, you are composing uncertainty safely.
+
+This is why:
+
+No mutable state is required
+
+No “if already loaded” flags
+
+No manual synchronization
+
+The operators encode the rules.
+
+Why this unlocks declarative apps
+
+Because Observable is a monad:
+
+You can describe your app as:
+
+“If this changes → do that”
+
+“When this emits → derive that”
+
+Instead of:
+
+“Set state here”
+
+“Remember to clean up there”
+
+This is what Markel means when he says:
+
+“I can express my application as a mathematical combination of observables.”
+
+Not math for math’s sake — but predictable composition.
+
+Direct mapping to the Snake game
+
+This section is laying groundwork for what comes later:
+
+tick$ → Observable of time
+
+keydown$ → Observable of intent
+
+direction$ → Derived observable
+
+snake$ → Accumulated observable via scan
+
+Each step:
+
+Preserves context
+
+Never escapes the stream
+
+Never mutates shared state
+
+Without the functor/monad property, this would collapse into callbacks.
+
+The hidden punchline
+
+Markel doesn’t say it explicitly, but the implication is strong:
+
+If something is a monad, you don’t need a framework to orchestrate it.
+
+You only need:
+
+Streams
+
+Operators
+
+One final subscribe
+
+That’s why he can build a full game with ~80 lines of RxJS.
+
+If you want, next we can:
+
+Rephrase this section without category words at all (pure RxJS language),
+
+Map this directly to your “flattening operators are policies” worldview,
+
+Or extract a teachable rule-of-thumb for when to introduce scan vs flattening.
+
+Just tell me where you want to push next.
+
+give me more details on 3.
+
+Great choice — point 3 is where the talk quietly flips your day-to-day RxJS habits.
+
+3. RxJS “pipe” practice (02:51–04:20) — Moving logic out of subscribe
+
+This section is not about syntax.
+It’s about where your program actually lives.
+
+Markel is answering this question:
+
+If observables are my program, where should the logic go?
+
+The “non-FRP” baseline he criticizes
+
+He starts with a very common pattern:
+
+service.getData().subscribe(data => {
+  if (data.ready) {
+    const result = transform(data);
+    this.state = result;
+  }
+});
+
+
+Why this is problematic (in FRP terms):
+
+subscribe contains:
+
+Control flow (if)
+
+Transformation (transform)
+
+State mutation (this.state = …)
+
+Logic is:
+
+Temporal (runs now)
+
+Implicit (hidden in callbacks)
+
+Hard to reuse or test
+
+In RxJS language:
+
+The dataflow graph is invisible.
+
+What pipe actually changes
+
+He then shows the same logic written as:
+
+service.getData().pipe(
+  filter(data => data.ready),
+  map(transform)
+).subscribe(result => {
+  this.state = result;
+});
+
+
+What changed conceptually:
+
+pipe(...):
+
+Describes how values will flow
+
+Rewrites the stream
+
+subscribe(...):
+
+Becomes a terminal effect
+
+No longer decides what happens — only where it lands
+
+This is the core FRP move:
+
+Describe first. Execute last.
+
+Observable as a plan, not a process
+
+Markel implicitly treats an observable chain as:
+
+A declarative plan
+
+A dataflow graph
+
+A recipe
+
+Nothing runs yet.
+
+Only when subscribe happens does:
+
+Time start flowing
+
+Values start moving
+
+Side effects begin
+
+This separation mirrors:
+
+SQL vs query execution
+
+Build graph vs running the build
+
+Iterator definition vs iteration
+
+And it’s essential for reasoning.
+
+Why this matters more than “clean code”
+
+This is not about style — it’s about debuggability and composition.
+
+When logic lives in pipe:
+
+You can:
+
+Reuse it
+
+Extract it
+
+Name it
+
+Test it
+
+Visualize it (marbles, graphs)
+
+You can’t do that with logic hidden inside subscribe
+
+Markel hints at this when he talks about clear dataflow.
+
+Pipeable operators & tree-shaking (secondary point)
+
+He briefly mentions why RxJS moved to pipeable operators:
+
+Old style:
+
+source.map(...).filter(...)
+
+
+New style:
+
+source.pipe(map(...), filter(...))
+
+
+Reasons:
+
+Better tree-shaking
+
+Smaller bundles
+
+Explicit imports
+
+But for him, the real win is this:
+
+Operators become first-class functions.
+
+You can do:
+
+const onlyReady = filter(d => d.ready);
+const toViewModel = map(transform);
+
+source.pipe(onlyReady, toViewModel);
+
+
+Now your business rules have names.
+
+This is where FRP becomes scalable
+
+Once operators are named and extracted:
+
+Pipelines read like sentences
+
+Streams become documentation
+
+Complexity is split across small, testable pieces
+
+This is what makes the later Snake game readable:
+
+direction$
+
+snake$
+
+score$
+
+apples$
+
+Each is a sentence, not a callback soup.
+
+Subtle but critical rule
+
+Markel’s implied rule here is:
+
+If you feel tempted to write logic in subscribe, stop.
+
+Ask instead:
+
+“Can this be a transformation?”
+
+“Is this state actually derived?”
+
+“Should this be scan, not assignment?”
+
+In other words:
+
+subscribe is where effects happen, not decisions.
+
+Why this enables games, not just apps
+
+Games are:
+
+Highly temporal
+
+Continuous
+
+Event-heavy
+
+If your logic lives in subscribe:
+
+You lose control of time
+
+You lose composability
+
+You get race conditions
+
+By pushing everything into pipe, you:
+
+Make time explicit
+
+Make ordering explicit
+
+Make policies explicit
+
+Which is why the rest of the talk can stay pure RxJS.
+
+If you want, next we can:
+
+Rewrite this rule as a one-line RxJS law,
+
+Show a before/after refactor from imperative to piped logic,
+
+Or connect this directly to your “operators rewire streams; business logic lives only in user functions” mantra.
+
+Just say the word.
+
+give me more details on 4.
+
+Alright — point 4 is where the talk gets politically interesting 😄
+This is Markel drawing a clear boundary between pure FRP ideals and real-world frameworks.
+
+4. Angular & React: FRP inside OOP shells (04:20–06:39)
+
+This section answers a very practical question:
+
+If FRP is so clean, why don’t Angular and React look like FRP systems?
+
+Markel’s answer is honest and pragmatic.
+
+The core tension he highlights
+
+Angular and React both:
+
+Are component-based
+
+Use classes (Angular) or class-like state containers (React)
+
+Rely on mutable component state
+
+Trigger rendering via imperative state updates
+
+This immediately clashes with classical FRP, where:
+
+There is no external mutable state
+
+Everything is a derived stream
+
+Outputs are pure functions of inputs over time
+
+So his claim is:
+
+Angular and React are reactive, but not purely FRP.
+
+Important distinction:
+
+He’s not attacking them
+
+He’s identifying a structural compromise
+
+Why Angular still feels closer to FRP
+
+Markel gives Angular some credit:
+
+RxJS is a first-class citizen
+
+Observables are everywhere:
+
+HTTP
+
+Router
+
+Forms
+
+The async pipe:
+
+Subscribes for you
+
+Handles teardown
+
+Encourages “data-in, view-out” thinking
+
+So Angular supports FRP-style flows, but…
+
+The unavoidable impurity: this
+
+In Angular components:
+
+this.loading = true;
+this.data = result;
+
+
+This is the problem.
+
+State lives outside the observable graph
+
+The observable pushes into the component
+
+The component remembers things imperatively
+
+From an FRP lens:
+
+The observable graph is no longer the whole program
+
+It’s just a producer for mutations
+
+Markel explicitly says:
+
+There is no way in Angular to change component state without mutating this.
+
+That’s the key limitation.
+
+tap as a controlled impurity
+
+He then shows a disciplined workaround:
+
+source$.pipe(
+  tap(() => this.showLoader())
+)
+
+
+Why this is “acceptable” in Angular:
+
+The side effect is:
+
+Explicit
+
+Localized
+
+Clearly marked
+
+The dataflow remains readable
+
+Effects don’t alter the stream’s meaning
+
+In FRP terms:
+
+tap ≈ “do, but don’t interfere”
+
+It’s an effect boundary
+
+This is as close as Angular can get to FRP without redesigning itself.
+
+Why this still violates classical FRP
+
+Markel is very clear here:
+
+The existence of mutable state outside observables goes against traditional FRP ideas.
+
+Because:
+
+State is no longer derived
+
+Time is partially implicit
+
+Invalidation is manual
+
+You now have two systems:
+
+Observable graph
+
+Component memory
+
+They must be kept in sync by discipline, not by construction.
+
+Enter Cycle.js: the contrast case
+
+To make the point sharper, he brings up Cycle.js:
+
+No component state
+
+No mutation
+
+No this
+
+Entire app = composition of streams
+
+Even DOM is an observable
+
+In Cycle.js:
+
+Inputs → streams
+
+Outputs → streams
+
+The framework is the dataflow
+
+This is what “pure FRP” feels like.
+
+Why he doesn’t reject Angular anyway
+
+Crucially, Markel does not say:
+
+“Don’t use Angular.”
+
+Instead, he says:
+
+You can:
+
+Break functionality into streams
+
+Keep logic in pipe
+
+Minimize imperative state
+
+You can approximate FRP locally
+
+This is the pragmatic takeaway:
+
+You may not control the framework, but you control your dataflow hygiene.
+
+Why this motivates the Snake game
+
+This section directly motivates the next move:
+
+“Let’s do this in pure RxJS first, without Angular.”
+
+Why?
+
+To feel what FRP actually is
+
+To remove framework constraints
+
+To learn the mental model cleanly
+
+Only then:
+
+Bring that mindset back into Angular
+
+Use RxJS as more than “async glue”
+
+The implicit rule he’s teaching
+
+Without saying it explicitly, Markel gives this rule:
+
+Frameworks mutate. Streams shouldn’t.
+
+So your job as an RxJS developer is:
+
+Keep mutation at the edges
+
+Keep streams pure
+
+Treat components as render targets, not state containers
+
+Why this maps perfectly to your worldview
+
+This section aligns exactly with your principles:
+
+Observable = description, not execution
+
+State should be a remembered stream (scan)
+
+UI is a sink, not a brain
+
+Side effects are explicit and isolated
+
+Angular didn’t fail FRP — it just stopped halfway.
+
+If you want, next we can:
+
+Rewrite Angular components in a “FRP purity gradient” (from clean to dirty),
+
+Show how your rxjs-ui-core / rxjs-dom ideas fix this structurally,
+
+Or extract a migration checklist: “How FRP is my Angular component, really?”
+
+Just point the direction.
+
+give me more details on 5.
+
+Perfect — point 5 is where the talk stops being philosophy and turns into a concrete FRP modeling exercise.
+
+This is the moment Markel answers:
+
+“Okay, but how do I actually start an FRP program?”
+
+5. Game project setup (08:04–10:28) — Finding the true inputs
+
+This section teaches a repeatable FRP technique that goes way beyond games.
+
+Step 1: Choose a problem with “obvious state”
+
+Markel deliberately picks a Snake game because:
+
+Games traditionally use:
+
+Global mutable state
+
+Update loops
+
+while(true) + timers
+
+They feel incompatible with FP
+
+That makes it a perfect stress test for FRP.
+
+The unspoken challenge is:
+
+If FRP can model a game, it can model almost anything.
+
+Step 2: Ignore implementation — identify inputs
+
+Before writing logic, he asks:
+
+What are the inputs to this system?
+
+Not variables.
+Not objects.
+Not state.
+
+Inputs = things that happen over time.
+
+He identifies two fundamental ones:
+
+1. User input
+
+Keyboard events
+
+Discrete
+
+Irregular
+
+Intent-driven
+
+This becomes:
+
+keydown$
+
+2. Time
+
+The game advances in steps
+
+The snake moves once per “tick”
+
+Rendering happens per tick
+
+This becomes:
+
+tick$ = interval(speed)
+
+
+💡 This is a huge conceptual move:
+
+Time is not a loop — it’s a stream.
+
+Step 3: Declare the “clock” explicitly
+
+In imperative games you’d write:
+
+setInterval(update, 100);
+
+
+In FRP, Markel does something more honest:
+
+const tick$ = interval(TICK_RATE);
+
+
+Why this matters:
+
+Time is now:
+
+Observable
+
+Composable
+
+Replaceable
+
+Testable
+
+Speed changes?
+
+Change the stream
+
+Pause?
+
+Stop the stream
+
+Slow motion?
+
+Transform the stream
+
+This is why FRP games feel clean.
+
+Step 4: Start with the smallest possible state
+
+At this stage, the “game state” is literally just:
+
+tick$
+
+
+No snake.
+No board.
+No apples.
+
+He renders only the tick counter.
+
+This is intentional.
+
+Why?
+
+It proves:
+
+Rendering can be driven by streams
+
+No state mutation is required
+
+It establishes:
+
+“Subscribe = draw”
+
+“Observable = game loop”
+
+The game already exists at this point.
+
+Step 5: Rendering as a sink
+
+He introduces a simple render(...) function:
+
+Takes current values
+
+Draws to canvas
+
+Has no logic
+
+Crucially:
+
+Rendering does not decide what happens
+
+It only reflects what already happened
+
+This enforces a strict separation:
+
+Streams decide → Render reflects
+
+
+That separation is what keeps FRP sane.
+
+Step 6: Why canvas is a good choice here
+
+Canvas is imperative by nature:
+
+Draw commands
+
+No retained DOM state
+
+No diffing
+
+That actually helps here, because:
+
+It makes side effects explicit
+
+It avoids accidental statefulness
+
+Canvas becomes:
+
+A dumb output device
+
+Exactly what FRP wants.
+
+Step 7: The hidden FRP recipe
+
+This section quietly teaches a universal recipe:
+
+List inputs (things that happen over time)
+
+Turn each into an Observable
+
+Start with the smallest meaningful stream
+
+Render it
+
+Only then derive more streams
+
+This is why the rest of the game builds so smoothly.
+
+Step 8: Why this is not “overkill”
+
+You might think:
+
+“Isn’t this too much for a small game?”
+
+But Markel’s implicit point is:
+
+Complexity doesn’t come from features
+
+It comes from state interactions
+
+By starting with:
+
+Explicit time
+
+Explicit input
+
+Zero hidden state
+
+You’ve already eliminated:
+
+Race conditions
+
+Update order bugs
+
+Invisible dependencies
+
+Step 9: This is where FRP becomes teachable
+
+At this point, you could pause the talk and already say:
+
+“A game is just:
+
+a clock
+
+some inputs
+
+some derived streams
+
+a renderer”
+
+That’s the entire mental model.
+
+Everything else (direction, snake, apples) is just refinement.
+
+Step 10: Why this maps perfectly to your RxJS worldview
+
+This section aligns exactly with your principles:
+
+Time comes from sources, not operators
+
+UI is a sink
+
+No execution until subscription
+
+Cold by default
+
+State is not stored — it is derived later
+
+This is also why:
+
+scan appears next
+
+withLatestFrom appears next
+
+No Subjects appear until absolutely necessary
+
+One-sentence takeaway of point 5
+
+FRP starts by asking “what flows?” — not “what do I store?”
+
+If you want, next we can:
+
+Re-express this as a general FRP starter checklist,
+
+Compare this setup directly with a traditional game loop,
+
+Or map this 1:1 to how you’d start a rxjs-ui-core / rxjs-dom app.
+
+Just say where to go next.
+
+give me more details on 6.
+
+Yes — point 6 is the first real “FRP muscle” moment in the talk.
+This is where Markel shows how rules replace state.
+
+6. Direction stream (13:04–17:16) — Turning raw events into intent
+
+This section answers a very important question:
+
+How do you turn messy user input into a clean, meaningful stream?
+
+The answer is: derive intent, don’t store it.
+
+Step 1: Start with the rawest possible input
+
+The keyboard is inherently chaotic:
+
+Events arrive at irregular times
+
+Keys can repeat
+
+Keys can contradict each other
+
+Some keys are irrelevant
+
+So Markel starts with the lowest-level source:
+
+keydown$
+
+
+This stream represents:
+
+Physical key presses
+
+Not “direction”
+
+Not “movement”
+
+Just facts
+
+This is important:
+
+Raw events are not intent.
+
+Step 2: Map events to domain meaning
+
+Next, he translates key codes into directions:
+
+keydown$.pipe(
+  map(event => DIRECTIONS[event.keyCode])
+)
+
+
+Now the stream is no longer about keyboards — it’s about directional intent.
+
+This is the first FRP law being applied:
+
+Rename values as early as possible.
+
+You want streams to talk in domain language.
+
+Step 3: Remove nonsense early
+
+Not every keypress is meaningful:
+
+filter(Boolean)
+
+
+This step matters more than it looks:
+
+It shrinks the state space
+
+It guarantees downstream logic sees only valid values
+
+It makes later operators simpler
+
+After this:
+
+The stream is only directions
+
+No undefined
+
+No conditionals later
+
+Step 4: Establish an initial state
+
+Games don’t start “directionless”.
+
+startWith(RIGHT)
+
+
+This does two things:
+
+Makes the stream immediately usable
+
+Eliminates “no value yet” cases
+
+In FRP terms:
+
+This stream now always has a value.
+
+Which is why it can be safely combined later with withLatestFrom.
+
+Step 5: Eliminate redundant updates
+
+Holding a key down produces repeats.
+
+distinctUntilChanged()
+
+
+This operator encodes a rule:
+
+“Only react when intent actually changes.”
+
+This:
+
+Reduces noise
+
+Makes movement deterministic
+
+Prevents accidental multiple updates
+
+You are no longer reacting to events — you are reacting to state transitions.
+
+Step 6: Why this is already “state”
+
+At this point, direction$:
+
+Remembers the last direction
+
+Emits only when it changes
+
+Always has a value
+
+But:
+
+There is no variable
+
+No assignment
+
+No mutation
+
+This is what Markel means by:
+
+“Observable replaces state.”
+
+The stream is the state.
+
+Step 7: Visualizing the stream
+
+He even draws a marble diagram to show:
+
+keydown$:   ↑   ↑   →   →
+direction$: ↑       →
+
+
+This makes it obvious:
+
+Some events are ignored
+
+Some collapse into one value
+
+Time is preserved
+
+This is the mental model you later reuse everywhere.
+
+Step 8: Why this matters for the Snake rules
+
+At this stage, the snake can still:
+
+Reverse direction
+
+Kill itself immediately
+
+And that’s good.
+
+Why?
+
+Because rules come after intent
+
+You don’t mix input decoding with game rules
+
+This separation keeps logic composable.
+
+Step 9: Why this is reusable design
+
+This exact pattern applies to:
+
+Mouse gestures → drag intent
+
+Touch events → swipe intent
+
+UI clicks → commands
+
+Network messages → domain events
+
+Always:
+
+Raw events → map → filter → normalize → distinct
+
+
+This is FRP input hygiene.
+
+Step 10: Why this fits your RxJS philosophy perfectly
+
+This section aligns 1:1 with your rules:
+
+Observables move packages — not logic
+
+Operators rewire streams
+
+Business meaning lives in user functions
+
+No shared mutable state
+
+Time is preserved
+
+You don’t “store direction”.
+You describe how direction evolves over time.
+
+One-sentence takeaway
+
+User input is noise; intent is a stream you derive.
+
+If you want next:
+
+We can deep-dive into why scan is not used yet here,
+
+Or show how this pattern becomes intent() helpers in UI frameworks,
+
+Or map this directly to your intentOf(...) / dynamicIntentOf(...) ideas.
+
+Just point the way.
+
+give me more details on 7.
+
+Absolutely — point 7 is the conceptual core of the whole talk.
+This is where FRP stops being “streams” and becomes state without variables.
+
+7. scan for state logic (17:59–21:05) — Rules instead of mutation
+
+This section answers the question:
+
+If I’m not allowed to mutate state, how do I enforce rules over time?
+
+Markel’s answer is simple and powerful:
+
+State is a stream that remembers.
+
+And the tool for that is scan.
+
+What problem appears at this point
+
+With the direction$ stream from point 6, the game has a bug:
+
+You can go up → down instantly
+
+You can go left → right instantly
+
+In Snake, that’s illegal.
+
+The naïve (imperative) solution would be:
+
+let currentDirection;
+
+keydown$.subscribe(dir => {
+  if (!isOpposite(currentDirection, dir)) {
+    currentDirection = dir;
+  }
+});
+
+
+This is exactly what FRP tries to eliminate:
+
+External memory
+
+Temporal coupling
+
+Hidden control flow
+
+What scan actually does (in practical terms)
+
+Markel reframes scan like this:
+
+It is like reduce
+
+But it emits on every input
+
+Not only at completion
+
+Signature-wise:
+
+scan((previous, current) => next, seed)
+
+
+But conceptually:
+
+“Given what I knew before, and what just happened, what should I know now?”
+
+That’s state transition logic.
+
+Applying scan to direction
+
+He introduces logic like:
+
+scan((prev, next) =>
+  isOpposite(prev, next) ? prev : next
+)
+
+
+Key observations:
+
+prev is memory
+
+next is intent
+
+The function encodes a rule
+
+There is:
+
+No assignment
+
+No mutation
+
+No side effects
+
+Yet the rule is fully enforced.
+
+Why this is stronger than filter
+
+A common mistake is to think:
+
+“Why not just filter out opposite directions?”
+
+Because filter:
+
+Removes events
+
+Does not replace them
+
+But Snake needs:
+
+A value every tick
+
+Even when input is invalid
+
+scan can:
+
+Reject the new value
+
+While re-emitting the previous value
+
+This is the critical difference.
+
+So the stream stays total.
+
+The deep insight: rules are functions, not flags
+
+Markel implicitly teaches this:
+
+Game rules are pure functions over time, not checks around assignments.
+
+With scan:
+
+Every rule is:
+
+Local
+
+Explicit
+
+Testable
+
+No global flags
+
+No “if I remember correctly…”
+
+This is why Redux is built on the same idea.
+
+Why this unlocks the rest of the game
+
+Once you understand scan:
+
+Snake length
+
+Score
+
+Body movement
+
+Apple generation
+
+Collision detection
+
+All become:
+
+scan((state, event) => nextState)
+
+
+Different domains — same machine.
+
+This is why Markel calls scan crucial.
+
+Visual intuition (what’s really happening)
+
+Imagine a timeline:
+
+Input:     ↑   ↓   ←
+Memory:    →   →   →
+Output:    ↑   ↑   ←
+
+
+The stream:
+
+Never stops emitting
+
+Never becomes undefined
+
+Always reflects the last valid state
+
+That’s exactly what a game loop needs.
+
+Why this fits your RxJS worldview perfectly
+
+This section directly matches your principles:
+
+State = stream that remembers
+
+scan + shareReplay(1) = cell
+
+Operators encode policies
+
+No hidden time
+
+No hidden mutation
+
+Markel is doing RxJS-as-a-state-machine, even if he doesn’t name it that way.
+
+The unspoken rule of scan
+
+He doesn’t say it explicitly, but the rule is:
+
+If your logic depends on “what happened before”, you want scan.
+
+Not map.
+Not filter.
+Not subscribe.
+
+One-sentence takeaway
+
+scan is how you enforce rules over time without storing state.
+
+If you want next, we can:
+
+Contrast scan vs BehaviorSubject rigorously,
+
+Turn this into a state transition table / ADT,
+
+Or show how this exact idea powers rx-query, Redux, ngrx, and your rxjs-ui-core.
+
+Just say where to go next.
+
+give me more details on 8.
+
+Great — point 8 is where FRP really proves it can handle growing state without collapsing into mutation.
+This is the moment where many people think “okay, now we must use variables”… and Markel shows you don’t.
+
+8. Snake length & score streams (22:06–30:09) — State grows, but never leaks
+
+This section answers a very concrete problem:
+
+How do I represent something that grows over time (length, score) without mutating variables?
+
+The answer is subtle but fundamental:
+
+Separate “events that cause change” from “state that remembers change.”
+
+Step 1: Identify the cause of growth
+
+Before thinking about “snake length”, Markel asks:
+
+What actually causes the snake to grow?
+
+Not:
+
+The snake itself
+
+The tick
+
+The direction
+
+But a discrete event:
+
+The snake eats an apple.
+
+This is crucial FRP thinking:
+
+State does not change “by itself”
+
+State changes because something happened
+
+So he introduces a stream whose only job is:
+
+“Signal that growth should happen.”
+
+This becomes:
+
+increaseLength$
+
+
+At this point, this stream doesn’t mean length —
+it means growth events.
+
+Step 2: Why a BehaviorSubject appears here
+
+This is the first time Markel introduces a Subject, and it’s very intentional.
+
+Why a Subject here?
+
+Because:
+
+Apple collision is detected downstream
+
+But snake length is needed upstream
+
+Growth must feed back into the system
+
+This is not “breaking FRP” — it’s modeling a feedback loop.
+
+He chooses BehaviorSubject because:
+
+It always has a current value
+
+New subscribers immediately receive it
+
+It behaves like a cell (“value over time”)
+
+Important:
+
+The Subject is not the state
+It is the event source for state transitions
+
+That distinction matters a lot.
+
+Step 3: Snake length = scan over growth
+
+Now comes the key move:
+
+snakeLength$ = increaseLength$.pipe(
+  scan((length, grow) => length + grow, INITIAL_LENGTH)
+)
+
+
+What’s happening conceptually:
+
+increaseLength$ emits deltas
+
+scan accumulates them
+
+The result is a derived state stream
+
+So:
+
+No variable snakeLength
+
+No assignment
+
+No mutation
+
+Yet:
+
+Length increases
+
+Length is remembered
+
+Length is always available
+
+This is state as a fold over time.
+
+Step 4: Why this is better than “just a variable”
+
+An imperative version would be:
+
+let length = 3;
+length += 1;
+
+
+But that version:
+
+Loses history
+
+Is order-sensitive
+
+Is hard to combine
+
+Is invisible to tooling
+
+The FRP version:
+
+Preserves time
+
+Is composable
+
+Can be visualized
+
+Can be replayed
+
+Can be shared
+
+This is why FRP scales.
+
+Step 5: Score is the same pattern (important insight)
+
+Markel then shows something elegant:
+
+score$ = increaseLength$.pipe(
+  skip(1),
+  scan((score, _) => score + POINTS, 0)
+)
+
+
+Key insight:
+
+Score and length are derived from the same event stream.
+
+There is:
+
+No coupling between them
+
+No shared state
+
+No coordination logic
+
+They stay consistent by construction.
+
+This is FRP gold.
+
+Step 6: Why skip(1) appears
+
+This is a subtle but important detail.
+
+The BehaviorSubject emits an initial value.
+But:
+
+That initial emission is not caused by eating an apple
+
+It’s just initialization
+
+So Markel uses:
+
+skip(1)
+
+
+This is very honest FRP:
+
+Initialization is explicit
+
+Semantics are preserved
+
+No “magic zero”
+
+Step 7: Combining everything for rendering
+
+At this point, he has:
+
+direction$
+
+snakeLength$
+
+score$
+
+He combines them using:
+
+combineLatest(...)
+
+
+Why combineLatest?
+
+Because:
+
+Rendering needs the current value of everything
+
+Any change should trigger a redraw
+
+This gives a snapshot stream of game state — without storing state.
+
+Step 8: What did not happen (important)
+
+Notice what he doesn’t do:
+
+No this.score = ...
+
+No this.length = ...
+
+No shared object
+
+No mutation inside subscribe
+
+Everything remains:
+
+Declarative
+
+Time-aware
+
+Observable
+
+The game is still just streams.
+
+Step 9: Why this pattern generalizes
+
+This exact structure applies to:
+
+Counters
+
+Inventories
+
+Health bars
+
+XP systems
+
+Undo/redo stacks
+
+Always:
+
+Identify event stream
+
+scan into state stream
+
+Derive multiple views from it
+
+One machine — many states.
+
+Step 10: Why this fits your RxJS worldview exactly
+
+This section maps perfectly to your principles:
+
+State is a stream that remembers
+
+scan is the memory
+
+Subjects are for bridging, not storage
+
+Business meaning lives in user functions
+
+Operators rewire streams
+
+You’re seeing the same “RxJS packaging machine” idea:
+
+Events go in, rules fold them, values come out.
+
+One-sentence takeaway
+
+State grows by folding events over time — never by mutating memory.
+
+If you want next, we can:
+
+Dissect why this Subject is justified (and where it wouldn’t be),
+
+Replace it with a pure feedback loop (withLatestFrom / expand),
+
+Or formalize this as a State ADT you can reuse across games and UIs.
+
+Just point the next node in the graph.
+
+give me more details on 9.
+
+Yes — point 9 is where the whole FRP machine finally moves something through space.
+Up to now, everything was numbers and rules. Here, it becomes motion without mutation.
+
+9. Full snake body logic (31:01–36:04) — Movement as accumulated geometry
+
+This section answers a deceptively simple question:
+
+How do you move something that has a body, not just a direction?
+
+The traditional answer:
+
+Store positions in an array
+
+Mutate it every frame
+
+Markel’s FRP answer:
+
+Movement is a pure transformation over time.
+
+Step 1: Re-identify the real inputs
+
+Before touching the body, he re-checks the inputs that actually matter per movement:
+
+tick$ → when movement happens
+
+direction$ → where to move
+
+snakeLength$ → how long the body is
+
+Notice what’s missing:
+
+No snake array
+
+No “current position” variable
+
+The body will be derived, not stored.
+
+Step 2: Synchronize inputs explicitly
+
+He combines inputs like this:
+
+tick$.pipe(
+  withLatestFrom(direction$, snakeLength$)
+)
+
+
+This line is doing a lot of work.
+
+Conceptually:
+
+Tick is the clock
+
+Direction & length are state snapshots
+
+Movement happens only on tick
+
+This enforces:
+
+Time controls updates — not input events.
+
+Key insight:
+
+Direction changes don’t move the snake
+
+Only ticks do
+
+This is classic game-loop logic — expressed declaratively.
+
+Step 3: Introduce the real “state”: the snake geometry
+
+Now comes the crucial scan:
+
+scan(moveSnake, initialSnake)
+
+
+Where:
+
+initialSnake = generated array of coordinates
+
+moveSnake(prevSnake, [dir, length]) => nextSnake
+
+This is the true game state:
+
+An ordered list of body segments
+
+But it is:
+
+Immutable
+
+Recreated every tick
+
+Local to the stream
+
+Step 4: What moveSnake really does
+
+Inside moveSnake:
+
+Take the current head
+
+Compute a new head position using direction
+
+Prepend it to the body
+
+Trim the tail to match snakeLength
+
+Wrap around board edges
+
+That’s it.
+
+No mutation.
+No shared memory.
+No side effects.
+
+Just:
+
+nextSnake = [newHead, ...prevSnake].slice(0, length)
+
+
+FRP elegance at its peak.
+
+Step 5: Why this works without bugs
+
+Because:
+
+The only way the snake changes is:
+
+Through scan
+
+The only trigger is:
+
+tick$
+
+The only inputs are:
+
+Direction and length
+
+There is no place for:
+
+Race conditions
+
+Out-of-order updates
+
+Partial state
+
+Everything is serialized by time.
+
+Step 6: Collision logic belongs inside the fold
+
+Self-collision is handled inside moveSnake.
+
+Why that matters:
+
+Collision depends on:
+
+Previous body
+
+New head
+
+That’s exactly what scan gives you
+
+If collision is detected:
+
+The function can:
+
+Stop emitting
+
+Signal game over
+
+Or clamp movement
+
+The rule lives with the transition.
+
+Step 7: This is a state machine, whether you name it or not
+
+At this point, the game is effectively:
+
+State × Input → State
+
+
+Where:
+
+State = snake body
+
+Input = direction + length (sampled on tick)
+
+That’s a deterministic automaton.
+
+Markel doesn’t say “state machine” —
+but that’s exactly what this is.
+
+Step 8: Why scan beats arrays + mutation
+
+Imperative version:
+
+Hard to test
+
+Hard to replay
+
+Hard to visualize
+
+FRP version:
+
+Deterministic
+
+Replayable
+
+Inspectable
+
+Shareable
+
+Serializable
+
+This is why FRP scales to complex simulations.
+
+Step 9: Why the snake body is not a Subject
+
+Important restraint Markel shows:
+
+He does not store the snake in a Subject
+
+He does not push positions imperatively
+
+Why?
+
+That would split authority
+
+That would reintroduce hidden state
+
+scan is the only authority.
+
+Step 10: Why this maps directly to your RxJS worldview
+
+This section is textbook “RxJS as a packaging machine”:
+
+Tick packages time
+
+Direction packages intent
+
+Length packages policy
+
+scan rewires everything into motion
+
+You could swap:
+
+Snake → list
+
+Board → DOM
+
+Tick → animation frame
+
+Same machine. Different domain.
+
+One-sentence takeaway
+
+Movement is just state folded over time — geometry, not mutation.
+
+If you want next, we can:
+
+Draw this as a formal transition table,
+
+Convert moveSnake into a reusable state reducer ADT,
+
+Or compare this to game loops, Redux, and Elm update() side-by-side.
+
+Just tell me where to steer the snake 🐍
+
+give me more details on 10.
+
+Perfect — point 10 is the closing synthesis of the whole talk.
+This is where Markel stops coding and tells you how to think differently after today.
+
+10. Apples, collision & final FRP guidance (37:03–end) — Closing the loop, then generalizing
+
+This section answers the last big question:
+
+Can FRP handle feedback, randomness, collisions, and game-over logic — without collapsing into mutation?
+
+Markel’s answer is: yes, if you keep everything inside the stream graph.
+
+Part A: Apples — randomness without chaos
+Apples are not “things”, they are derived state
+
+Instead of saying “place an apple”, Markel asks:
+
+When should apples change?
+
+Answer:
+
+When the snake eats one
+
+When the game starts
+
+So apples become:
+
+A stream derived from snake$
+
+Folded with scan
+
+This is critical:
+
+Apples are not independent actors
+
+They react to the snake
+
+That keeps causality clear.
+
+Why scan again
+
+Apple logic needs:
+
+Previous apples
+
+Current snake head
+
+Rules (“remove eaten apple, maybe add a new one”)
+
+That’s exactly:
+
+(previousApples, snake) → nextApples
+
+
+So once again:
+
+scan = state transition function over time
+
+Randomness (new apple position) is:
+
+Contained
+
+Triggered by a clear event
+
+Never global
+
+FRP rule here:
+
+Randomness is allowed — but only at the edges of transitions.
+
+Part B: Collision — rules live with transitions
+Self-collision is not an “event”
+
+This is subtle and important.
+
+Markel does not create:
+
+collision$
+
+gameOver$ (initially)
+
+Instead:
+
+Collision is detected inside moveSnake
+
+Where previous body + new head are both visible
+
+Why this is correct:
+
+Collision is not input
+
+It’s a consequence of a transition
+
+FRP principle:
+
+Rules belong where state changes, not where values are observed.
+
+What happens on collision
+
+When collision is detected, the transition function can:
+
+Stop emitting
+
+Clamp movement
+
+Trigger teardown
+
+The key point:
+
+No external flag
+
+No imperative “gameOver = true”
+
+The stream itself encodes termination.
+
+Part C: Feedback loops done honestly
+
+At this point, the game has a cycle:
+
+snake$ → apples$ → growth$ → snakeLength$ → snake$
+
+
+This is not a bug.
+This is the system.
+
+Why it works:
+
+The cycle is mediated by streams
+
+Each step is explicit
+
+Time breaks the loop (ticks)
+
+This is how FRP safely models feedback:
+
+No instant recursion — only time-delayed loops.
+
+That’s why this doesn’t explode.
+
+Part D: What didn’t happen (this is key)
+
+Markel explicitly avoids:
+
+Global variables
+
+Singleton game objects
+
+Mutable arrays
+
+“Manager” classes
+
+Hidden clocks
+
+Hidden subscriptions
+
+Everything is:
+
+Local
+
+Composed
+
+Observable
+
+Replaceable
+
+This is the real win.
+
+Part E: The real lesson (he says this explicitly)
+
+Markel steps back and says (paraphrased):
+
+Think in streams, not values
+
+Think in time, not steps
+
+Think in derivations, not mutations
+
+Keep side effects at the edges
+
+Accept that frameworks may be impure — your logic doesn’t have to be
+
+This is the takeaway he wants you to carry into Angular / day-to-day work.
+
+Part F: How this maps back to Angular / real apps
+
+He doesn’t say “rewrite Angular”.
+
+He says:
+
+Break your logic into streams
+
+Keep component state minimal
+
+Prefer derived observables
+
+Use scan instead of assignment
+
+Use tap only for effects
+
+Treat the component as a sink
+
+That’s how you smuggle FRP into non-FRP frameworks.
+
+Part G: Why this talk ends with exercises
+
+The bonus tasks are not random:
+
+Increase speed → time as stream
+
+Multiple apple types → event → fold
+
+Two-player mode → merge intent streams
+
+Keep it DRY → extract operators
+
+Each task reinforces:
+
+The machine stays the same — only the streams change.
+
+Exactly your guiding idea.
+
+The hidden meta-lesson
+
+Markel never says this explicitly, but it’s the deepest insight:
+
+FRP is not about RxJS APIs — it’s about where you allow memory to exist.
+
+In this game:
+
+Memory exists only in scan
+
+Nowhere else
+
+That’s why it’s understandable.
+
+One-sentence takeaway of point 10
+
+Once everything is a stream, even feedback, randomness, and failure become composable.
+
+If you want, next we can:
+
+Collapse all 10 points into a single FRP mental checklist,
+
+Extract a generic “FRP game engine skeleton”,
+
+Or map this entire talk 1:1 onto rxjs-ui-core / rxjs-dom architecture.
+
+Just say the word — the graph is still open.
+
+Collapse all 10 points into a single FRP mental checklist,
+
+Love this request. Here is the collapsed, single FRP mental checklist distilled from all 10 points of the talk — not as theory, but as a working mental machine you can run in your head before writing any RxJS code.
+
+This is deliberately framework-agnostic, RxJS-native, and game/UI/system-ready.
+
+The FRP Mental Checklist
+
+(Derived from “Reactive Game Development with RxJS”)
+
+Use this checklist top-to-bottom.
+If you get stuck, you skipped a step.
+
+1️⃣ What flows over time?
+
+List inputs, not state.
+
+Ask:
+
+What happens over time?
+
+What arrives independently?
+
+Examples:
+
+User intent (keyboard, mouse, clicks)
+
+Time (tick, animation frame, interval)
+
+External signals (network, sensors)
+
+⬅️ These become source Observables
+Nothing else is allowed to be “input”.
+
+2️⃣ Make time explicit
+
+There is no hidden clock.
+
+If something “updates periodically”:
+
+That period is a stream (tick$)
+
+Speed, pause, slow-motion are stream transforms
+
+Never:
+
+setInterval
+
+implicit lifecycle timing
+
+Time always flows through the graph.
+
+3️⃣ Decode raw events into intent
+
+Raw events are noise. Intent is meaning.
+
+Pipeline:
+
+raw$ → map → filter → normalize → distinct
+
+
+Result:
+
+Streams speak domain language
+
+No keycodes, no DOM events downstream
+
+Example:
+
+keydown$ → direction$
+
+click$ → submitIntent$
+
+4️⃣ Give streams an initial value
+
+Streams should be usable immediately.
+
+If a stream represents “current something”:
+
+It must start with a value
+
+Tools:
+
+startWith
+
+scan seed
+
+BehaviorSubject (only when justified)
+
+This avoids “undefined time”.
+
+5️⃣ Identify change causes (events), not variables
+
+State does not change. Events cause change.
+
+Ask:
+
+What causes this value to change?
+
+Create:
+
+Event streams (growth$, damage$, addItem$)
+Not:
+
+State variables
+
+6️⃣ Fold events into state with scan
+
+State is a stream that remembers.
+
+Rule:
+
+If logic depends on “what happened before” → scan
+
+Pattern:
+
+state$ = events$.pipe(
+  scan((prev, event) => next, initial)
+)
+
+
+No mutation.
+No external memory.
+No exceptions.
+
+7️⃣ Enforce rules inside transitions
+
+Rules live where state changes.
+
+Illegal moves?
+
+Invalid transitions?
+
+Collisions?
+
+They belong:
+
+Inside the scan reducer
+
+Not in subscribe
+
+Not as flags
+
+Rules are pure functions.
+
+8️⃣ Synchronize with time explicitly
+
+Nothing moves unless time says so.
+
+Pattern:
+
+tick$.pipe(
+  withLatestFrom(state$, intent$)
+)
+
+
+Time:
+
+Samples state
+
+Orders updates
+
+Prevents races
+
+Inputs never “push state forward” by themselves.
+
+9️⃣ Combine state for output — never store it
+
+Rendering reads. It never decides.
+
+Use:
+
+combineLatest
+
+withLatestFrom
+
+To create:
+
+View models
+
+Snapshots
+
+Render inputs
+
+No state lives in the UI layer.
+
+🔟 Subscribe only for effects
+
+subscribe is not logic. It is I/O.
+
+Allowed in subscribe:
+
+Render
+
+Log
+
+Send network request
+
+Trigger imperative API
+
+Forbidden:
+
+Decisions
+
+Rules
+
+State updates
+
+If it’s logic, it belongs upstream.
+
+One-line summary (the whole talk in one sentence)
+
+Describe what flows, derive meaning, fold events into state, let time drive updates, and push effects to the edge.
+
+Ultra-compressed version (post-it size)
+Inputs → Intent → Events → scan(state)
+        → time samples → combine → render
+
+Why this checklist works everywhere
+
+It scales to:
+
+Games
+
+UI frameworks
+
+State management
+
+Animations
+
+Data pipelines
+
+Reactive backends
+
+Because:
+
+The domain can change. The RxJS machine stays the same.
+
+If you want next, we can:
+
+Turn this checklist into a printable FRP cheat-sheet,
+
+Encode it as a project template skeleton,
+
+Or map each step directly to rxjs-ui-core / rxjs-dom primitives.
+
+Just tell me where you want to materialize it.
+
+how would you map this entire talk 1:1 onto rxjs-ui-core / rxjs-dom architecture
+
+Here’s a 1:1 mapping of the talk’s Snake FRP machine onto a rxjs-ui-core / rxjs-dom architecture. I’ll keep the mapping literal: each talk step becomes a concrete architectural primitive, with the same “what flows / what remembers / what renders” split.
+
+The talk’s FRP machine → rxjs-ui-core / rxjs-dom
+1) “List inputs” → Drivers / Sources
+
+Talk: keyboard stream + time tick stream
+Architecture: sources are the only entry points.
+
+dom.keydown$, dom.click$, dom.input$, …
+
+time.frame$ / time.tick$
+
+http.request$ (or “effects request sink”)
+
+router.location$
+
+Rule: if it isn’t a source, it isn’t an input.
+
+In rxjs-dom terms: on(root, 'keydown') is a source; everything else is derived.
+
+2) “Make time explicit” → A time driver
+
+Talk: tick$ = interval(speed)
+Architecture: a time source you can swap.
+
+time.tick({ms}) for fixed-step UI/state updates
+
+time.frame$ for animation-frame rendering
+
+time.scheduler injection for tests
+
+Why this matters in UI: you can separate
+
+event-time (user input bursts)
+
+render-time (frame cadence)
+
+state-time (ticks, debounced validations, polling)
+
+3) “Decode raw events into intent” → intent() / intentOf()
+
+Talk: keydown$ → direction$ (map/filter/distinct)
+Architecture: intent(...) turns DOM noise into domain commands.
+
+intent(root, { moveUp, moveDown, submit, ... })
+
+intentOf(root, pairs) / dynamicIntentOf(...)
+
+Rule: downstream streams speak domain language, not DOM.
+
+4) “Give streams an initial value” → Cells
+
+Talk: startWith(initialDirection)
+Architecture: treat “current value” streams as cells:
+
+cell$ = changes$.pipe(startWith(seed), shareReplay(1))
+
+or a helper: cell(seed, changes$)
+
+rxjs-ui-core standardization: anything that represents “current state” should be a cell stream.
+
+5) “Identify change causes (events)” → Event buses (rare) / effect feedback
+
+Talk: “growth events” when apple eaten
+Architecture: a discrete event stream that represents “something happened”.
+
+In UI, these are:
+
+addItem$, removeItem$, toggle$
+
+navTo$, formSubmit$
+
+requestSucceeded$, requestFailed$
+
+Important constraint: don’t store state in a Subject. If a Subject exists, it should be an edge bridge (DOM imperative callback, websocket push, etc.) or a feedback seam.
+
+6) “Fold events into state with scan” → Model reducer streams
+
+Talk: scan for direction rule, length, score, snake body
+Architecture: every model is:
+
+model$ = events$.pipe(scan(reducer, initial), shareReplay(1))
+
+In rxjs-ui-core this becomes your core pattern:
+
+createModel({ events$, reducer, initial }) -> model$
+
+UI analogy: Snake body = your UI model tree; reducer = transition function.
+
+7) “Rules inside transitions” → Transition tables / reducers
+
+Talk: forbid reverse direction, collision inside moveSnake
+Architecture: reducers own invariants:
+
+Validation rules
+
+Forbidden transitions
+
+“game over” / “disabled” / “loading”
+
+optimistic update rules
+
+rxjs-ui-core artifact: a tiny “transition table” doc per reducer:
+
+allowed transitions
+
+illegal inputs and how they’re handled (ignore, clamp, error)
+
+8) “Time samples state explicitly” → Render cadence vs update cadence
+
+Talk: tick$ withLatestFrom(direction$, length$) drives movement
+Architecture: decide which stream is the clock for each subsystem.
+
+Common UI clocks:
+
+Event-driven clock: actions drive state (forms, buttons)
+
+Frame-driven clock: frames drive patches (animations)
+
+Tick-driven clock: polling, timers, simulation, debounced validation
+
+In rxjs-ui-core, make this explicit with naming:
+
+update$ (the clock that triggers state transitions)
+
+render$ (the clock that triggers DOM patch emission)
+
+9) “Combine state for output” → ViewModel$ → DOM patches
+
+Talk: combineLatest(direction$, length$, score$) → render()
+Architecture: split into:
+
+viewModel$ (pure derived data)
+
+patch$ (instructions to update DOM)
+
+render(target, patch$) (sink)
+
+rxjs-dom mapping
+
+Your minimal binding sinks fit perfectly:
+
+text(node, vm$.pipe(map(...)))
+
+attr(el, 'class', vm$.pipe(map(...)))
+
+prop(el, 'value', vm$.pipe(map(...)))
+
+on(el, 'click') produces events (back to intent)
+
+For more complex UI:
+
+region(visible$, mount) = conditional mount/unmount (Snake “game over screen”)
+
+keyedList(items$, keyFn, renderItem) = Snake body segments list + diff
+
+cache / visible$ = router-outlet-like behavior (the “game loop screen” vs “menu screen”)
+
+Rule: vm$ is pure; patch$ is pure; only the renderer touches the DOM.
+
+10) “Subscribe only for effects” → Effect drivers
+
+Talk: render to canvas, maybe stop on collision
+Architecture: effects are sinks:
+
+domSink(patch$) (renderer owns subscription + teardown)
+
+httpSink(request$) (driver returns response$)
+
+logSink(debug$) (optional)
+
+routerSink(navigate$)
+
+In rxjs-ui-core, codify this as:
+
+components return { dom$, effects }
+
+the “app runner” wires sources ↔ sinks and owns subscriptions
+
+The Snake system maps to a UI app almost directly
+Snake concept → UI concept
+
+tick$ → renderFrame$ or updateTick$
+
+direction$ → intent$ (commands)
+
+snake$ (body array) → model$ (UI state tree)
+
+apples$ → derived state (computed collections)
+
+collision → invariant violation / terminal state
+
+score$ → derived stats / selectors
+
+canvas render → patch renderer (rxjs-dom)
+
+The “game board” becomes “DOM tree”.
+The “snake body segments” become “keyed list DOM nodes”.
+The “movement” becomes “patches over time”.
+
+Concrete rxjs-ui-core / rxjs-dom layering that matches the talk
+Layer 0 — Drivers
+
+DOM events (sources)
+
+Time (tick/frame)
+
+HTTP, router, storage
+
+Layer 1 — Intent
+
+intentOf(root, ...) (raw → meaning)
+
+normalize/validate/forbid redundant signals (distinctUntilChanged)
+
+Layer 2 — Model
+
+scan(reducer) + shareReplay(1) as the only memory
+
+Layer 3 — Selectors
+
+pure derived streams (map, combineLatest)
+
+don’t trigger rerender unless needed (distinct / memo policies)
+
+Layer 4 — View / Patches (rxjs-dom)
+
+text/attr/prop sinks
+
+region/keyedList composition
+
+optional cache/visible$ (routing + lifecycles)
+
+Layer 5 — Effects
+
+subscribe at the edges only (renderer, http driver, router driver)
+
+This is literally the talk’s structure, with “canvas” replaced by “patch renderer”.
+
+Key “1:1” takeaway
+
+The talk’s lesson becomes the core rxjs-ui-core promise:
+
+Your app is a pure stream graph. The DOM is just an output device.
+
+Everything hard in UI (routing, keyed lists, animations, requests) is the same Snake trick:
+
+find inputs
+
+derive intent
+
+fold into state
+
+sample on time when needed
+
+emit patches
+
+subscribe only at edges
+
+If you want, I can write this as a single diagram (your preferred style: Mermaid timeline lanes or dependency graph) showing:
+
+sources → intent$ → reducer(model$) → vm$ → domPatches$ → render()
+
+plus router region/cache, keyedList, and effects drivers
+
+…and label each edge with the operator “policy” (merge/switch/concat/exhaust) where it matters.
+
+can we rename Drivers to Sources without changing the meaning
+
+Yes — absolutely yes.
+You can rename Drivers → Sources without changing the meaning at all, as long as you keep the same contract.
+
+In fact, for rxjs-ui-core / rxjs-dom, Sources is arguably the better name.
+
+Let’s make that precise.
+
+Why “Drivers” and “Sources” mean the same thing here
+
+In Cycle.js terminology:
+
+Drivers = the bridge between the outside world and streams
+
+They:
+
+produce input streams
+
+consume effect streams
+
+sit at the boundary
+
+In your architecture, the word Driver was only ever used in this sense:
+
+“This is where streams enter and leave the system.”
+
+That maps 1:1 to Sources in RxJS language.
+
+RxJS already teaches people:
+
+fromEvent → source
+
+interval → source
+
+ajax → source
+
+So semantically:
+
+Driver ≡ Source (+ optional Sink side)
+
+
+No loss of meaning.
+
+Why “Sources” is more aligned with RxJS
+
+Your mental model (and your explicit rules) already say:
+
+“Time comes from sources”
+
+“Cold by default”
+
+“Nothing runs until subscribed”
+
+“UI, events, state, effects are all streams”
+
+Using Sources makes this native RxJS language, not borrowed Cycle.js language.
+
+Example mapping (unchanged meaning)
+Old term	New term	Meaning
+DOM Driver	DOM Source	produces click$, keydown$
+Time Driver	Time Source	produces tick$, frame$
+HTTP Driver	HTTP Source	produces response$
+Router Driver	Router Source	produces location$
+
+Nothing changes in behavior — only vocabulary.
+
+Important: keep the bidirectional contract
+
+The only thing you must preserve is this boundary rule:
+
+A Source may be fed by effects, but it is not state.
+
+So a Source can:
+
+expose input observables
+
+accept effect streams (imperative bridges)
+
+But it must not:
+
+remember application state
+
+contain reducers
+
+contain business logic
+
+This keeps the FRP core pure.
+
+Clean rxjs-ui-core naming with “Sources”
+
+Here is the cleaned-up layer model using Sources:
+
+Layer 0 — Sources
+
+Only where streams touch the outside world
+
+domSource → click$, keydown$, input$
+
+timeSource → tick$, frame$
+
+httpSource → response$
+
+routerSource → location$
+
+Layer 1 — Intent
+
+Translate raw signals into domain meaning
+
+intent(...)
+
+intentOf(...)
+
+dynamicIntentOf(...)
+
+Layer 2 — Model
+
+State as streams that remember
+
+scan(reducer)
+
+shareReplay(1)
+
+Layer 3 — Selectors
+
+Derived, read-only streams
+
+map
+
+combineLatest
+
+distinctUntilChanged
+
+Layer 4 — View / DOM (rxjs-dom)
+
+Patch description, not rendering logic
+
+text
+
+attr
+
+prop
+
+region
+
+keyedList
+
+Layer 5 — Effects
+
+Subscriptions live here
+
+render sink
+
+http sink
+
+router sink
+
+logging
+
+Why this rename actually improves teachability
+
+Using Sources reinforces three core ideas you care about:
+
+Nothing originates inside the app
+
+All inputs come from outside, via Sources
+
+Time is not implicit
+
+Time is just another Source
+
+The app is a pure transformation
+
+Sources → Intent → Model → View → Effects
+
+This matches your Snake talk mapping perfectly.
+
+One-sentence rule (worth putting in docs)
+
+Sources are the only place where the outside world touches the stream graph.
+
+Everything else is pure RxJS.
+
+If you want next, I can:
+
+Update the entire earlier mapping text to consistently use Sources,
+
+Propose a TypeScript interface for Source in rxjs-ui-core,
+
+Or help you write a README section that explains this rename cleanly for users coming from Cycle.js or Angular.
+
+Just say the word.
+
+Drivers is a term used in Cycle.js
+
+Exactly — you’re 100% right 👍
+“Drivers” is Cycle.js–specific terminology, and that’s actually the strongest argument for not using it in rxjs-ui-core / rxjs-dom.
+
+Let’s lock this in cleanly and precisely.
+
+Why “Drivers” belongs to Cycle.js (and not to rxjs-ui-core)
+
+In Cycle.js, a Driver is a very specific abstraction:
+
+A Driver is a function that:
+
+takes a sink stream
+
+performs side effects
+
+returns a source stream
+
+driver(sink$) → source$
+
+
+This bidirectional contract is core to Cycle.js’s architecture.
+
+So when you say “Drivers”, experienced users will correctly assume:
+
+Cycle.js–style run loop
+
+main(sources) → sinks
+
+driver isolation & inversion of control
+
+That is not what rxjs-ui-core is trying to be.
+
+Why “Sources” is the correct term for rxjs-ui-core
+
+rxjs-ui-core is explicitly:
+
+RxJS-first
+
+Framework-agnostic
+
+Stream-native
+
+Not a Cycle.js clone
+
+In RxJS language:
+
+fromEvent, interval, ajax, webSocket
+→ sources
+
+scan, map, combineLatest
+→ transformations
+
+subscribe
+→ effects
+
+So Sources matches:
+
+RxJS mental model
+
+RxJS documentation
+
+RxJS teaching language
+
+Your own stated principles (“Time comes from sources”)
+
+And it avoids semantic overload.
+
+Clean semantic split (final)
+
+Here is the correct vocabulary alignment:
+
+❌ Do NOT use
+
+Drivers (Cycle.js–specific)
+
+Stores (Redux-specific)
+
+Signals (Angular/Solid-specific)
+
+✅ Use
+
+Sources – where streams originate
+
+Intent – domain meaning
+
+Model / State streams – remembered streams (scan)
+
+Selectors – derived streams
+
+View / DOM sinks – patch streams
+
+Effects – subscriptions
+
+This keeps rxjs-ui-core conceptually pure.
+
+The definitive statement for your docs
+
+You could literally write this in your README:
+
+Terminology note
+We intentionally use the term Sources instead of Drivers.
+Drivers is a Cycle.js–specific abstraction with a bidirectional contract.
+rxjs-ui-core follows RxJS terminology: sources produce streams; effects consume them.
+
+That single paragraph prevents months of confusion.
+
+Final confirmation
+
+So to answer your original intent crisply:
+
+✔️ Yes, Drivers is a Cycle.js term
+✔️ Using it would create false expectations
+✔️ Sources is the correct, RxJS-native name
+✔️ The meaning and architecture remain unchanged
+
+You’re making the right call here.
+
+If you want, next we can:
+
+Write a glossary mapping Cycle.js / Angular / Redux terms → rxjs-ui-core terms
+
+Finalize a canonical architecture diagram with Sources as layer 0
+
+Or draft the “Why rxjs-ui-core is not Cycle.js” section
+
+Just say where to continue.
+
+instead of driver(sink$) → source$ would source(sink$) -> source$ also make sense
+
+It can make sense, but only in a very specific way — and it’s easy to confuse people if you use source(sink$) -> source$ as your general definition of “Source”.
+
+Why it does make sense (conceptually)
+
+A Cycle.js Driver is really a boundary adapter:
+
+it consumes a stream of commands (effects)
+
+it produces a stream of observations (inputs)
+
+So as a function shape, this is true:
+
+boundaryAdapter(sink$) -> source$
+
+
+If you rename “Driver” to “Source”, the type shape still holds:
+
+sourceAdapter(sink$) -> source$
+
+
+So yes: as long as you mean “boundary adapter”, it’s coherent.
+
+Why it’s still risky to call that thing “Source”
+
+In RxJS vocabulary, a source usually means:
+
+an Observable that originates events
+e.g. fromEvent(...), interval(...)
+
+Not a function that takes sinks.
+
+If you write source(sink$) -> source$, many RxJS folks will think:
+
+“wait, why is a source taking input?”
+
+“isn’t that a driver?”
+
+So the mapping is correct, but the naming can be misleading.
+
+A clean compromise that keeps everyone oriented
+
+Keep Sources for the produced Observables, and name the function something like:
+
+adapter(sink$) -> sources
+
+connect(sinks) -> sources
+
+createSource(...) (if it builds sources)
+
+makeBoundary(...)
+
+createDomSource(sinks) etc.
+
+Even better: make it explicit that it’s a connector
+
+Instead of returning a single source$, most boundaries return a bundle:
+
+connectDOM(domSinks) -> domSources
+connectHTTP(httpSinks) -> httpSources
+connectRouter(routerSinks) -> routerSources
+
+
+That reads naturally in RxJS-land: you connect effects to the outside world and get observation streams back.
+
+Suggested naming scheme for rxjs-ui-core
+Terminology
+
+Source = an Observable you consume inside the app (click$, location$, tick$, response$)
+
+Sink = an Observable you produce as an effect (render$, request$, navigate$)
+
+Boundary function
+
+Use one of these shapes:
+
+Option A (single boundary):
+
+createDomBoundary(...) : (domSinks) -> domSources
+
+
+Option B (app runner):
+
+run(main, boundaries)  // Cycle-like, but you don’t call them Drivers
+
+
+Option C (connectors):
+
+dom = connectDOM({ patch$ })
+http = connectHTTP({ request$ })
+router = connectRouter({ navigate$ })
+
+When source(sink$) -> source$ is a good idea
+
+If you’re intentionally offering a Cycle-style mode (even partially), then yes, the function signature is perfect — but I’d still name it something like boundary(...) or adapter(...) so you don’t fight RxJS expectations.
+
+Bottom line
+
+As a function shape: ✅ source(sink$) -> source$ is logically fine.
+
+As terminology: ⚠️ calling that function a “Source” will confuse RxJS folks.
+
+Best practice: keep Source as “input observable”, and name the function connect/boundary/adapter.
+
+If you tell me whether rxjs-ui-core wants to be Cycle-like (main returns sinks, runner wires) or DOM-first (components own rendering helpers), I’ll propose the cleanest naming + TypeScript types for the boundary layer.
+
+what can we learn from this snake game presentation, what are the takeaways
+
+This Snake game talk is deceptively small — but it’s one of the cleanest practical demonstrations of what RxJS really is.
+Here are the real takeaways, distilled beyond the code.
+
+What we learn from the Snake FRP presentation
+1. RxJS is control flow lifted into time
+
+The game proves this concretely:
+
+tick$ replaces the game loop
+
+scan replaces mutable state
+
+withLatestFrom replaces “read current values”
+
+subscribe replaces the final “do it”
+
+Nothing “runs” in the traditional sense.
+The plan exists first; execution starts only at subscription.
+
+Takeaway: RxJS is not async helpers — it is a control-flow language.
+
+2. State is not stored — it is remembered
+
+Every piece of state in the game:
+
+direction
+
+length
+
+score
+
+body
+
+apples
+
+…is derived via scan.
+
+There is no authoritative variable holding game state.
+
+Takeaway:
+If you need memory, use a remembering stream — not a variable.
+
+3. Time must be explicit or it will betray you
+
+The snake only moves on tick$, not on keypress.
+
+This avoids:
+
+race conditions
+
+double moves
+
+input storms
+
+Takeaway:
+If something updates “periodically”, it must be driven by a time source.
+
+4. Raw events are not intent
+
+Keyboard events are noisy.
+The game converts them into a clean direction$.
+
+Takeaway:
+Always translate raw inputs into domain-level intent streams early.
+
+This applies to:
+
+DOM events
+
+network messages
+
+form input
+
+router changes
+
+5. Rules belong in transitions, not observers
+
+Illegal direction changes, collisions, and bounds checks all live inside reducers.
+
+Nothing in subscribe decides behavior.
+
+Takeaway:
+Rules are pure functions over time — not if statements in callbacks.
+
+6. Feedback loops are safe if time breaks them
+
+Snake growth feeds back into snake movement — but only through streams and ticks.
+
+No instant recursion. No shared memory.
+
+Takeaway:
+FRP can model feedback safely if time is part of the loop.
+
+7. Subjects are not evil — but they are rare
+
+Only one Subject appears:
+
+to bridge an event discovered downstream back upstream
+
+And even then:
+
+it represents events, not state
+
+Takeaway:
+Use Subjects only as boundary adapters or feedback seams — never as state containers.
+
+8. Rendering is a sink, not a brain
+
+Canvas rendering:
+
+does not compute state
+
+does not trigger logic
+
+only reflects values
+
+Takeaway:
+UI is an output device.
+All decisions must happen upstream.
+
+9. Complexity disappears when authority is singular
+
+There is exactly one place where each thing is decided:
+
+direction → direction reducer
+
+length → length reducer
+
+body → movement reducer
+
+No duplication. No synchronization logic.
+
+Takeaway:
+When state has a single authority stream, bugs evaporate.
+
+10. The same RxJS machine works everywhere
+
+The Snake game is not special.
+
+The same pattern applies to:
+
+UI frameworks
+
+forms
+
+routing
+
+animations
+
+state management
+
+simulations
+
+Takeaway:
+The domain can change.
+The RxJS machine stays the same.
+
+The meta-lesson (the most important one)
+
+RxJS is not about reacting to events.
+It is about designing systems where time is explicit and state is derived.
+
+Once you internalize that, Snake stops being a game example —
+it becomes a reference architecture.
+
+If you want, next we can:
+
+Turn these takeaways into a RxJS design checklist (for daily use),
+
+Compare this Snake architecture to Redux / Elm / Angular Signals,
+
+Or extract a minimal “RxJS app skeleton” you can reuse for any project.
+
+Just tell me how you want to crystallize it.
+
+would it not make more sense to use animationFrame instead of interval for the tick$
+
+Short answer: yes — in most UI / game cases it makes more sense to use animationFrame than interval.
+But the reason why is more important than the choice itself.
+
+Let’s unpack it cleanly, in FRP terms.
+
+The real question: what does tick$ represent?
+
+In the Snake talk, tick$ is doing two jobs at once:
+
+Advancing simulation (move the snake)
+
+Triggering rendering
+
+Those two concerns have different clocks.
+
+That’s the key insight.
+
+interval vs animationFrame — what they mean
+interval(ms)
+
+Semantics:
+
+A logical clock
+
+Fixed-step progression
+
+Independent of rendering
+
+Continues even when the tab is throttled
+
+Best for:
+
+Simulations
+
+Turn-based logic
+
+Physics with fixed timestep
+
+Game rules that must be deterministic
+
+In FRP terms:
+
+interval = simulation time
+
+animationFrame
+
+Semantics:
+
+A render clock
+
+Tied to the browser paint cycle
+
+Variable cadence (≈60fps, but not guaranteed)
+
+Pauses when tab is hidden
+
+Best for:
+
+Rendering
+
+Animations
+
+Visual interpolation
+
+Smooth UI updates
+
+In FRP terms:
+
+animationFrame = display time
+
+Why interval was okay in the talk
+
+Markel used interval because:
+
+It keeps the example simple
+
+Snake movement is grid-based
+
+Visual smoothness is irrelevant
+
+Determinism matters more than fps
+
+For teaching FRP:
+
+interval makes time explicit
+
+Easier to reason about
+
+Easier to test
+
+So pedagogically: ✅ correct choice.
+
+Why animationFrame is better for real UI / games
+
+In real applications:
+
+Rendering faster than logic is wasteful
+
+Rendering slower than logic is janky
+
+You want rendering to follow the screen
+
+So you usually want:
+
+frame$ = animationFrames();
+
+
+Then decide what it clocks.
+
+The correct FRP architecture (important)
+
+The right move is not:
+
+“Replace interval with animationFrame”
+
+The right move is:
+
+Separate simulation time from render time
+
+Two clocks, two responsibilities
+simulationTick$ = interval(100);        // game logic
+renderFrame$    = animationFrames();    // rendering
+
+
+Then:
+
+State updates happen on simulationTick$
+
+Rendering samples state on renderFrame$
+
+Example (conceptual):
+
+state$ = simulationTick$.pipe(
+  withLatestFrom(intent$),
+  scan(reduceState, initialState),
+  shareReplay(1)
+);
+
+render$ = renderFrame$.pipe(
+  withLatestFrom(state$)
+);
+
+
+This is textbook FRP.
+
+When you can use animationFrame as tick$
+
+You can safely use animationFrame as the only clock if:
+
+Logic is cheap
+
+Visual smoothness matters
+
+You accept variable timestep
+
+You don’t need deterministic progression
+
+Typical UI cases:
+
+Dragging
+
+Hover effects
+
+Animations
+
+Scroll-linked UI
+
+In that case:
+
+tick$ = animationFrames();
+
+
+Snake-with-smooth-movement could use this.
+
+Why this fits your RxJS worldview perfectly
+
+You’ve already stated the rule:
+
+Time comes from sources, not operators
+
+The deeper rule is:
+
+Different kinds of time deserve different streams
+
+interval → logical time
+
+animationFrame → visual time
+
+debounceTime → policy, not a clock
+
+So yes — animationFrame is the right clock for rendering,
+but interval is often the right clock for rules.
+
+Final decision table
+Use case	Clock
+Game logic, rules	interval
+Rendering, animation	animationFrame
+UI effects	animationFrame
+Simulation	interval
+Teaching FRP	interval
+Smooth motion	animationFrame
+One-sentence takeaway
+
+Don’t choose between interval and animationFrame — give logic and rendering their own clocks.
+
+That insight is actually more important than the Snake game itself.
+
+If you want, next we can:
+
+Refactor the Snake architecture into a dual-clock model,
+
+Show how this maps to rxjs-ui-core render vs update loops,
+
+Or formalize “time sources” as a first-class concept in your framework.
+
+Just tell me where to go next ⏱️
+
+FRP extends function composition into time.
+
+Yes — and that sentence is the cleanest way to say it. Let’s unpack it carefully and operationally.
+
+“FRP extends function composition into time”
+Ordinary function composition (no time)
+
+In normal FP, you compose values:
+
+h = f ∘ g ∘ k
+
+
+k produces a value
+
+g transforms it
+
+f transforms it again
+
+Everything happens now
+
+Order is spatial (left → right), not temporal
+
+This is how arrays, numbers, strings, and pure data work.
+
+What changes when time enters
+
+Once values arrive later, arrive multiple times, or change, plain composition breaks:
+
+You can’t call f(g(x)) if x doesn’t exist yet
+
+You can’t “re-run” composition every time something changes
+
+You can’t reason locally if timing is implicit
+
+FRP answers this by lifting composition onto the time axis.
+
+The FRP move (the key lift)
+
+Instead of composing:
+
+value → value → value
+
+
+You compose:
+
+value-over-time → value-over-time → value-over-time
+
+
+That’s it. That’s the whole move.
+
+In RxJS terms:
+
+Observable<A>
+  → map(A → B)
+  → map(B → C)
+  → Observable<C>
+
+
+You are not composing values.
+You are composing descriptions of how values will evolve.
+
+What “into time” really means (concretely)
+1. Functions no longer run once
+
+They run:
+
+whenever a new value appears
+
+in the future
+
+potentially many times
+
+But you still write them as pure functions.
+
+2. Composition preserves uncertainty
+
+Each step preserves:
+
+“maybe later”
+
+“maybe many”
+
+“maybe never”
+
+No operator is allowed to force time.
+
+This is why:
+
+Observables are lazy
+
+Nothing happens until subscription
+
+Time comes from sources, not operators
+
+3. State becomes composition, not storage
+
+In non-FRP:
+
+state = f(state, event)
+
+
+In FRP:
+
+state$ = events$.pipe(
+  scan((state, event) => f(state, event), initial)
+)
+
+
+That is literally:
+
+function composition across time
+
+scan is just “fold, but stretched along a timeline”.
+
+Why this is deeper than “reacting to events”
+
+Reactive programming alone says:
+
+“When something happens, do something.”
+
+FRP says:
+
+“Describe how things evolve when something happens.”
+
+The difference is:
+
+callbacks vs composition
+
+execution vs description
+
+control flow vs dataflow
+
+FRP keeps the algebra, just adds time as a dimension.
+
+Mapping your Snake game sentence-by-sentence
+Traditional FP	FRP (Snake)
+f(x)	map(f)
+reduce(xs)	scan(xs$)
+loop	tick$
+mutable state	remembered stream
+if/else	transition function
+call stack	timeline
+
+The Snake game is nothing but:
+
+function composition, but each function is applied every time the clock ticks.
+
+Why RxJS is the right tool for this
+
+RxJS gives you:
+
+map → rename values over time
+
+scan → accumulate values over time
+
+withLatestFrom → sample other timelines
+
+flattening operators → policies for overlapping time
+
+These are not async helpers.
+They are time-aware composition operators.
+
+The sharp formulation (worth keeping)
+
+FRP is functional programming where time is an explicit parameter, not an implicit side effect.
+
+Or even tighter:
+
+FRP = FP + time as data
+
+Why this sentence matters so much
+
+If you internalize this:
+
+RxJS stops looking like “event handling”
+
+UI stops looking like “state mutation”
+
+Framework debates (Signals vs RxJS, Redux vs local state) become secondary
+
+You start asking only one question:
+
+What functions should apply to which values, when time advances?
+
+That’s the whole game.

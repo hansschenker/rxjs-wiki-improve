@@ -1,0 +1,232 @@
+1️⃣ Value transformation (value in → value out)
+
+These rewrite the package, but don’t touch time or shape.
+
+map
+
+mapTo ⚠️ (deprecated but still conceptually useful)
+
+pluck ⚠️ (deprecated)
+
+scan (stateful map over time)
+
+pairwise
+
+startWith
+
+endWith
+
+defaultIfEmpty
+
+💡 What flows: same events, new values
+💡 Why used: compute derived values, accumulate state
+
+2️⃣ Filtering (values allowed or dropped)
+
+These decide which packages pass.
+
+filter
+
+take
+
+takeWhile
+
+takeUntil ⚠️ (not unary in spirit — depends on another Observable)
+
+skip
+
+skipWhile
+
+skipUntil ⚠️
+
+first
+
+last
+
+single
+
+elementAt
+
+ignoreElements
+
+💡 What happens: values disappear
+💡 Time: unchanged
+⚠️ takeUntil / skipUntil technically observe another stream → borderline
+
+3️⃣ Time-based reshaping (single source, time-aware)
+
+These re-package values in time without other streams.
+
+delay
+
+delayWhen ⚠️ (function returns Observable → borderline)
+
+debounceTime
+
+auditTime
+
+throttleTime
+
+sampleTime
+
+timeout
+
+timeoutWith
+
+timestamp
+
+timeInterval
+
+💡 Time comes from scheduler
+💡 Why used: rate-limit, spacing, time annotations
+
+4️⃣ Buffering & windowing (still single source)
+
+These change the shape (value → array / inner stream).
+
+Buffers (emit arrays)
+
+bufferCount
+
+bufferTime
+
+bufferToggle ⚠️
+
+bufferWhen ⚠️
+
+Windows (emit Observables)
+
+windowCount
+
+windowTime
+
+windowToggle ⚠️
+
+windowWhen ⚠️
+
+💡 Shape change: T → T[] or Observable<T>
+⚠️ Toggle/When variants observe other streams
+
+5️⃣ Error & completion control
+
+These rewrite termination semantics.
+
+catchError
+
+retry
+
+retryWhen ⚠️
+
+onErrorResumeNext
+
+throwIfEmpty
+
+finalize
+
+💡 Why used: recovery, retries, cleanup
+💡 Business logic lives in handler functions
+
+6️⃣ Side-effects & observation (no value change)
+
+These observe without modifying packages.
+
+tap
+
+materialize
+
+dematerialize
+
+observeOn
+
+subscribeOn
+
+💡 Explicit effects
+💡 Good pipelines always isolate these
+
+7️⃣ Sharing & multicasting (still one source)
+
+These change execution semantics, not values.
+
+share
+
+shareReplay
+
+publish ⚠️ (deprecated)
+
+publishReplay ⚠️
+
+publishBehavior ⚠️
+
+publishLast ⚠️
+
+refCount ⚠️
+
+connectable
+
+💡 Cold → hot
+💡 Sharing must always be explicit
+
+8️⃣ Utility & protocol-level operators
+
+These work on Observable behavior itself.
+
+repeat
+
+repeatWhen ⚠️
+
+delaySubscription
+
+count
+
+toArray
+
+reduce
+
+every
+
+find
+
+findIndex
+
+isEmpty
+
+max
+
+min
+
+💡 Mostly terminal transforms
+💡 Often used near the end of a pipeline
+
+❌ Explicitly NOT included (by design)
+
+These are multi-stream or higher-order and therefore excluded:
+
+merge, concat, race, combineLatest, zip, withLatestFrom
+
+mergeMap, switchMap, concatMap, exhaustMap
+
+expand
+
+groupBy
+
+These are policies, not unary rewires.
+
+🧠 Mental model summary
+
+A unary operator:
+
+observes one stream
+
+rewires values, time, shape, or execution
+
+never pulls another stream into the graph
+
+If you want, next we can:
+
+turn this into a cheat-sheet table
+
+classify each operator as value / time / shape / execution
+
+build a decision tree that starts with “Do I touch values, time, or execution?”
+
+Your RxJS machine is already solid — this is just naming the gears ⚙️

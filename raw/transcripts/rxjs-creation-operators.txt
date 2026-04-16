@@ -1,0 +1,101 @@
+1) The one pipeable exception: partition (deprecated)
+
+partition (the pipeable one from rxjs/operators) does not return an Observable — it returns a pair of Observables: [pass$, fail$]. That breaks the “one in → one out” operator shape. It’s also deprecated in favor of the static partition function and marked to be removed in v8.
+
+2) Creation functions (sources): no source$ input at all
+
+These create a stream (they’re “sources”), so they’re not OperatorFunction<A,B>:
+
+of
+
+from
+
+defer
+
+iif
+
+interval
+
+timer
+
+range
+
+generate
+
+fromEvent
+
+fromEventPattern
+
+bindCallback
+
+bindNodeCallback
+
+using
+
+scheduled
+
+animationFrames
+
+EMPTY (constant stream)
+
+NEVER (constant stream)
+
+throwError
+
+Deprecated creation-function aliases you may still see:
+
+empty() → replaced by EMPTY
+
+never() → replaced by NEVER
+
+Also common “creation” factories in separate entry points:
+
+ajax(...) (rxjs/ajax)
+
+webSocket(...) (rxjs/webSocket)
+
+3) Join-creation (multi-source) functions: they take many streams
+
+These don’t look like (source$) => ... because they accept multiple Observables and build a new one:
+
+combineLatest(...)
+
+concat(...)
+
+merge(...)
+
+zip(...)
+
+race(...)
+
+forkJoin(...)
+
+partition(source$, predicate) (static): returns [pass$, fail$]
+
+And:
+
+onErrorResumeNext(...) (deprecated; renamed to onErrorResumeNextWith)
+
+4) Observable → Promise conversions: output is not an Observable
+
+These “consume a stream and give you a Promise”, so they’re not operator-shaped:
+
+firstValueFrom(source$)
+
+lastValueFrom(source$)
+
+toPromise() (deprecated; use the two above)
+
+Quick mental rule
+
+If it doesn’t fit (source$) => new$, it’s usually because it’s one of these:
+
+a source (creates a stream),
+
+a join (takes many streams),
+
+a split (returns more than one stream, like partition),
+
+or a converter (returns non-stream output, like Promise).
+
+If you want, I can also give the inverse list: the operators that do have the pipeable OperatorFunction shape (basically everything under /api/operators/*, excluding partition).

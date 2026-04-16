@@ -1,0 +1,118 @@
+Join patterns come from the Join Calculus, a process calculus developed as a simplification of the π‑calculus for concurrent programming.
+
+Key idea:
+
+Communication happens via channels
+
+A join pattern waits until a specific combination of messages is present on several channels
+When the pattern matches, a reaction fires
+
+when A(x) & B(y) => C(x + y)
+
+Wait until there is a message on A and a message on B
+When both are available, consume them and run the body
+Join Patterns in Programming Languages
+Erik Meijer worked on implementations in:
+
+Cω (C omega) – an experimental Microsoft language
+
+When these streams each produce a value, combine them and continue.”
+
+Rx operators that are 5 essentially join patterns
+
+Rx Operator	Join‑pattern idea
+zip		Wait for 1 value from each stream, then combine
+combineLatest	Wait until all have produced, then react to any
+withLatestFrom	Join one stream with latest values of others
+forkJoin	Wait for all to complete, then emit combined result
+join groupJoin  Time‑windowed joins between streams
+
+when mouseMove(x) & mouseDown(d) => drag(x, d)
+const drag$ =
+  mouseDown$.switchMap(() =>
+    mouseMove$.takeUntil(mouseUp$)
+  )
+
+Multiple event streams are coordinated
+Execution happens only when the pattern is satisfied
+
+Key Characteristics of Join Patterns
+✅ Declarative: express what combinations you need, not how
+✅ Compositional: patterns combine cleanly
+✅ Deadlock‑safe (in many formulations)
+✅ Lock‑free by construction
+✅ Naturally fits event‑driven systems
+
+
+Mental Model
+Think of join patterns as:
+
+Pattern matching, but over time
+SQL JOIN, but for events
+Promise.all, but generalized to streams
+
+
+Join patterns describe how to react when multiple asynchronous messages or events are all available at once.
+
+Join patterns are a concurrency and coordination abstraction that declaratively specify how messages or events from multiple sources may be combined (joined) before triggering an action.
+
+
+Erik Meijer’s work on join patterns:
+
+Provided a formal foundation for Rx
+Influenced how RxJS combines asynchronous event streams
+Shifted async programming from callbacks and locks → declarative composition
+
+Rx treats events as streams (Observables).
+Join patterns inspired Rx’s ability to combine multiple streams declaratively.
+
+Core idea carried into Rx:
+“When these streams each produce a value, combine them and continue.”
+
+Rx operators that are essentially join patterns
+
+Rx Operator	Join‑pattern idea
+
+zip		Wait for 1 value from each stream, then combine
+combineLatest	Wait until all have produced, then react to any
+withLatestFrom	Join one stream with latest values of others
+forkJoin	Wait for all to complete, then emit combined result
+join groupJoin	Time‑windowed joins between streams
+
+
+Key Characteristics of Join Patterns
+✅ Declarative: express what combinations you need, not how
+✅ Compositional: patterns combine cleanly
+✅ Deadlock‑safe (in many formulations)
+✅ Lock‑free by construction
+✅ Naturally fits event‑driven systems
+Mental Model
+Think of join patterns as:
+
+Pattern matching, but over time
+SQL JOIN, but for events
+Promise.all, but generalized to streams
+  
+Summary
+Join patterns describe how to react when multiple asynchronous messages or events are all available at once.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

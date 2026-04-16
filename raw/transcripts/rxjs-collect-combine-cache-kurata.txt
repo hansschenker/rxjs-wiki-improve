@@ -1,0 +1,104 @@
+Collecting: products$ as a property not a function (allows for combining)
+-----------------------------------
+
+
+Combining the Streams: Product -> ProductCategory -> generic 
+-----------------------
+productsWithCategory$ = combineLatest([
+this.products$,
+this.productCategoryService.productCategories$
+]).pipe(
+map(([products, categories])
+products.map(
+p =>
+({ ... p,
+category:categories.find(c =>
+p.categoryId === c.id).name
+} as Product)
+
+)
+
+Combining Data and Action Streams
+-------------------------------------
+
+selectedProduct$ = combineLatest([
+this.productsWithCategory$,
+this.productSelectedAction$
+]).pipe(
+// destructuring products, selectedProductId
+map(([products, selectedProductId]) =>
+products.find(product => product.id === selectedProductId)
+
+
+Caching 
+----------------------------------------
+RxJS operator: shareReplay
+
+products$ = this.http.get<Product[]>(this.productsUrl)
+.pipe(
+  shareReplay(1),
+  catchError(this.handleError)
+);
+
+. Shares an Observable with all subscribers
+· Replays the specified number of entries upon subscription
+· Remains active, even if there are no current subscribers
+
+Observable All the Things
+----------------------------------------------
+Component
+
+product$ = this. productService. selectedProduct$
+.pipe(
+catchError(error => {
+this.errorMessage = error;
+return of(null);
+}));
+
+pageTitle$ = this. product$
+.pipe(
+map((p: Product) =>
+p ? 'Product Detail for: ${p.productName}' : null)
+
+)
+Collect, Combine, and Cache RxJS Streams
+
+Slides:
+http://bit.ly/deborahk-ngmy2019
+
+Code:
+https://github.com/DeborahK/Angular-DD
+
+
+
+// Component Viewmodel
+
+vm$ = combineLatest([
+  this.product$,
+  this.productSuppliers$,
+  this.pageTitle$])
+.pipe(
+  // only when we have a product
+  filter(([product]) => !! product),
+  map(([product, productSuppliers, pageTitle]) =>
+   ({ product, productSuppliers, pageTitle }) )
+
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

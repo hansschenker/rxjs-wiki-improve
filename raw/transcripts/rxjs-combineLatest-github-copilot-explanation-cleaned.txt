@@ -1,0 +1,157 @@
+import type { Subscriber} from '@rxjs/observable';
+import { Observable, operate, from } from '@rxjs/observable';
+import type { ObservableInput, ObservedValueOf, ObservableInputTuple } from '../types.js';
+import { arrayOrObject } from '../util/argsArgArrayOrObject.js';
+import { identity } from '../util/identity.js';
+import { createObject } from '../util/createObject.js';
+import type { AnyCatcher } from '../AnyCatcher.js';
+import { EMPTY } from './empty.js';
+
+/**
+ * You have passed `any` here, we can't figure out if it is
+ * an array or an object, so you're getting `unknown`. Use better types.
+ * @param arg Something typed as `any`
+ */
+export function combineLatest<T extends AnyCatcher>(arg: T): Observable<unknown>;
+
+export function combineLatest(sources: []): Observable<never>;
+export function combineLatest<A extends readonly unknown[]>(sources: readonly [...ObservableInputTuple<A>]): Observable<A>;
+export function combineLatest<A extends readonly unknown[], R>(
+  sources: readonly [...ObservableInputTuple<A>],
+  resultSelector: (...values: A) => R
+): Observable<R>;
+
+export function combineLatest(sourcesObject: { [K in any]: never }): Observable<never>;
+export function combineLatest<T extends Record<string, ObservableInput<any>>>(
+  sourcesObject: T
+): Observable<{ [K in keyof T]: ObservedValueOf<T[K]> }>;
+
+/**
+ * Combines multiple Observables to create an Observable whose values are
+ * calculated from the latest values of each of its input Observables.
+ *
+ * Whenever any input Observable emits a value, it computes a formula using 
+ * the latest values from all the inputs, then emits the output of that formula.
+ *
+ * - Waits for all input Observables to emit at least once before emitting
+ * - Emits whenever any input Observable emits (after initial emissions)
+ * - Completes when all input Observables complete
+ * - Errors immediately if any input Observable errors
+ *
+ * @param sources Array or object of ObservableInputs to combine
+ * @param resultSelector Optional projection function for combined values
+ * @return Observable of projected values or array/object of most recent values
+ *
+ * @see {@link combineLatestAll}
+ * @see {@link merge}
+ * @see {@link withLatestFrom}
+ */
+export function combineLatest<O extends ObservableInput<any>, R>(
+  sources: Record<string, O> | O[],
+  resultSelector?: (...value: any[]) => R
+): Observable<R> | Observable<ObservedValueOf<O>[]> {
+  const parts = arrayOrObject(sources);
+
+  if (!parts) {
+    throw new TypeError('sources must be an array or object');
+  }
+
+  const { args: observables, keys } = parts;
+
+  if (observables.length === 0) {
+    return EMPTY;
+  }
+
+  return new Observable<ObservedValueOf<O>[]>(
+    combineLatestInit(
+      observables as ObservableInput<ObservedValueOf<O>>[],
+      keys
+        ? (values: any[]) => createObject(keys, values)
+        : resultSelector
+        ? (values: readonly any[]) => resultSelector(...values)
+        : identity
+    )
+  );
+}
+
+export function combineLatestInit(observables: ObservableInput<any>[], valueTransform: (values: any[]) => any = identity) {
+  return (destination: Subscriber<any>) => {
+    const { length } = observables;
+    const values = new Array(length);
+    let active = length;
+    let remainingFirstValues = length;
+    
+    for (let i = 0; i < length; i++) {
+      const source = from(observables[i]);
+      let hasFirstValue = false;
+      source.subscribe(
+        operate({
+          destination,
+          next: (value) => {
+            values[i] = value;
+            if (!hasFirstValue) {
+              hasFirstValue = true;
+              remainingFirstValues--;
+            }
+            if (!remainingFirstValues) {
+              destination.next(valueTransform(Array.from(values)));
+            }
+          },
+          complete: () => {
+            if (!--active) {
+              destination.complete();
+            }
+          },
+        })
+      );
+    }
+  };
+}
+
+------------
+
+what is the difference in behavior between combineLatest and combineLatestAll
+
+15:17
+Based on the RxJS operator categorization, here are the key behavioral differences:
+
+combineLatest
+Signature: combineLatest(sources: ObservableInput[]): Observable<T[]>
+
+Input: Takes multiple Observables as arguments (array or object)
+Flattening level: First-order operator - works directly with Observables
+When it emits: After all sources emit at least once, then on every emission from any source
+Use case: You have multiple independent Observable sources to combine
+typescript
+const age$ = of(25);
+const name$ = of('Alice');
+const city$ = of('NYC');
+
+combineLatest([age$, name$, city$])
+  .subscribe(([age, name, city]) => console.log({age, name, city}));
+// { age: 25, name: 'Alice', city: 'NYC' }
+combineLatestAll
+Signature: combineLatestAll(): OperatorFunction<ObservableInput<T>, T[]>
+
+Input: Operates on a higher-order Observable (Observable of Observables)
+Flattening level: Higher-order operator - flattens one level
+When it emits: Waits for the outer Observable to complete, then applies combineLatest to all collected inner Observables
+Use case: You have a stream that emits Observables over time, and you want to combine them all
+typescript
+const clicks$ = fromEvent(document, 'click');
+const higherOrder$ = clicks$.pipe(
+  map(() => interval(1000).pipe(take(3)))
+);
+
+higherOrder$.pipe(
+  take(2), // Take 2 clicks (creates 2 inner observables)
+  combineLatestAll()
+).subscribe(values => console.log(values));
+// After outer completes: [2, 2] (latest from both intervals)
+Key Distinction
+combineLatest: "Give me these specific Observables and I'll combine them"
+combineLatestAll: "I have an Observable that emits Observables; wait until it's done emitting, then combine all those inner Observables"
+combineLatestAll is essentially: switchMap(() => combineLatest(collectedInnerObservables))
+
+
+

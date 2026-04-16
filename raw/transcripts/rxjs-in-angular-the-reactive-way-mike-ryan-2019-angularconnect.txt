@@ -1,0 +1,132 @@
+https://www.youtube.com/watch?v=rz-rcaGXhGk
+
+ReactiveComponent
+
+Use values directly in the template without the async pipe
+
+Makes it easier to not leak memory accidentally
+
+Makes it possible for apps to be built without using Zone.js
+
+bit.ly/21Xkcr9
+
+
+
+// transcript ------------------------------------------------
+
+
+
+
+
+// transcript ------------------------------------------------
+
+
+
+
+connect<T>(sources: ObservableDictionary<T>): T {
+const sink = {} as T;
+const sourcekeys = Object.keys(sources) as (keyof T)[];
+const updatesink$ = from(sourceKeys).pipe(
+mergeMap(sourcekey => {
+return sources[sourcekey].pipe(
+tap((sinkValue: any) => (sink[sourcekey] = sinkValue))
+
+})
+
+updatesink$. subscribe(() => markDirty(this));
+
+return sink;
+
+export class AppComponent extends ReactiveComponent {
+values$ = new Subject<number>();
+state = this. connect({
+count: this.values$.pipe(
+startWith(0),
+scan((count, next) => count + next, 0)
+
+});
+
+
+----------------
+
+
+// Ivy component lifecycle
+Instantiate Component
+
+Create Component View
+
+Call Onlnit Lifecycle Method
+
+--------- ReactiveComponent with Lifecylce hooks
+
+class ReactiveComponent implements OnInit {
+onInit$ = new ReplaySubject<true>(1);
+
+ngOnInit() {
+this.onInit$.next(true);
+this.onInit$. complete();
+
+}
+
+}
+
+------------------ oninit: make ReactiveComponent save to use preventing users from not using the wrong way
+const OnInitSubject = Symbol("OnInitSubject");
+class ReactiveComponent implements OnInit {
+private [OnInitSubject] = new ReplaySubject<true>(1);
+
+ngOnInit() {
+this[OnInitSubject].next(true);
+this[OnInitSubject].complete();
+
+}
+
+get onInit$() {
+return this[OnInitSubject].as0bservable();
+
+}
+
+}
+---------------------------- onDestroy: make ReactiveComponent save to use preventing users from not using the wrong way
+ make ReactiveComponent save to use preventing users from not using the wrong way
+
+const OnDestroySubject = Symbol("OnDestroySubject");
+class ReactiveComponent implements OnDestroy {
+private [OnDestroySubject] = new ReplaySubject<true>(1);
+
+ngOnDestroy() {
+this[OnDestroySubject].next(true);
+this[OnDestroySubject].complete();
+
+}
+
+get onDestroy$() {
+return this[OnDestroySubject].as0bservable();
+
+}
+
+}
+--------------
+
+concat(this.onInit$, updatesink$)
+.pipe(takeUntil(this. onDestroy$))
+.subscribe(() => markDirty(this));
+
+-----------
+
+
+class MoviesComponent extends Reactivecomponent {
+state: { movies: MovieModel[]; user: UserModel };
+
+constructor(
+movieservice: MovieService,
+userService: UserService
+
+this.state = this. connect({
+movies: movieservice.movies$,
+user: userService. activeUser$
+});
+
+}
+
+------------------

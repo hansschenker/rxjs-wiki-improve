@@ -1,0 +1,63 @@
+export class LogoComponent {
+runningClass$ = timer(0, 100).pipe(
+startWith(0),
+takewhile((t) => t < 40),
+map((t) => {
+const range = Math.ceil((t + 1) / 10);
+const side = range % 2 === 0 ? 'l' : 'r';
+const runningLegState = t % 2 === 1 ? 3 : 4;
+const legState = t === 39 ? 1 : runningLegState;
+return '${side}${legState}';
+
+):
+
+blinkingEyesClass$ = timer(0, 500).pipe(
+startWith(0),
+takewhile((t) => t < 5),
+map((t) => 'l${t % 2 m == 1 ? 1 : 2}' )
+):
+
+restingClass$ = timer(5000).pipe(
+startWith(0),
+map(()=>'12')
+
+dragonClass$ = concat(
+this. runningClass$,
+this.blinkingEyesClass$,
+this.restingClass$
+).pipe(repeat(Infinity));
+
+dragonClass$ = concat(
+this. runningClass$,
+this.blinkingEyesClass$,
+this. restingClass$
+).pipe(repeat(Infinity));
+
+--------------------
+)
+
+export function connectSource<State>(
+state: WritableSignal<State>,
+source$: Observable<State>
+
+const initialState = state();
+return merge(source$, NEVER).pipe(
+tap((s) => state.set(s)),
+finalize(() => state.set(initialState)),
+share()
+
+) ;
+
+------------ how to use it 
+
+@Injectable({ providedIn: 'root' })
+export class CountService {
+count = signal(0);
+double = computed(()=>this.count()*2);
+
+interval$ = interval(3000);
+
+connection$ = connectSource(this.count, this. interval$);
+
+}
+----------

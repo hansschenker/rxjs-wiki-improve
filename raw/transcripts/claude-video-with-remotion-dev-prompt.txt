@@ -1,0 +1,94 @@
+// video feature
+Add the remotion skill 'npx create-video@latest' and update the claude.md
+such that when I request video generation this skill is used!
+
+// design copy
+review this website https://www.ytbusinessaccelerator.com and create a design system aligned with the
+website and update the claude.md file for future reference!
+
+what was done
+
+1. Website Review - I thoroughly reviewed ytbusinessaccelerator.com, scrolling through every section
+(hero, "What you get", 4 Systems, testimonials, pricing, FAQ, footer) and extracting precise CSS values
+via JavaScript.
+2. my-video/src/design-systen.ts -A comprehensive design tokens file with 9 sections:
+
+Section
+
+Colors
+
+What It covers
+
+Page bg #05040A, card surfaces, accent purple #A855F7 at varlous opacities,
+text colors (primary/muted/subtle), border & glow colors
+
+Inter font stack, H1-H3 + body/small/button scales with exact sizes, weights, line
+helghts
+
+Section gaps (72px), card padding (36-40px), badge/button padding, grid gaps
+
+Card (20-26px), plll buttons (999px), SVG rects (18px)
+
+Dual card shadow (black depth + purple ambient glow)
+
+Page bg radial purple glow, section divider gradients
+Ready-to-use React.CSSProperties objects for canvas, card, badge, button,
+Illustration card
+
+SVG stroke settings . a ready-to-use <filter> definition for the glow effect
+
+Remotion spring configs (smooth/snappy/drift) + stagger delay
+
+3. Updated CLAUDE.nd - Added the full design system reference Iniine, Including:
+. Brand overview table
+. Color palette cheatsheet
+. Typography scale table
+. Component presets guide
+. Key visual patterns (8 patterns)
+. Updated guidelines requiring all compositions to Import from design-system.ts
+
+Typography
+Spacing
+Radil
+Shadows
+Gradients
+Components
+Neon
+Animations
+
+-----
+
+
+Prompts Used In Video
+
+Review website and generate promotional video in same style & theme
+
+'Create me a 10~20 second video over of my business
+https://www.ytbusinessaccelerator.com/ offers using exact styling and theme as website
+and explains the offer and benefits."
+
+Create clip to outline 'Business Accelerator Bonuses
+
+"can you create a new video in the same style and theme called 'ytbonus' and provide a quick
+overview of the 2 bonuses included"
+
+------------
+// Audio Voice over
+Voice Over
+
+When the user needs voice over for a video, use the kie.ai API to access ElevenLabs for text-
+to-speech generation.
+
+API Configuration
+
+. API Key: Set via environment variable KIE_API_KEY
+
+. Base URL: https://api.kie.ai/api/v1/jobs
+
+Security Note: Never hardcode API keys in project files. Store your key in a .env file
+or export it as an environment variable:
+
+export KIE_API_KEY-'your-api-key-here'
+
+-------------
+

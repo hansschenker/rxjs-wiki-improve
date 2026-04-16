@@ -1,0 +1,10 @@
+
+The Complete Grounding Prompt
+
+Base your answer ONLY on the uploaded documents. Nothing else.
+
+If info isn't found, say "Not found." Don't guess.
+
+For each claim, cite: [Document, Page/Section, Quote]
+
+If uncertain, mark as [Unverified].

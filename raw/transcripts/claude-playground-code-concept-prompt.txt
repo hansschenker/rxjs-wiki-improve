@@ -1,0 +1,3 @@
+want to create a video course on the topic of Functional Reactive Programming with Rxjs and Typescript, I want to show that Rxjs is based on Functional and Reactive Programming concepts, I want also show the
+oots of Rxjs being Rx.net and Linq created by Microsoft, it helps to understand that Linq is basically Language integrated Monad and Linq is the basis for Rx.net wich is the basis of Rxjs.
+explain full lineage from Lambda Calculus > Monad > LINQ > Rx.NET > RxJS

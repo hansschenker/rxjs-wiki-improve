@@ -1,0 +1,607 @@
+I’m checking the current RxJS docs to make sure details like defaults and trailing behavior are exact, then I’ll give you the full deep dive in the structure you asked for.
+
+I’ve got the exact defaults from the RxJS source now. The key practical point is this: throttleTime is about opening a silence window after an allowed value, not waiting for silence the way debounceTime does.
+
+Thought for 2m 21s
+
+Using your deep-dive structure from the uploaded template and checking the current RxJS source for exact defaults and lifecycle rules, here’s the full throttleTime() breakdown.
+
+Operator at a glance
+
+Operator: throttleTime
+
+One-line job:
+Let one value through, then ignore new source values for a fixed amount of time.
+
+Category:
+Time Algebra
+
+Main effect:
+
+changes timing
+changes lifecycle slightly when trailing: true
+does not change sharing behavior
+does not flatten inner streams
+Practical sample first
+import { Subject, throttleTime } from 'rxjs';
+
+const source$ = new Subject<string>();
+const start = Date.now();
+
+source$
+  .pipe(throttleTime(500))
+  .subscribe((value) => {
+    console.log(`${Date.now() - start}ms -> ${value}`);
+  });
+
+const emit = (after: number, value: string) => {
+  setTimeout(() => {
+    console.log(`${Date.now() - start}ms source ${value}`);
+    source$.next(value);
+  }, after);
+};
+
+emit(0, 'A');
+emit(100, 'B');
+emit(200, 'C');
+emit(700, 'D');
+emit(900, 'E');
+
+Approximate output:
+
+0ms source A
+0ms -> A
+
+100ms source B
+200ms source C
+
+700ms source D
+700ms -> D
+
+900ms source E
+
+What you observe:
+
+A gets through immediately.
+B and C are ignored because they arrive during the 500ms throttle window opened by A.
+D gets through because that window has ended.
+E is ignored because D opened a new 500ms window.
+
+That is the core behavior: emit one value, close the gate for a fixed time, reopen, repeat.
+
+1. What throttleTime() changes
+
+throttleTime() changes when values are allowed to pass.
+
+That means:
+
+it does not transform the value itself
+it rate-limits the stream by fixed time windows
+it may drop values that arrive while throttling is active
+
+Without throttleTime(), the source emits whenever it emits.
+With throttleTime(), a source emission only gets through if the internal throttle timer is currently disabled.
+
+2. The practical mental model
+
+Think of throttleTime() like this:
+
+the first allowed value closes a gate
+while the gate is closed, new values are ignored or cached depending on config
+when the timer ends, the gate reopens, and possibly emits the cached last value if trailing: true
+
+This is not a “wait for calm” operator. It is a fixed silence window after an accepted value.
+
+Value Algebra
+3. Value shape and memory behavior
+
+throttleTime() takes Observable<T> and produces Observable<T>. It preserves the value type and does not map values into anything new.
+
+Per input value, it emits:
+
+zero outputs when the value arrives during an active throttle window and is not the trailing winner
+one output when the gate is open, or when a trailing emission happens
+never many outputs from a single input value
+
+It remembers:
+
+whether throttling is currently active
+the most recent blocked value when trailing behavior is enabled
+the current timer subscription
+
+It does not buffer all blocked values. At most it keeps the latest blocked candidate for a trailing emission.
+
+4. What happens when a new value arrives
+
+When a new value arrives:
+
+the operator stores it as the latest seen value
+if no throttle window is active, it either emits immediately (leading: true) or starts the timer without emitting (leading: false)
+if a throttle window is already active, the new value does not pass immediately; it only matters later if trailing is enabled, in which case it replaces the previously remembered trailing candidate
+
+That replacement behavior is important: blocked values do not queue up. The last one wins.
+
+5. Why use throttleTime()
+
+Use throttleTime() when you want:
+
+immediate reaction, but not on every event
+to cap event rate for clicks, scroll, resize, pointermove, or logging
+to keep UI or network work from happening too frequently
+
+“I have a noisy stream, and I want at most one allowed emission per fixed time window.”
+
+Time Algebra
+6. What flows over time
+
+Suppose the source does this:
+
+at t0: A
+at t100: B
+at t200: C
+at t700: D
+
+With default throttleTime(500):
+
+A emits immediately and starts a 500ms throttle window
+B and C are ignored during that window
+after the window ends, D is allowed through and starts the next window
+
+ASCII view:
+
+source:  A----B--C--------D--E------
+output:  A---------------D---------
+time:    |<-- 500ms -->|<--500ms-->|
+
+Default throttleTime() is therefore about first value wins per active window.
+
+7. Time policy
+
+throttleTime() uses this time policy:
+
+overlap: not applicable; it is not a flattening operator
+cancellation: it does not cancel source work, but it does maintain and tear down its internal timer subscription
+queueing: none
+ordering: preserved among values that actually get emitted
+busy behavior: while busy, incoming values are ignored by default, or only the latest one is remembered for trailing emission
+
+The practical rule is: once a value opens the window, new values cannot immediately pass until the window ends.
+
+8. What drives emission timing
+
+Output is driven by two possible triggers:
+
+a source emission arriving while the gate is open
+the end of the timer window, but only when trailing: true and there is a remembered blocked value
+
+With default config, timer completion does not emit anything downstream by itself; it only reopens the gate. With trailing enabled, timer completion can emit the cached last value.
+
+That is a big difference from debounceTime(), where emission is driven by a period of silence, and from sampleTime(), where emission is driven by a periodic sampler.
+
+9. Completion, error, and cancellation behavior
+
+The output completes when the source completes, except for one important case: if trailing: true, there is a cached trailing value, and the throttle timer is still active, completion waits until that window ends; then the cached value is emitted and the output completes.
+
+The output errors when the source errors. In the implementation, there is explicit completion logic for trailing flush, but no special “flush on error” path, so errors terminate without emitting a pending trailing value. That is an inference from the operator code.
+
+Unsubscribe tears down:
+
+the upstream subscription
+the current internal timer subscription
+any cached operator state for that subscription
+10. Default behavior that matters
+
+By default, throttleTime() uses:
+
+asyncScheduler
+leading: true
+trailing: false
+
+That matters because the default behavior is emit immediately, then drop the rest of the window. Many people expect a “last value in the burst” operator, but that default is actually auditTime()-like or debounceTime()-like thinking, not default throttleTime().
+
+Topology Algebra
+11. Execution topology
+
+throttleTime() rewires execution like this:
+
+upstream subscriptions: unchanged in count; each downstream subscription still subscribes through the operator chain
+downstream subscriptions: each subscriber gets its own operator instance
+peer subscriptions: none
+inner subscriptions: one timer-based internal subscription at a time
+replay/reset behavior: none added by this operator
+
+So throttleTime() changes timing, not sharing. It does not multicast, replay, or coordinate multiple subscribers.
+
+12. The most important rule
+
+throttleTime() does not wait for silence; it lets a value through now and then blocks for a fixed duration.
+
+13. What happens when a new subscriber arrives
+
+When a new subscriber arrives:
+
+it gets its own throttleTime() state
+it gets its own timer lifecycle
+it only shares upstream execution if something else upstream already introduced sharing
+
+So throttleTime() itself does not make a source hot or shared.
+
+14. What happens when everyone unsubscribes
+
+When everyone unsubscribes:
+
+each active subscription tears down its own timer
+upstream is torn down according to the source topology
+later subscribers start fresh with no remembered throttle state
+Synthesis and teaching sections
+15. Why throttleTime() can surprise people
+
+People often think:
+
+“It waits until the burst is over, then emits.”
+
+But actually:
+
+default throttleTime() emits at the start of the burst
+it drops blocked values by default
+it only emits the end-of-window value if you explicitly enable trailing behavior
+16. throttleTime() vs nearby operators
+throttleTime()
+value behavior: same type in, same type out
+time behavior: emit first allowed value, then suppress for a fixed duration
+topology behavior: per-subscriber local timer state, no sharing added
+auditTime()
+value behavior: same type in, same type out
+time behavior: after seeing a value, wait the duration, then emit the most recent value from that window
+topology behavior: per-subscriber local timer state, no sharing added
+
+Practical difference:
+
+throttleTime() = first-now policy by default
+auditTime() = last-at-window-end policy
+debounceTime()
+value behavior: same type in, same type out
+time behavior: wait until there has been a full quiet period, then emit the latest value
+topology behavior: per-subscriber pending timer task, no sharing added
+
+Practical difference:
+
+throttleTime() = “react immediately, then ignore for a while”
+debounceTime() = “react only after things stop for a while”
+sampleTime()
+value behavior: same type in, same type out
+time behavior: emit the latest value on periodic sampling ticks
+topology behavior: sampler-driven internal periodic timing
+
+Practical difference:
+
+throttleTime() starts windows from source activity
+sampleTime() samples on a clock that starts when subscribed
+17. A better way to think about it
+
+Do not think of throttleTime() as “burst finished.”
+
+Think of it as:
+
+“The first allowed event closes the gate for N milliseconds.”
+
+18. Where learners usually get confused
+1. Confusing throttleTime() with debounceTime()
+
+throttleTime() is immediate-by-default. debounceTime() is silence-driven. Those are opposite user experiences.
+
+2. Thinking blocked values are queued
+
+They are not. By default they are dropped. With trailing enabled, only the latest blocked value is remembered.
+
+3. Missing that the window is anchored by an accepted value
+
+This is not wall-clock bucketing. The throttle window starts when the operator accepts or starts processing a value.
+
+4. Thinking trailing: true means “emit everything later”
+
+It does not. It means “keep at most the latest blocked value and maybe emit that one at window end.”
+
+19. Good teaching examples for throttleTime()
+Example 1: Prevent double-click storms
+fromEvent(button, 'click')
+  .pipe(throttleTime(1000))
+  .subscribe(() => saveOnce());
+
+What this teaches:
+
+value behavior: clicks stay clicks
+time behavior: first click passes immediately, repeated clicks within 1s are ignored
+topology behavior: no sharing is introduced; each subscription would throttle independently
+
+Why this is good: the “first one wins” feeling is obvious.
+
+Example 2: Scroll updates with both leading and trailing
+fromEvent(window, 'scroll')
+  .pipe(throttleTime(200, undefined, { leading: true, trailing: true }))
+  .subscribe(updateScrollIndicator);
+
+What this teaches:
+
+value behavior: you still handle scroll events
+time behavior: you can get an immediate update and also the latest end-of-window update
+topology behavior: the operator keeps only one trailing candidate, not a queue
+
+Why this is good: it shows that throttleTime() is configurable, but still not a full buffer.
+
+20. When not to use throttleTime()
+
+Do not use throttleTime() when you need:
+
+the final value after the user stops typing
+periodic clock-based sampling
+the latest value at the end of every active burst by default semantics alone
+
+Instead consider:
+
+debounceTime() for “wait until quiet”
+auditTime() for “give me the last value when the window ends”
+sampleTime() for “sample on a fixed clock”
+21. One-sentence definition
+
+throttleTime() lets one source value through and then suppresses further source values for a fixed duration, optionally emitting the last suppressed value at the end, but it does not wait for silence, and it behaves like a gate that closes after an allowed value.
+
+22. Compact summary
+value behavior: same type in, same type out
+time behavior: first-now by default, then suppress for duration
+memory behavior: remembers only throttle state and possibly the latest blocked value
+topology behavior: per-subscriber local timer, no sharing or replay added
+lifecycle behavior: completion may wait for trailing flush when trailing: true
+defaults: asyncScheduler, { leading: true, trailing: false }
+best use case: immediate response with rate limiting
+23. Final teaching phrase
+
+throttleTime() is not “emit after things calm down.”
+throttleTime() is “emit now, then ignore for a while.”
+
+If you want, I can do the same deep-dive next for throttleTime({ leading: false, trailing: true }) specifically, since that variant changes the mental model a lot.
+
+yes
+
+I’m narrowing it to the leading: false, trailing: true variant and checking the current RxJS docs/source so the timing and completion details are exact.
+
+Thought for 1m 52s
+
+Absolutely — this variant is worth separating because it changes the mental model a lot.
+
+Operator at a glance
+
+Operator: throttleTime(duration, scheduler, { leading: false, trailing: true })
+
+One-line job:
+Do not emit immediately; start a fixed throttle window on the first source value, then emit the latest value seen in that window when the window ends.
+
+Category:
+Time Algebra.
+
+Main effect:
+It changes emission timing, keeps only the latest pending value during a window, and uses per-subscriber timer state. It does not transform values and does not add sharing.
+
+Practical sample first
+import { Subject, asyncScheduler, throttleTime } from 'rxjs';
+
+const source$ = new Subject<string>();
+const start = Date.now();
+
+source$
+  .pipe(
+    throttleTime(500, asyncScheduler, {
+      leading: false,
+      trailing: true,
+    })
+  )
+  .subscribe({
+    next: (value) => console.log(`${Date.now() - start}ms -> ${value}`),
+    complete: () => console.log(`${Date.now() - start}ms complete`),
+  });
+
+const emit = (after: number, value: string) => {
+  setTimeout(() => {
+    console.log(`${Date.now() - start}ms source ${value}`);
+    source$.next(value);
+  }, after);
+};
+
+emit(0, 'A');
+emit(100, 'B');
+emit(200, 'C');
+emit(700, 'D');
+emit(900, 'E');
+emit(1300, 'F');
+
+setTimeout(() => {
+  console.log(`${Date.now() - start}ms source complete`);
+  source$.complete();
+}, 1350);
+
+Observed output:
+
+0ms source A
+100ms source B
+200ms source C
+500ms -> C
+
+700ms source D
+900ms source E
+1000ms -> E
+
+1300ms source F
+1350ms source complete
+1500ms -> F
+1500ms complete
+
+What this shows is the whole story:
+
+A does not emit immediately, because leading is false.
+A starts a 500ms window.
+B and C replace the pending value, so the window ends by emitting C.
+After that emission at 500ms, a new throttle window starts immediately from inside the operator’s send logic, so D and E belong to the next window and E wins that one.
+Completion at 1350ms does not finish immediately; the operator waits for the active trailing window to end, emits F, then completes.
+1. What throttleTime() changes
+
+With this config, throttleTime() changes the stream from “emit whenever the source emits” into “emit at the end of fixed windows that are started by source activity.” The value type stays the same, but the timing contract changes substantially.
+
+2. The practical mental model
+
+Think of this variant as:
+
+first source value starts a timer, nothing is emitted yet, and the operator keeps overwriting a single pending slot with the latest value until the timer ends.
+
+At timer end, that pending value is emitted. This is trailing-only throttling.
+
+The part that surprises people is what happens next: after that trailing emission, the operator starts another throttle period immediately from the emitted value, unless the source has already completed. That means this is not just “delay then emit latest”; it also enforces a minimum spacing between outputs.
+
+3. Value shape and memory behavior
+
+The value contract is still Observable<T> -> Observable<T>. No mapping happens. Every output is one of the original source values.
+
+Memory-wise, it does not keep a queue of blocked values. It stores only a few pieces of state: whether there is a pending value, the latest pending value itself, whether a throttle timer subscription exists, and whether the source has completed. So during a busy window, “last one wins.”
+
+4. What happens when a new value arrives
+
+When a new source value arrives, the operator sets hasValue = true and stores that value as the current pending value. If there is no active throttle window, then with leading: false it starts the throttle window immediately and emits nothing yet. If there is already an active window, the arriving value simply replaces the previously pending one.
+
+So in the sample, A starts the first window, B replaces A, and C replaces B. At 500ms, C is what gets emitted.
+
+5. Why use this variant
+
+Use this config when you want the latest value from each active time window, but you do not want an immediate first emission. It is useful when immediate reaction is unnecessary or undesirable, but you still want bounded update frequency under sustained activity.
+
+A good practical use case is “during noisy input, give me the freshest snapshot every N milliseconds, with at least N milliseconds between outputs.”
+
+6. What flows over time
+
+For the sample above, the time flow is:
+
+source:  A----B--C--------D----E-------F---
+output:  -----C-----------E-----------F---
+time:    0   100 200     500         1000 1500
+
+The important observation is that output times are tied to window endings, not source silence, and not periodic clock ticks.
+
+7. Time policy
+
+Its time policy is:
+
+first source value opens a fixed-duration throttle window
+latest value seen during that window is kept
+when the window ends, that latest value is emitted
+after that trailing emission, another throttle period starts immediately unless the stream has completed already
+
+That last step is the unusual one. It means this operator enforces spacing between outputs, not merely “end-of-window snapshots.”
+
+8. What drives emission timing
+
+Emission timing is driven by the internal duration timer ending. The source does not directly cause downstream emission in this config, because leading is false. Source values only update the pending slot while the timer is active.
+
+So the output rhythm is “window end, maybe emit pending latest,” not “source event now” and not “silence detected.”
+
+9. Completion, error, and cancellation behavior
+
+Completion is important here. In the implementation, if the source completes while there is a pending trailing value and an active throttle subscription, the destination does not complete immediately. Instead, completion is held until the throttle ends; then the pending value is emitted and completion follows. That is exactly what the sample’s F shows.
+
+Error handling is not given special trailing-flush logic in this operator. From the implementation, the reasonable reading is that an error terminates the chain immediately rather than waiting to flush a pending trailing value. That is an inference from the code path, not a separately documented guarantee.
+
+Unsubscribing tears down the upstream subscription and the active throttle timer for that subscriber. The pending state is local to that subscription.
+
+10. Default behavior that matters
+
+This is not the default throttleTime behavior. The default config is { leading: true, trailing: false }, which means “emit immediately, then ignore.” You are deliberately flipping that into a trailing-only mode.
+
+That matters because many explanations of throttleTime assume the default first-now behavior, which is exactly what this variant disables.
+
+11. Execution topology
+
+Topology-wise, this operator stays simple: each subscriber gets its own throttle state, its own pending slot, and its own timer subscription. It does not multicast, replay, or share upstream execution by itself.
+
+So if two subscribers attach to a cold source piped through this operator, each gets an independent throttling process unless sharing was introduced upstream.
+
+12. The most important rule
+
+This variant is not “wait until things stop.” It is “start a fixed window on first activity, then emit the latest value when that window ends.”
+
+13. What happens when a new subscriber arrives
+
+A new subscriber starts with no pending value, no active window, and no memory of earlier emissions. Its first source value will start its own throttle window.
+
+Nothing about throttleTime changes hot/cold behavior on its own.
+
+14. What happens when everyone unsubscribes
+
+When all subscribers unsubscribe, all active throttle timers created by this operator are torn down, and any pending trailing state disappears with them. Later subscriptions start fresh.
+
+15. Why this can surprise people
+
+The biggest surprise is that people often expect this config to be equivalent to auditTime(duration). It is close in some bursts, but not the same.
+
+The second surprise is that after a trailing emission happens, throttleTime starts a new throttle window immediately, which can block values that arrive soon after that emission. That makes outputs spaced at least duration apart.
+
+16. throttleTime({ leading: false, trailing: true }) vs nearby operators
+Versus auditTime(duration)
+
+Both behave like “keep latest during a window, emit at window end” during an active burst. But auditTime says the process repeats for the next source value, while throttle restarts throttling from the emitted value inside send(). So after an emission at 500ms, auditTime waits for a new source value to begin the next silence window, whereas trailing-only throttleTime is already inside another closed period.
+
+That means a value arriving shortly after a trailing emission can be blocked by trailing-only throttleTime, but would start a fresh auditTime window instead.
+
+Versus debounceTime(duration)
+
+debounceTime waits for a full quiet period. If values keep arriving faster than the due time, it can postpone output indefinitely. It also flushes the last pending value on completion. By contrast, trailing-only throttleTime keeps producing at fixed end-of-window points under continuous activity.
+
+Versus sampleTime(duration)
+
+sampleTime is clock-driven: it samples on periodic intervals that start when subscribed. Trailing-only throttleTime is source-driven: windows begin because source activity started them.
+
+17. A better way to think about it
+
+A better mental model is:
+
+“The first event arms a timer. While the timer runs, only the latest event matters. When the timer expires, emit that latest one.”
+
+That is much more accurate than thinking “it debounces with a timer.”
+
+18. Where learners usually get confused
+
+They usually get confused in four places.
+
+First, they confuse it with debounceTime, but this operator does not require silence before every emission. Under constant activity it still emits regularly at window boundaries.
+
+Second, they assume blocked values queue up. They do not; only the latest pending value is remembered.
+
+Third, they assume it is the same as auditTime. It is not, because trailing-only throttleTime starts a new throttle immediately after emitting, while auditTime waits for the next source value to begin again.
+
+Fourth, they miss the completion behavior: a pending trailing value can still be emitted after source completion, once the active window ends.
+
+19. Good teaching examples for this variant
+
+A good teaching example is noisy UI position updates where you want periodic latest-state snapshots but do not care about immediate feedback. This makes the trailing-only behavior visible without mixing in transformation logic.
+
+Another good example is “save draft preview every 500ms during typing, but don’t save on the very first keystroke immediately.” That highlights both the delayed first output and the latest-wins memory model.
+
+20. When not to use it
+
+Do not use this variant when the first event must be handled immediately, because leading: false explicitly suppresses that.
+
+Do not use it when you need “only after the user fully stops,” because that is debounceTime territory.
+
+And do not use it when you specifically want “latest at end of each source-started window, but no immediate post-emit closed period,” because that is closer to auditTime.
+
+21. One-sentence definition
+
+throttleTime(duration, scheduler, { leading: false, trailing: true }) starts a fixed throttle window on the first source value, keeps only the latest value seen during that window, and emits that latest value when the window ends.
+
+22. Compact summary
+
+Value behavior: same value type in and out. Memory behavior: only the latest pending value is kept. Time behavior: first value starts a window but does not emit; window end emits the latest pending value; completion can wait for that trailing flush. Topology behavior: per-subscriber local state and timer, with no sharing added.
+
+23. Final teaching phrase
+
+This variant is not “emit now, then ignore.”
+It is not “wait until silence” either.
+It is: “arm the timer now, emit the latest thing at the edge.”
+
+Next, I can do the same side-by-side for throttleTime(..., { leading: false, trailing: true }) versus auditTime() with one timeline that makes the difference painfully obvious.

@@ -1,0 +1,36 @@
+
+
+// 0. Setup canvas (625X625) 25 elements , create grid and save it on initial state
+// 1. Generate fruit
+// 2. Draw snake
+// 3. Start game (repeat every 50ms)
+// 4. Add navigation (arrow keys)
+// 5. Detect score
+// 6. Detect wall collisions
+// 7. Detect crashes (restart game)
+
+// html
+
+min-height: 100vh; background:
+canvas { background:
+</style>
+(head>
+body>
+
+<canvas id="snake" width="625" height="625"></canvas>
+
+<script src="./snake.js"></script>
+/body>
+/html>
+
+!DOCTYPE html>
+html lang="en">
+head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OverSnake</title>
+<style>
+body { display: flex; justify-content: center; align-items: center;
+I#føføf0; overflow: hidden; }
+#fff; border: 1px solid O#111; border-radius: 3px;
+</style>

@@ -1,0 +1,253 @@
+    this.users$ = this.http.get('/users').pipe(
+      // reset on 'error' or 'complete'
+      finalize(() => this.users$ = undefined),
+      // complete on cache invalidation
+      takeUntil(this.cacheInvalidation$),
+      // cache the last response for 10 minutes
+      shareReplay({
+        bufferSize: 1,
+        refCount: false,
+        windowTime: 600000
+      })
+    );
+
+pipe(
+  // Pipe #0
+  concatLatestFrom(() => this.userId$),
+
+  tap(() => this.patchState({loadingFollowers: true})),
+
+  switchMap(([_, userId]) => this.api.getFollowers(userId).pipe(
+    // Pipe #1
+    tap((followers) => this.patchState({
+      followers: followers, 
+      loadingFollowersAvatars: true
+    })),
+    switchMap((followers) => {
+      const requests = followers.map((follower) => this.getAvatar(follower.id).pipe(
+        // Pipe #2
+        tap((avatar) => this.setAvatarForUserId(follower.id, avatar)),
+        timeout(5000),
+        catchError(() => of(undefined)),
+        defaultIfEmpty(undefined),
+      ));
+
+      return forkJoin(requests).pipe(
+        // Pipe #3
+        finalize(() => this.patchState({loadingFollowersAvatars: false})),
+        map(() => followers.length)
+      );
+    }),
+    tap((n) => console.log("Number of followers: ", n)),
+    finalize(() => this.patchState({loadingFollowers: false}))
+  ))
+));
+
+What this code does:
+
+Every time this effect receives a new value (void)…
+
+We fetch the current user ID,
+For that ID we fetch the list of followers,
+Then we create a list of requests to load an avatar for every follower,
+and assign an avatar to the follower’s ID;
+After avatars are assigned, we print to the console the number of followers;
+We modify the state of loading* fields to render the corresponding spinners.
+
+
+es. The way to “teach yourself” to write RxBDD for a real pipeline like this is to translate operator-by-operator into taxonomy clauses, and then compose those clauses in a stable order:
+
+Trigger / context acquisition (Given/When)
+
+State side effects (And … set state …)
+
+Work (Then … fetch …)
+
+Gate policies (switch/exhaust/concat/merge)
+
+Barrier policies (readiness/completion)
+
+Error/time policies (timeout, catchError, defaultIfEmpty)
+
+Finalization (finalize)
+
+Output transformation (map) and logging (tap)
+
+Your example has nested pipelines (Pipe #0 outer; Pipe #1 inside followers request; Pipe #2 per-avatar; Pipe #3 forkJoin result). In RxBDD, the cleanest representation is either:
+
+One Scenario with “subflow” clauses, or
+
+One main Scenario + one “For each follower” Scenario, referenced as a sub-step.
+
+Below I’ll show both the mapping and a recommended RxBDD formulation.
+
+1) Operator-to-RxBDD mapping for your pipeline
+Outer Pipe #0
+
+concatLatestFrom(() => this.userId$)
+Barrier(Readiness) / context acquisition: “Given the latest userId is available …” and “When triggered, pair trigger with latest userId.”
+
+tap(() => patchState({loadingFollowers: true}))
+Side effect: “And set loadingFollowers=true”
+
+switchMap(([_, userId]) => api.getFollowers(userId)...)
+Gate(Switch) + Work(Fetch): “Then fetch followers using userId; and if triggered again, cancel old request and switch.”
+
+Inner Pipe #1 (followers request)
+
+tap((followers) => patchState({followers, loadingFollowersAvatars: true}))
+Side effect: “And on followers received, store followers and set loadingFollowersAvatars=true”
+
+switchMap((followers) => { ... forkJoin(requests) ... })
+Gate(Switch) over the “followers payload → avatar aggregation” work
+(In practice followers emits once per request, so switchMap here mainly expresses a “latest payload wins” policy.)
+
+Per-avatar Pipe #2 (each follower)
+
+tap((avatar) => setAvatarForUserId(follower.id, avatar))
+Side effect per item
+
+timeout(5000)
+Time contract: deadline per avatar request
+
+catchError(() => of(undefined))
+Error policy (fallback): on error, emit undefined and continue
+
+defaultIfEmpty(undefined)
+Empty-as-default policy: if nothing emitted, treat as undefined
+
+forkJoin Pipe #3 (aggregate)
+
+forkJoin(requests)
+Barrier(Completion): wait for all avatar requests to complete, then emit once.
+
+finalize(() => patchState({loadingFollowersAvatars: false}))
+Finalize: clear avatars loading flag when the avatar aggregation ends (success/error/cancel)
+
+map(() => followers.length)
+Value transform: emit follower count
+
+Back in Pipe #1
+
+tap((n) => console.log(...))
+Side effect: log
+
+finalize(() => patchState({loadingFollowers: false}))
+Finalize: clear followers loading flag when the whole request chain ends
+
+2) RxBDD formulation (recommended “single scenario + subflow clauses”)
+
+Your current RxBDD v0.1 CLI supports only a small subset (typeahead). This pipeline requires RxBDD v0.2 extensions (clauses for context join, timeout, forkJoin completion barrier, finalize, per-item subflow). Still, this is exactly how the user would write it.
+
+Feature: Followers and avatars loading
+
+Scenario: Load followers and their avatars on trigger
+  Given the latest userId is available from userId$
+  When a LoadFollowers trigger occurs
+  Then set state loadingFollowers = true
+  And fetch followers using userId
+  And if a newer LoadFollowers trigger occurs, cancel the old followers request and switch to the new one
+
+  And on followers received, set state followers = followers
+  And on followers received, set state loadingFollowersAvatars = true
+
+  And for each follower in followers, fetch avatar using follower.id
+  And for each avatar request, timeout after 5000ms
+  And for each avatar request, on error emit undefined and continue
+  And for each avatar request, if empty emit undefined
+  And on each avatar response, setAvatarForUserId(follower.id, avatar)
+
+  And wait until all avatar requests complete
+  Then set state loadingFollowersAvatars = false
+  And emit followerCount = followers.length
+  And log \"Number of followers\" with followerCount
+  And finally set state loadingFollowers = false
+
+
+This is the “behavior contract” of the pipeline, expressed in your taxonomy order:
+
+readiness barrier (userId exists)
+
+trigger
+
+side effects (loading flags)
+
+work (fetch followers)
+
+gate(switch) (cancel stale fetch)
+
+per-item work policies (timeout/fallback/default)
+
+completion barrier (forkJoin)
+
+finalize flags
+
+emit count + log
+
+finalize top-level flag
+
+3) Alternative: split into two scenarios (cleaner compilation)
+
+This structure makes compilation easier because “for each follower …” becomes a reusable subroutine.
+
+Feature: Followers and avatars loading
+
+Scenario: Load followers on trigger
+  Given the latest userId is available from userId$
+  When a LoadFollowers trigger occurs
+  Then set state loadingFollowers = true
+  And fetch followers using userId
+  And if a newer LoadFollowers trigger occurs, cancel the old followers request and switch to the new one
+  And on followers received, set state followers = followers
+  And on followers received, start scenario \"Fetch avatars for followers\"
+  And finally set state loadingFollowers = false
+
+Scenario: Fetch avatars for followers
+  Given a followers list is available
+  Then set state loadingFollowersAvatars = true
+  And for each follower in followers, fetch avatar using follower.id
+  And for each avatar request, timeout after 5000ms
+  And for each avatar request, on error emit undefined and continue
+  And for each avatar request, if empty emit undefined
+  And on each avatar response, setAvatarForUserId(follower.id, avatar)
+  And wait until all avatar requests complete
+  Then set state loadingFollowersAvatars = false
+  And emit followerCount = followers.length
+  And log \"Number of followers\" with followerCount
+
+4) What you would need to add to RxBDD (to compile this)
+
+To compile your pipeline deterministically, RxBDD needs these additional clause forms beyond v0.1:
+
+- Context join (concatLatestFrom/withLatestFrom)
+- Given the latest <x> is available from <x$>
+- And pair the trigger with the latest <x>
+
+State side effects (tap/patchState)
+
+Then set state <k> = <v>
+
+And on <event> received, set state …
+
+Per-item subflow
+
+And for each <item> in <list>, fetch <thing> using <item.field>
+
+Timeout + fallback + empty-default
+
+And timeout after <N>ms
+
+And on error emit <fallback> and continue
+
+And if empty emit <fallback>
+
+Completion barrier (forkJoin)
+
+And wait until all <requests> complete
+
+Finalize
+
+And finally set state …
+
+If you want, I can write the exact v0.2 clause regexes + IR additions for these constructs in the same style as the v0.1 spec, 
+so your CLI can compile this pipeline next.

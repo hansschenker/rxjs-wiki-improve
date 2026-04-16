@@ -1,0 +1,59 @@
+Feature
+
+Route guards / auth
+
+Global notifications / toasts
+
+Store persistence
+
+Error boundary
+
+Why it matters
+
+Protect routes before rendering; redirect unauthenticated users
+
+Every action needs user feedback - success, error, info banners
+
+Survive page refresh - localStorage/sessionStorage sync for stores
+
+Catch unhandled Observable errors globally, show fallback UI
+
+Common but missing
+
+Feature
+
+Lazy-loaded views
+
+WebSocket / SSE support
+
+Focus management
+
+Optimistic updates
+
+Why it matters
+
+Dynamic import() per route - bundle size grows fast without it
+
+Real-time data is a core RxJS strength, no package for it yet
+
+Accessibility - move focus to #outlet on route change
+
+Update UI before HTTP confirms, roll back on error
+
+Nice-to-have
+
+Feature
+
+DevTools
+
+Testing utilities
+
+Route transitions
+
+Why it matters
+
+Log actions + state snapshots in browser console
+
+Mock store/router/http helpers for unit tests
+
+CSS class hooks on enter/leave for animationss

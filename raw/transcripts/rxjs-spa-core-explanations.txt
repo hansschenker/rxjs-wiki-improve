@@ -1,0 +1,35 @@
+// core remember<T> 
+
+User: what is the use case for remember<T>()
+
+GitHub Copilot: Searched for text `remember`, 20 results
+
+Read [](file:///c%3A/Users/HP/Web/Frontend/rxjs/rxjs-spa/packages/core/src/public.ts)
+
+Read [](file:///c%3A/Users/HP/Web/Frontend/rxjs/rxjs-spa/docs/state-management-deep-dive.md#485-485), lines 485 to 520
+
+## Use Case for `remember<T>()`
+
+`remember<T>()` is a utility operator that **caches and replays the latest value to all subscribers, even if they arrive later**. It's used for **permanent caching** of Observable results.
+
+### Key Characteristics:
+- **`refCount: false`** — The connection to the source stays alive permanently, even after all subscribers unsubscribe
+- **`bufferSize: 1`** — Remembers only the latest emitted value
+- **Replay behavior** — Newly subscribed users immediately receive the cached value
+
+### Primary Use Cases:
+1. **Global/shared state** — When you have application-wide state that multiple components access
+2. **Expensive computations** — Avoid re-running heavy computations across different subscribers
+3. **Frequently-accessed streams** — When the same Observable is subscribed to many times
+
+### Example:
+```typescript
+const expensive$ = heavyComputation().pipe(remember())
+
+expensive$.subscribe() // Computation runs once
+expensive$.subscribe() // Reuses cached result
+// ... later ...
+expensive$.subscribe() // Still reuses cached result
+```
+
+**Contrast with `rememberWhileSubscribed()`**: That variant disconnects when all subscribers unsubscribe and won't reuse the cached value for new subscribers. Use `remember()` when you want true persistent caching.

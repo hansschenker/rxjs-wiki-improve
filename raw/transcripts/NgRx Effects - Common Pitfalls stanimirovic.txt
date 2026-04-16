@@ -1,0 +1,8 @@
+NgRx Effects - Common Pitfalls
+
+Naming effects based on the action they are listening to
+* Creating unnecessarily complex effects
+* Creating "boiler" effects
+* Performing multiple side effects within a single NgRx effect
+* Dispatching multiple actions from a single NgRx effect
+* Performing side effects in components

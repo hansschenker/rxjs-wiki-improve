@@ -1,0 +1,51 @@
+Build a website for a small AI agency called Chase AI.
+
+Pages:
+
+1. Landing page (/) - a marketing site for the agency. Include a hero section, a
+services section (pick 3-4 services that make sense for an AI agency), an "about"
+or "why us" section, a lead-capture form (name, email, message - save submissions
+to a local file or JSON, no real backend needed), and a footer.
+
+. 2. Blog (/blog) - a public blog with a list view and individual post pages. Show
+thumbnail, title, excerpt, and date on the list. Store posts as markdown files
+with frontmatter in the repo.
+
+. 3. Hidden admin page (not linked in the nav) - a blog generator. One input field
+accepting either a YouTube video URL or an article URL. On submit, the app fetches
+content from the URL, sends it to Claude via the Anthropic SDK to produce a clean
+blog post in a first-person founder voice, grabs a thumbnail/hero image from the
+source, and saves the result as a nem blog post. Show touding state and the
+generated output. No authentication - just a hidden URL.
+
+Stack:
+- Next.js (app router) + TypeScript + Tailwind
+- Anthropic SDK with claude-sonnet-4-6 (key provided via ANTHROPIC_API_KEY)
+- Blog posts stored as markdown files in the repo
+
+Aesthetic:
+Modern, clean, dark-mode-friendly. Think Vercel / Linear / Anthropic.com. Use your
+taste. Landing should feel like a real agency, not a template.
+
+Acceptance criteria:
+- npm run dev starts a working site with all three pages reachable
+- The admin generator actually fetches content, calls Claude, and writes a new
+blog post that shows up in the blog list
+- The lead-capture form saves submissions somemhere I can inspect
+- Works for both YouTube URLs and article URLs
+
+When you finish, summarize what you built and flag anything you weren't sure about
+or left unfinished.
+
+---
+Deliberately left open (differentiation surface)
+
+.'How to fetch YouTube transcripts and article content (tool picks its own libraries)
+. URL-type detection (YouTube vs. article). How to handle long content that blows past Claude's context
+. Thumbnail extraction (OpenGraph for articles vs. YouTube URL pattern)
+· Error handling, loading states, edge cases, blog schema, routing decisions
+. The actual blog-generation system prompt (prompting taste shows in output quality)
+. Whether to invoke any available Claude Code skills ( frontend-design, ui-ux-pro-max ) -
+see open questions
++
+

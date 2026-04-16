@@ -1,0 +1,76 @@
+Observable<Maybe<Future<T>>>
+
+The type Observable<Maybe<Future<T>>> denotes a monad stack (or nested algebraic data type structure), where each layer introduces a particular computational "effect" to the base value T. Since monads do not inherently compose, this specific nesting results in a "wrapper hell" requiring manual unwrapping at every step.  
+1. Layer Breakdown  
+Each layer has a unique role:  
+Observable<...>: Manages streams and multiple values over time, serving as the outermost "temporal" layer.  
+Maybe<...>: Represents optionality, indicating that a given emission in the stream may lack a value (returning Nothing or Empty).  
+Future<T>: Represents latency for a single result. In many functional libraries (such as Scala or some JavaScript FP libraries), a Future stands for a single eventual value.  
+2. The Composition Challenge  
+Although Observable, Maybe, and Future are each monads individually, they do not automatically interoperate.  
+Standard Monadic Bind: Using flatMap (the monad "bind") on Observable only exposes the Maybe layer. To access Future, you need to map into Maybe, then map into Future, and finally map into T.  
+Resulting Complexity: Without special tools, this leads to deeply nested callbacks or expressions like map(maybe => maybe.map(future => future.map(t => ...))).  
+3. Addressing Nesting with Monad Transformers  
+To treat Observable<Maybe<Future<T>>> as a unified entity, functional programming employs Monad Transformers:  
+Purpose: They enable stacking monads so a single flatMap can traverse multiple layers simultaneously.  
+In RxJS: RxJS natively handles some of this via flattening operators. For example, mergeMap can automatically unwrap a Promise (a type of Future) returned inside the operator, effectively combining the Observable and Future layers.  
+Summary of Effects  
+Layer  | ADT Type | Primary Effect  
+Observable | Stream/List | Multiple values over time  
+Maybe | Option | Possible absence of value  
+Future | Async/Promise | Eventual completion of a single value  
+In practice, this stack often suggests a design that could be simplified; for instance, RxJS Observable can already represent "zero values" (like Maybe) and "asynchrony" (like Future) on its own, potentially rendering the inner layers unnecessary in a pure RxJS setup.  
+
+Observable<Maybe<Future<T>>>  
+High-Level Overview  
+This type describes a stream (an Observable) that emits values which are optional futures (Maybe<Future<T>>). In other words, each emitted value might be:
+
+Nothing (no value),
+Or a Future that will eventually resolve to a value of type T.
+Detailed Breakdown
+1. Observable<...>
+What it is:
+Observable is a core concept from reactive programming libraries like RxJS. It represents a stream of asynchronous data/events over time.
+
+Key points:
+
+It can emit zero or more values.
+It can complete or error out.
+Subscribers listen to these emitted values.
+In this context:
+The observable emits values of type Maybe<Future<T>>.
+
+2. Maybe<...>
+What it is:
+Maybe is a common functional programming type (also known as Option in some libraries). It represents an optional value that can either be:
+
+Some(value) — contains a value, or
+None — no value present.
+Purpose:
+It helps avoid null or undefined and makes the presence or absence of a value explicit and type-safe.
+
+In this context:
+The observable might emit:
+
+None (no future available),
+or Some(future) (a future that will resolve to a value).
+3. Future<T>
+What it is:
+Future is a type representing a computation or value that will be available in the future. It is similar to a Promise, but often used in functional programming libraries with additional capabilities (like cancellation, lazy evaluation, etc.).
+
+Purpose:
+It encapsulates asynchronous computations that will eventually produce a value of type T.
+
+In this context:
+The Future<T> represents an asynchronous operation that will eventually yield a value of type T.
+
+Putting It All Together
+The observable emits values over time.
+Each emitted value is a Maybe, meaning it might or might not contain a value.
+If it contains a value, that value is a Future representing an asynchronous computation that will eventually produce a T.
+Example Scenario
+Imagine a UI component that listens to a stream of optional asynchronous data fetches:
+
+Sometimes, there is no fetch operation to perform (None).
+Sometimes, there is a fetch operation represented as a Future<T>.
+The observable emits these optional futures as they become available.

@@ -1,0 +1,142 @@
+Searching for changes in RxJS architecture
+I need to understand the changes in RxJS between versions 7 and 8, particularly regarding the removal of lift and the introduction of operate. I'll search for the details on the latest RxJS versions to verify whether version 8 or 9 is in use and how the operator architecture has evolved. I'll also check the user's goals to tailor my response.
+
+Confirming RxJS 7 and 8 operator changes
+It seems like RxJS 7 introduced operate as a helper, but lift was still around, though less commonly used. From what I remember, in version 8, they were aiming to remove lift and rely more on operate and a new Subscriber system. I’ll need to verify this by searching online.
+
+Searching for changes to RxJS lift in v8
+Verifying RxJS's lift changes across versions
+The search indicates that RxJS version 7 hides lift from users, though it might still be used internally. If it’s truly removed in version 8, that would be a significant change, especially with the core semantics also shifting. I'll confirm this by checking sources and issue #7202 for details.
+
+Opening sources on RxJS lift and v8 changes
+Looking for changelog details on lift removal
+The rxjs.dev pages require JavaScript, so I can't pull details from there. Instead, I'll look into the GitHub changelog for versions 8 and 9, specifically searching for mentions of "doesn't even lift" or "operate" to confirm the removal of lift and any properties related to sources.
+
+Searching changelog for RxJS v8/v9 updates
+Accessing raw changelog file for details
+The changelog content didn’t load due to JavaScript being dynamic. To bypass this, I'll access the raw changelog file directly from GitHub using the plain URL. That should let me view the content without the issues from the dynamic page load. Let me open this raw file.
+
+Searching for raw changelog URL
+Since I can only open URLs from previous search results or the user's message, I’ll search for the raw changelog URL now. Once I find it, I can access the changelog without troubles and check for details on the updates regarding lift and other changes in RxJS.
+
+Searching for raw changelog URLs
+Opening issue for lift replacement details
+I need to confirm what replaced the lift architecture in the new RxJS version. There's an issue (#7202) mentioning "doesn't even lift," but I haven’t opened it yet. I’ll check issue #7202 to find out what’s now being used instead. Let me open that and gather more info.
+
+Searching RxJS issue #7202 and operator replacement
+Opening raw changelog for lift replacement details
+It looks like I found a reference to issue #7202 in a changelog, but GitHub requires JS to load the page. I’ll try opening the raw version of the changelog with a plain URL (adding ?plain=1) to get to those details. I’ll open the link from the search results now.
+
+Opening search result for changelog access
+Searching for raw changelog on unpkg
+I can't access the GitHub version due to a "Uh oh" error. Instead, I’ll try searching for the RxJS 8.x changelog on unpkg, which I’ve used before for version 7.5.2. If I can find it on unpkg, I’ll open it from there to get the details. Let's search now.
+
+Searching for RxJS 8 changelog on unpkg
+Opening changelog for RxJS 8.0.0-alpha
+I’ve found the RxJS 8.0.0-alpha.14 changelog on unpkg. I just need to double-check that it’s safe to open
+
+Opening and verifying changelog for rxjs versions
+Searching for RxJS 8.0.0-alpha.14 changelog
+The page is showing version 7.8.2, but the next version is 8.0.0-alpha.14. I’ll search for the changelog for version 8.0.0-alpha.14 directly. Hopefully, I can find a direct URL for the changelog file, and once I do, I’ll open it to view the details.
+
+Searching for RxJS 8.0.0-alpha.14 changelog
+Opening changelog to find replacement details
+The search result shows a changelog for version 7.5.2, but it also includes entries for the 8 alpha versions at the top. I'll open that changelog and use the "find" feature to look for the "doesn't even lift" issue and possibly see an explanation for its replacement in the newer version.
+
+Examining changelog for version mix-up and details
+Using find to locate relevant changelog details
+We need to locate the section in the changelog about the removal of "lift" or the "doesn't even lift" issue in RxJS. The changelog is long, but I can use the "find" pattern to quickly locate the specific details we're looking for. Let's do that.
+
+Finding section about RxJS lift in changelog
+Adjusting search method to handle word limit
+The search didn’t return any matches, likely due to the word limit of 200, which might have cut off important results and only displayed the header. I need to adjust the response to allow for a longer result length. Let me try again with a longer response length so I can see more of the content.
+
+Investigating find command behavior with word limit constraints
+Assessing search result confusion
+The search for "Observable: RxJS doesn't" returned a match at line 885, but it seems to be within the v7.0.0-beta version, not related to "doesn't even lift." It's strange because the pattern should match something in v8.0.0-alpha, which should be at the top. It looks like the search might have jumped to the wrong section.
+
+Accessing the correct RxJS changelog
+It looks like we're looking at a changelog for RxJS 7.5.2, which doesn't include the v8 alpha information, since those versions weren't in the file at that time.
+
+I'll need to get the changelog for RxJS 8 alpha directly by accessing the correct URL. I'll try opening it now.
+
+Searching for the right URL for RxJS changelog
+I need to get the exact URL for the changelog, so I'll search for the specific query that could bring it up. If the results don’t directly show it, opening the version page could work. Let me try searching for the changelog URL again to see if it comes up.
+
+Searching for RXJS changelog on unpkg.com
+Opening the changelog for RxJS 8.0.0-alpha.14
+Now that I have the search result for the RxJS 8.0.0-alpha.14 root, the next step is to open the specific changelog file under that version. I’ll go ahead and open the site directly to access the changelog.
+
+Fetching the changelog directly
+It seems like there was a fetch timeout, maybe because the version list page is too heavy. I’ll try opening the changelog file directly on unpkg.com instead, as that might load faster. I’ll search for the unpkg.com link to access it more efficiently.
+
+Searching for unpkg.com links and related RxJS info
+Checking lift.ts in RxJS 8.0.0-alpha.14
+I found the file lift.ts in the internal/util/ folder, which suggests that the lift function might still be around. Although it's claimed that the lift architecture is no longer used, it seems that it's been replaced by operate with the new Observable implementation and pipe functions. Let's directly open the file to confirm.
+
+Exploring RxJS lift.ts in version 8.0.0-alpha.14
+Reviewing RxJS 7.5.2 lift usage
+The file from version 7.5.2 still shows operate using source.lift, indicating that lift is still in use. However, since the user mentioned that lift isn't part of the architecture anymore, it's likely that the class-based lift is gone in the latest version. I need to check the corresponding file in RxJS 8 alpha to confirm this change—let’s adjust the version and search for it.
+
+Searching for RxJS 8 alpha lift version changes
+Checking breaking change for lift removal
+I've found a helpful source: the classic yarn package page that mentions a breaking change: "Observable: lift no longer exposed." It seems like it discusses a replacement architecture, possibly related to the internal changes
+
+Opening turn18search1 for breaking change details
+Exploring lift changes in RxJS V8
+The Yarn page shows that lift is being phased out in RxJS v7, possibly marking its removal by v8. While in v7, operate relied on lift for custom observable types, v8 likely integrates operate differently, working directly with objects that have Symbol.observable. I’ll need to find the changelog for v8 to confirm this. I could search the Yarn page for release notes.
+
+Confirming removal of lift architecture in RxJS 8
+In RxJS 7+, operators are now pure functions returning new Observables, using the operate helper and Subscriber overrides. The lift function is removed in v8, replaced by pipeable operators. I need to fetch the RxJS 8 alpha source to confirm this change and check the operate function.
+
+Exploring alternative CDNs for the RxJS file
+It seems like the search on app.unpkg.com returned version 7.5.2, maybe because it indexes only one version at a time. I'll try using unpkg's raw path or switch to jsdelivr, which might host the versioned file directly. I’ll search for "cdn.jsdelivr rxjs 8.0.0-alpha.14 operate" to see if it works.
+
+Searching for changes in RxJS 8 lift architecture
+Searching for breaking changes and confirming offsets in version notes
+I found an issue (#6786) mentioning an operate utility function that no longer requires lift, which might explain what's replaced it. I’ll also check the RxJS docs for breaking changes. Then, I’ll look at Yarn and npm for version 8 alpha’s notes about “RxJS doesn’t even lift.”
+
+Searching breaking changes and V8 updates for RxJS
+Answering about Lift architecture replacement in RxJS
+The Lift Architecture was replaced in RxJS v7+ (and v8) with "pipeable operators" implemented as pure functions returning a new Observable. This shift eliminates reliance on Observable subclasses, using an internal operate helper instead. Additionally, the Subscriber and Subscription merged into a more streamlined design.
+
+Searching for latest RxJS version and release info
+Explaining RxJS changes related to Lift replacement
+The latest stable version of RxJS is 7.8.2, and as of January 2026, version 8 might still be in alpha. The “lift” architecture was replaced with “pipeable operators” that return a new Observable using the operate helper and Subscriber override. RxJS is aligning with the TC39/WHATWG Observable proposal, moving away from lift since it's not part of the web standard.
+
+Answering the user’s question about RxJS Lift replacement
+The RxJS "Lift Architecture" was removed, with "pipeable operators" taking its place. This change encourages rewriting operators to return a new Observable. The operate utility now supports Observables without lift (Issue #6786). RxJS is aligning with the web standard, with version 8 focusing on modules and Observable standardization.
+
+Explaining the transition from lift to pipeable operators
+The lift method allowed subclassing in RxJS, but it's being replaced with function-based operators using pipe. Subclassing is discouraged, favoring composition or helper functions. In v7, operate handles subscriptions and is used internally. RxJS v8 aims to remove lift entirely, aligning with a simplified, function-based approach.
+
+Clarifying RxJS's shift from lift to pipeable operators
+The lift method is no longer part of the public API beginning in RxJS v8, though it still exists internally in v7 for compatibility. Instead, RxJS now uses function-based operators and the operate helper to build new Observables without subclassing. To guide the user, I'll ask: “Are you referring to how operators are now implemented internally or how to write custom operators?”
+
+Offering conceptual steps for RxJS learning
+Since the user is learning RxJS at a more advanced level, I’ll connect to their understanding of Observables as functions. I can propose a conceptual activity, like rebuilding map or filter in the new style. Rather than doing the task for them, I'll offer steps and context, citing issue #6786 for more information.
+
+Explaining RxJS Lift Replacement and Operator Implementation
+Citing breaking changes and operator rewrite guidance
+This issue highlights the shift away from "lift" to "operate," so I'll cite it. Additionally, I want to refer to the official breaking changes documentation, which suggests rewriting operators with new Observable since "lift" is no longer exposed. I'll check if the breaking changes page is accessible.
+
+Finding breaking changes documentation for RxJS operators
+Finding alternative sources for RxJS updates
+Since I can't access the breaking changes page due to the JavaScript requirement, I'll rely on the GitHub issue, the Yarn page, and possibly other articles. I’ll check the "State of RxJS Wrap-up" article to see if it mentions the lift removal and the new architecture.
+
+Browsing for "State of RxJS Wrap-up" article details
+Clarifying RxJS internal changes and operator replacements
+The article mentions that createOperatorSubscriber replaces operate, not lift. This clarifies the shift to supporting Observables without lift, aligning with more standardized operator creation. We’ll note the move to "operate utility function / createOperatorSubscriber-based implementations" and the standardization work for RxJS 8. I'll cite the roadmap issue and the npm page for the stable version.
+
+Explaining RxJS v7.8.2 and v8 changes
+In RxJS v7.8.2, lift still exists internally but is no longer part of the public API, and TypeScript omits it. In v8, the goal is to shift away from lift and use standalone Observables that follow a standard contract. This transition replaces lift with optimized, closure-based pipeable operators using operate/createOperatorSubscriber.
+
+Explaining observable changes and providing steps
+Now, RxJS operators are functions that return new Observables, with operate/createOperatorSubscriber handling the Subscriber override and error management. The pipe method is used for composition. RxJS v8 aligns with web platform standards, removing lift. You can think of this shift as replacing method injection with function-level combinators. If you’d like, we can check if you prefer understanding the internal mechanics or learning how to write custom operators effectively.
+
+Clarifying RxJS versions and changes
+Let’s clarify a few things: As of January 2026, the latest stable RxJS version is 7.8.2, and v8 is still in alpha. I’ll provide a simple example of how to write a custom operator using new Observable and source.subscribe. The key transition: RxJS is moving away from lift, and v8 will use standalone Observable.
+
+Thought for 6m 41s
+Done
+

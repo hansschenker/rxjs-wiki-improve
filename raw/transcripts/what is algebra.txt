@@ -1,0 +1,32 @@
+what is algebra?
+
+Algebra involves thinking logically, rather than
+numerically (as in arithmetic).
+
+In arithmetic you reason (calculate) with numbers; 
+
+in algebra you reason (logically) about numbers.
+
+Arithmetic involves quantitative reasoning with
+numbers; algebra involves qualitative reasoning
+about numbers.
+
+A key feature of algebra is you introduce a name for
+an unknown and reason logically to find its value.
+Substituting numbers in an algebraic formula to
+obtain a numerical answer is arithmetic, not
+algebra; deriving that formula in the first place is
+algebra.
+
+Al-Khwarízmi
+
+Ābū ‘Abdallāh Muḥammad ibn Mūsā al-Khwārizmī
+(c.780 - c.850 CE)
+ca 825, "On the Calculation with Hindu Numerals"
+ca 830, al-Kitab al-mukhtasar fi hisab al-jabr wa'l-
+muqābala
+"al-jabr wa'l-muqabalah" = "restoration and confrontation"
+~"The Abridged Book on Calculation by Restoration and Confrontation"
+
+algebra
+

@@ -1,0 +1,374 @@
+I have here the transcript of an Rxjs Snake Game presention in Reactive Programming Style, check the Design flow in the Snake game in the presentation against our 5-Question Check: 
+
+1. do the values have the shape or type I expect 
+
+2. how do I orchestrate multiple sources 
+
+3. how do I treat Observable of Observables 
+
+4. who wants the output, what Side Effect is planned 
+
+5. how is the timing of the emission of values, all values, only values at a certain point of time
+
+1 value shape/type → handled well
+2 multiple-source orchestration → handled well
+3 Observable of Observables → mostly missing
+4 output and side effects → partly good, partly leaky
+5 timing → handled very well
+
+First, what design flow the presentation actually uses
+
+The flow in the transcript is roughly this:
+
+tick$ as the game clock
+keydown$ as player input
+direction$ derived from keyboard input
+snakeLength$ derived from a writable BehaviorSubject
+score$ derived from the same growth signal
+snake$ derived from tick$ plus latest direction$ and snakeLength$
+apples$ derived from snake$
+final scene assembled from several streams and rendered in subscribe
+
+So it is clearly trying to describe the game as values changing over time, not as mutable variables.
+
+That is the right overall direction.
+
+1. Do the values have the shape or type I expect?
+What the presentation does well
+
+This part is actually one of the strongest parts.
+
+The presenter moves from raw browser events toward domain values:
+
+keyboard event becomes a direction
+direction becomes coordinates
+snake becomes an array of segments
+score becomes its own stream
+apples become their own stream
+
+That is exactly the right move.
+
+Instead of keeping low-level DOM events everywhere, the presentation starts to give the flowing values game meaning:
+
+direction
+coordinates
+snake body
+apple positions
+score
+
+That matches your first question very well.
+
+What is still weak
+
+The design remains a bit fragmented.
+
+The game state is split across:
+
+direction$
+snakeLength$
+score$
+snake$
+apples$
+
+That is still valid RxJS, but it means the game does not yet have one clear, unified domain state like:
+
+snake
+direction
+food
+score
+status
+
+So the presentation answers question 1, but only piece by piece, not yet as a single coherent state model.
+
+Verdict for question 1
+
+Good.
+The presentation understands that values should be turned into domain-shaped values early.
+
+2. How do I orchestrate multiple sources?
+What the presentation does well
+
+This is also handled fairly well.
+
+The presentation clearly identifies that Snake has at least two independent sources:
+
+keyboard input
+interval tick
+
+And it gives them different roles:
+
+keyboard changes direction intent
+tick advances the game
+
+That is a very important design insight.
+
+The presenter then uses:
+
+combineLatest
+withLatestFrom
+scan
+
+to coordinate streams.
+
+The most important orchestration idea is correct:
+
+direction changes can happen at any time
+movement happens only when a tick occurs
+the tick uses the latest direction
+
+That is very sound.
+
+What is still weak
+
+The design never fully graduates into a single action stream.
+
+So instead of:
+
+directionChanged
+tickOccurred
+restartTriggered
+appleEaten
+
+being unified as one stream of game actions,
+
+the presentation keeps several parallel streams and stitches them together in different places.
+
+That works, but it is less explicit than your cleaner architecture:
+
+multiple sources in
+one action stream
+one reducer
+one state stream out
+Verdict for question 2
+
+Good, but not fully normalized.
+The orchestration is there, but it is distributed rather than centralized.
+
+3. How do I treat Observable of Observables?
+
+This is the weakest point.
+
+What the presentation actually does
+
+Almost nothing here.
+
+The transcript does not really build higher-order streams as a design topic.
+
+There is no real focus on cases like:
+
+restart creates a new game session
+speed changes create a new tick stream
+pause/resume switches between active and inactive clocks
+multiple sessions need cancellation policy
+
+Those are the classic places where this question becomes important.
+
+What is missing
+
+Your third question is about policy:
+
+allow overlap
+cancel previous
+queue
+ignore while busy
+
+That is the territory of:
+
+switchMap
+mergeMap
+concatMap
+exhaustMap
+
+The presentation does not really go there.
+
+Even though Snake is a perfect place for it, the demo stays mostly first-order:
+
+plain input streams
+plain derived streams
+plain scans
+
+So the presentation does not really answer:
+
+What happens when one emitted value starts a new stream?
+
+For example:
+
+if restart is pressed twice, what happens?
+if game speed changes, how is the old interval replaced?
+if a new session begins, who cancels the previous one?
+
+Those questions are absent.
+
+Verdict for question 3
+
+Mostly missing.
+The presentation is reactive, but not yet higher-order in a deliberate way.
+
+4. Who wants the output, what side effect is planned?
+What the presentation does well
+
+The presentation gets one important thing right:
+
+compute in streams
+render in subscribe
+
+That is clean.
+
+The scene is derived from observables, and rendering is treated as a boundary effect.
+That matches your fourth question well.
+
+This is good design:
+
+inside the reactive machine: derive values
+at the edge: draw to canvas
+Where it becomes leaky
+
+The weak point is the BehaviorSubject used for snake growth.
+
+That introduces a writable imperative channel into the model:
+
+something happens
+then BehaviorSubject.next(...) is used to push length growth
+
+This is not automatically wrong, but it is a design leak.
+
+Why?
+
+Because instead of growth being purely derived from game events inside one state machine, it becomes a manually pushed signal.
+
+So the presentation is clean at the rendering boundary, but less clean inside the model boundary.
+
+In your framework, this means:
+
+who wants the output? → renderer, yes, clear
+what side effect is planned? → rendering, yes, clear
+are there extra internal side-effect channels? → yes, through writable subject-based growth
+Better version
+
+A cleaner version would make “apple eaten” an action, then let state update derive:
+
+new snake length
+new score
+new food
+
+without writable side channels.
+
+Verdict for question 4
+
+Partly good, partly impure.
+The render boundary is clean, but internal state updates are not fully expressed as pure stream derivation.
+
+5. How is the timing of the emission of values?
+
+This is the strongest part of the presentation.
+
+What the presentation does well
+
+The presenter understands that Snake is not driven by key presses alone.
+It is driven by a game clock.
+
+That is exactly right.
+
+The design says:
+
+tick$ is the heartbeat
+direction can change between ticks
+actual movement happens on tick
+latest direction is sampled when the tick arrives
+
+That is a very solid time model.
+
+The transcript also uses timing-related behavior sensibly:
+
+distinctUntilChanged to avoid repeated same-direction emissions
+interval as the movement clock
+withLatestFrom-style thinking for tick-driven advancement
+
+That is a proper answer to your fifth question.
+
+What is still missing
+
+The timing model is correct, but only in a basic form.
+
+What is not yet fully explored:
+
+dynamic speed changes
+replacing the old tick source with a faster one
+pause/resume timing
+per-tick input policies
+timing as an explicit difficulty mechanic
+
+The presenter mentions speed increase as a bonus exercise, but it is not part of the actual design flow.
+
+Verdict for question 5
+
+Very good.
+The presentation clearly understands that timing is part of the game logic, not just background infrastructure.
+
+Overall evaluation
+
+If I translate the presentation into your 5-question framework, I would say:
+
+Strongly present
+1 Value shape/type
+2 Multi-source orchestration
+5 Timing
+Present, but not fully clean
+4 Output/effects
+Largely absent
+3 Observable of Observables
+
+So the design is a good reactive first-order Snake architecture, but not yet a fully mature RxJS architecture in your stronger sense.
+
+Best concise judgment
+
+The presentation succeeds at this idea:
+
+Snake is values moving over time, not mutable objects being poked from everywhere.
+
+That is the main win.
+
+But it does not yet fully succeed at this stronger version:
+
+Snake is one explicit reactive state machine with clear action flow, clear effect boundaries, and explicit higher-order policies.
+
+That is where your 5-question check is better than the presentation.
+
+If we rewrite the presentation into your 5-question lens
+
+This would be the corrected reading:
+
+What should each value look like?
+The presentation does this well: key events become directions, directions become positions, positions become snake segments.
+How should multiple sources relate?
+The presentation does this fairly well: keyboard supplies intent, tick supplies movement timing.
+How should higher-order flows be flattened?
+The presentation barely touches this. Restart, session reset, and speed changes are not modeled as higher-order policies.
+How is execution owned and where do effects happen?
+Rendering is correctly placed at the boundary, but internal growth uses a subject-based escape hatch.
+How should time reshape the flow?
+This is done very well: movement is clock-driven, not input-driven.
+Final verdict
+
+The presentation is:
+
+good as an FRP demonstration
+good as a first RxJS Snake decomposition
+not complete against your full 5-question design check
+
+The biggest missing piece is:
+
+no explicit higher-order thinking
+
+The biggest design smell is:
+
+writable BehaviorSubject for internal game evolution
+
+The strongest design choice is:
+
+tick-driven movement using latest direction
+
+If you want, I can now turn this into a 5-column review table:
+
+Question | What the presentation does | What is correct | What is weak | How to redesign it
+

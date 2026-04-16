@@ -1,0 +1,33 @@
+Functional Reactive
+
+. First-class functions
+· Higher-order functions
+. Lexical closures
+. Referential transparency
+· Immutable data
+· Pattern matching
+· Lazy evaluation
+· Efficient recursion (TCO)
+· Homoiconicity
+
+
+Applicative Functor Laws
+. If f(t) == t for all t, then apply(pure(f), a) == a for all a.
+. apply(pure(f), pure(t)) == pure(f(t)) for allfandt.
+. apply(a, pure(t)) == apply(pure(f), a)whenf(g) == g(t)
+for all g.
+. apply(a, apply(b, c)) == apply(apply(apply(pure(f), a),
+b), c) when f(g, h)(t) == g(h(t)) for all g, h, and t.
+. map(f, a) == apply(pure(f), a)
+
+apply applies a
+- contained function 
+- to a contained value 
+- to get a contained result
+
+f[0] (v[0]),
+f [0] (v[1] ),
+
+f [1] (v[0]),
+f [1](v[1]),
+

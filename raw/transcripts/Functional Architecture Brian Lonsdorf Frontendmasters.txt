@@ -1,0 +1,210 @@
+
+Functional Architecture
+Brian Lonsdorf
+@drboolean
+
+https://bit.ly/2Xq8CU4
+
+Goal?
+Modular
+Extendable
+Performant
+Maintainable
+Readable
+etc
+
+
+
+populateContainer
+makeItemActive
+renderPattern
+
+	expandZipCode() {}
+	getLatLong() {}
+	getPolygon() {}
+
+	save() {}
+	find() {}
+	destroy(){}
+
+	fullName() {}
+	averageScore() {}
+	friends() {}
+	lastLogin() {}
+	toString() {}
+	getCountry() {}
+	getState() {}
+	getNumber() {}
+	getStreet() {}
+	dedupe() {}
+	findMinimum() {}
+	intersection() {}
+	validate() {}
+	isPresent(){}
+	isUnique()
+	inEnum() {}
+
+	expandZipCode() {}
+	getLatLong() {}
+	getPolygon() {}
+
+	save() {}
+	find() {}
+	destroy(){}
+
+	fullName() {}
+	averageScore() {}
+	friends() {}
+	lastLogin() {}
+	toString() {}
+	getCountry() {}
+	getState() {}
+	getNumber() {}
+	getStreet() {}
+	dedupe() {}
+	findMinimum() {}
+	intersection() {}
+	validate() {}
+	isPresent(){}
+	isUnique()
+	inEnum() {}
+User
+Address
+Validations
+Utils
+Repo
+Geolocate
+
+
+Address
+User
+Preferences
+
+
+
+Metaphors?
+Know about context and domain
+Mixed metaphors: Processor, Converter, etc
+Evolves/Blurs over time
+Hodge-podge of functionality in each object
+
+Procedures
+
+Procedures
+Can i run this twice in a row?
+Which order do I need to run these in?
+Is it changing other parts of the program?
+How does it interact with others?
+
+// associative
+add(add(x, y), z) == add(x, add(y, z))
+
+// commutative
+add(x, y) == add(y, x)
+
+// identity
+add(x, 0) == x
+
+// distributive
+add(multiply(x, y), multiply(x, z)) == multiply(x, add(y,z))
+Bored? bitly for cata
+
+
+Functions with defined contracts
+
+Bored? bitly for cata
+
+
+Highly
+generalized functions
+
+Composition
+
+Composition
+Satisfy use cases
+Simple, understandable pieces
+Reuse
+
+
+Harder to change implementation
+Harder for user to compose
+
+Composition
+
+Flexibility in implementation changes
+Less use cases to support
+
+
+Flags, if/else
+Won’t satisfy all cases
+Less reuse
+
+Exercises
+
+Monoid: https://codepen.io/drboolean/pen/MpKpee
+Modelling Fns: https://codepen.io/drboolean/pen/YZwrGK
+Monad Transformers: https://codepen.io/drboolean/pen/NQKByP
+
+Code https://drive.google.com/file/d/1XQr5SZvTJ7dFYChr5kV42zO2FMhSATOa/view?usp=sharing
+
+const user = {firstName: 'Bobby', lastName: 'Fischer'}
+const fullName = (firstName, lastName) => [firstName, lastName].join(' ')
+
+fullName(user.firstName, user. lastName)
+// Bobby Fischer
+const user = {firstName: 'Bobby', lastName: 'Fischer'}
+const joinWithSpace = ( ... args) => args.join(' ')
+
+joinWithSpace(user.firstName, user. lastName)
+
+joinWithSpace('a', 'b', 'c') // 'a b c'
+
+joinWithSpace(joinWithSpace('a', 'b'), 'c') // 'a b c'
+joinWithSpace('a', joinWithSpace('b', 'c')) // 'a b c'
+
+joinWithSpaces = joinable => joinable.join(' ')
+
+joinWithSpaces([user.firstName, user. lastName])
+
+const identity = a => a
+
+Monads do not compose
+Normalize
+effect types
+throughout
+the app
+
+
+Semigroup
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,105 @@
+RxFiddle is a debugging tool for RxJS 5.x that visualizes Observable data flows. It works by 
+- instrumenting RxJS code at runtime to 
+- collect lifecycle events, 
+- then transmitting that data to a 
+- visualization interface.
+
+1. Instrumentation Layer (index.ts)
+-----------------------------------------------------------------------------------------
+
+The RxFiddle class is the main entry point that:
+
+- Accepts RxJS references 
+- Takes Observable and Subscriber constructors/prototypes as targets
+- Instruments the code - Patches RxJS internals to intercept operations
+- Collects events - Captures Observable creation, subscriptions, and emissions (next/error/complete)
+
+typescriptnew RxFiddle({
+  Observable: Observable,
+  Subscriber: Subscriber,
+})
+
+5.3 Architecture
+To support the visualization, we design a debugger architec-
+ture consisting of two components: a host instrumentation
+and a visualizer.
+The Host instrumentation instruments the Rx library to emit
+useful execution events. Depending on the language and
+platform, specific instrumentation is required. Output of
+the instrumentation is a platform and language independent
+graph like Figure 1d. By splitting the instrumentation from
+the visualization, the debugger can be used for the com-
+plete Rx family of libraries by only reimplementing the first
+component. The communication protocol for the instrumen-
+tation is shown in Table 3. Note that the user never needs
+to use this protocol, it is internal to the debugger.
+The Visualizer takes the output of the host instrumentation,
+the initial graph, and simplifies it into a Data Flow Graph.
+Then it lays out the Data Flow Graph and provides the
+debuggers User Interface. By separating the visualizer, we
+can safely export generated graphs and visualize them post
+mortem for example for documentation purposes
+
+RxFiddle project is a reference implementation of our reac-
+tive debugger design. Besides the visualizer, the website also
+contains a code editor for JavaScript code with sharing func-
+tionality, for developers to share snippets with their peers,
+as shown in Figure 5A. In this section we will explain differ-
+ent parts of the implementation. For RxFiddle, we initially
+focused on RxJS (JavaScript)
+
+
+Instrumentation. With JavaScript being a dynamic lan-
+guage, we use a combination of prototype patching and
+Proxies12 to instrument the RxJS library: the Observable
+and Observer prototypes are patched to return Proxies wrap-
+ping the API method calls. The instrumentation passes ev-
+ery method entry and method exit to the Linking-step
+
+Linking. We distinguish between method calls from the dif-
+ferent phases (Section 2). From the assembly phase, we de-
+tect when Observables are used as target or arguments of
+a call or as return value, and create a graph node for each
+detected Observable. We add an edge between the call tar-
+get & call arguments and returned Observables, denoting
+the source-relation. Also, we tag the returned Observable
+with the call frame information (time, method name, argu-
+ments). In the subscription phase, we detect calls to the
+subscribe-method: the destination Observers are passed as
+arguments, so we create the graph nodes and save the re-
+lation as an edge. In the runtime phase we detect next-,
+error- and complete-calls on Observers and add these as
+meta data to the Observer nodes.
+Graph Loggers. From the Linking-step the graph muta-
+tions are streamed to the environment of the visualizer,
+where the graph is rebuilt. Depending on the host lan-
+guage a different protocol is used: RxFiddle’s code editor ex-
+ecutes the code in a Worker13 and transmits events over the
+postMessage protocol, while RxFiddle for Node.js transmits
+over WebSockets. Being able to support multiple protocols,
+extends the possible use cases, ranging from the code editor
+for small programs, to a Node.js plugin for server applica-
+tions, to Chrome DevTool extensions14 for web applications.
+Visualizer. The visualizer receives the current state in the
+form of a graph from the Logger. It then uses the Ob-
+servers in the graph to create the DFG. To layout the DFG
+using StoryFlow [30], we first rank the graph using depth
+first search, remove slack [20] and reverse edges where nec-
+essary to create a directed acyclic graph. We then add
+dummy nodes to replace long edges with edges spanning
+a single rank. Finally we order and align the nodes in the
+ranks assigning coordinates for the visualization. It is impor-
+tant that layouting is fast, as it runs every time the DFG
+is changed. To render the Marble Diagrams, the flow to
+and from the selected Observer is gathered, by recursively
+traversing the graph in the direction of the edges, respec-
+tively the reversed direction.
+
+12https://developer.mozilla.org/docs/Web/
+JavaScript/Reference/Global_Objects/Proxy
+13https://developer.mozilla.org/docs/Web/API/Worker
+14https://developer.chrome.com/extensions/devtools
+
+
+
+

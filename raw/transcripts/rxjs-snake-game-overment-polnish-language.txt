@@ -1,0 +1,418 @@
+
+Search in video
+Cześć W tym odcinku Trochę się pobawimy
+i pokażę wam w jaki sposób można
+stworzyć wnęka wykorzystując podstawy
+programowania funkcyjnego oraz język
+Java Speed Podstawą naszej gry będzie
+html5 Canvas więc tworzy tutaj
+odpowiedni element i dodaję kilka stylów
+i to jest wszystko czego potrzebujemy po
+stronie HTML a więc przechodzimy do
+pliku JavaScript tutaj będzie nam
+potrzebna biblioteka nam daje jest która
+świetnie sprawdza się w programowaniu
+funkcyjnym a następnie od razu musimy
+pobrać oraz zainicjalizować nasz Canvas
+zanim przejdziemy Dalej warto
+rozplanować sobie co w ogóle chcemy
+zrobić rozpisanie sobie poszczególnych
+kroków jest świetnym sposobem do tego
+aby radzić sobie ze złożonymi problemami
+takimi jak chociażby stworzenie grę w
+tym przypadku myślę że warto zacząć od
+wygenerowania oraz narysowania owocu
+Następnie musimy narysować węża
+uwzględniając jego aktualną pozycję oraz
+długość trzecim krokiem będzie
+rozpoczęcie gdy i tak naprawdę będzie to
+odzwierciedlenie jej aktualnego stanu to
+odzwierciedlenie będzie decydowało cały
+k oraz rysowało pozycję gracza oraz
+owocu co 50 milisekund Następnie musimy
+zadbać o to aby reagować odpowiednio na
+wciskanie strzałek do tego aby sterować
+wężem w momencie w którym będziemy mieć
+to wszystko musimy poprawnie zliczać
+punkty wykrywać kolizję ze ścianami oraz
+samym wężem co też będzie kończył oczy
+też wystartowało grę realizację tych
+wszystkich kroków musimy zacząć od
+zainicjalizowany naszego stanu z tamten
+będzie przechowywał bieżące informacje
+na temat rozgrywki zatem mowa tutaj o
+pewnego rodzaju siatce a konkretnie jej
+rozmiarach którą nałożymy na nasz Canvas
+Przypomnę tylko że nasz Canvas ma
+rozmiar 625 na 625 pikseli dlatego
+idealnie zmieszczą się w nim 25
+elementów w poziomie oraz 25 pionie aby
+to zrozumieć Wyobraź sobie tutaj pewnego
+rodzaju siatka jest składającą się
+właśnie z 25 kolumn oraz 25 wierszy w
+ten sposób Canvas zostanie podzielony na
+małe kwadraty wewnątrz których będziemy
+rysować nasz owoce oraz węża Kolejnym
+elementem
+nie jest wąż a konkretnie jego pozycja
+informacja o niej będzie przechowywana w
+postaci tablicy wewnątrz której będziemy
+przechowywać proste obiekty zawierające
+współrzędne X oraz Y do takiego obiektu
+będziemy odwoływać się bardzo często i
+będziemy też utworzyć dlatego stworzę
+teraz funkcję pomocniczą do której
+przekazuję po prostu pozycję danego
+elementu i otrzymuję obiekt dlatego
+wykorzystując teraz są funkcje
+otrzymujemy tutaj początkową pozycję
+węża zatem ten wąż będzie tak naprawdę
+zestawem różnych punktów które musimy
+pokolorować na czarno oprócz tego
+potrzebna nam również informacja o tym
+jak długi może być wąż nie chodzi tutaj
+o jego aktualną długość ale o jego
+maksymalną długość która będzie zależała
+na przykład od zjedzonych owoców jeżeli
+już o nich mowa to musimy również
+uwzględnić pozycja owocu i w tym
+przypadku będzie prościej niż w
+przypadku węża ze względu na to że wąż
+ma swoją długość natomiast owoc w naszym
+przypadku będzie zwykłym punktem oprócz
+tych informacji bardzo istotną kwestią
+jest aktualny kierunek węża no i ten
+będzie zależał od ostatnio wyciśniętej
+strzałki w przypadku strzałki w lewo
+przy piszemy tutaj punkt który będzie od
+pozycji x podejmował 1a pozycję y
+pozostawi bez zmian Chodzi tutaj o to że
+przykładowo jeżeli wąż znajduje się
+powiedzmy tutaj i będzie to pozycja 5 na
+trzy No to w Po wciśnięciu strzałki w
+lewo każdy kolejny krok węża będzie
+podejmował od jego aktualnej pozycji
+jeden punkt ponosi horyzontalnej i
+dokładnie na tej zasadzie przypisuje
+wartości do pozostałych kierunków Teraz
+wystarczy dodać tę informację do naszego
+stanu i tutaj od razu domyślne kierunek
+ustawia naprawę Mając teraz tak
+przygotowany stan początkowy stworzę
+teraz stan który będziemy modyfikować na
+potrzeby naszej grę oczywiście nie
+powinienem tutaj bezpośrednio
+przypisywać tego stanu ze względu na to
+że w javascripcie obiekty przypisywane
+są przez referencję z tego powodu aby
+upewnić się że nie będę modyfikował tego
+oryginalnego stanu wykorzystuje tutaj
+metodę klaun biblioteki randa Wygląda na
+to że nadszedł aby stworzyć naszą główną
+metodę która będzie zajmować się
+rysowaniem pozycji gracza oraz
+generowaniem owocu do takiej metody
+musimy przekazać kontekst naszego Canvas
+to sam Canvas bo będą nam potrzebne jego
+rozmiary oraz aktualny stan grę No i tak
+jak powiedziałem takie rysowanie będzie
+odbywać się regularnie co 50 milisekund
+zatem tworzy tutaj nowy interwału który
+będzie wywoływał dla nas tą metodę poza
+rysowaniem Chcemy również aby co 50
+milisekund aktualizował się stan gry
+Inaczej mówiąc jest to tempo w którym
+będzie poruszał się nasz wąż za chwilę
+zajmiemy się zaimplementowanie metody
+Next State ale najpierw utworze event
+listener który będzie nasłuchiwał
+wciśnięcie klawiszy i tutaj będziemy
+odczytywać właściwość kij tego zdarzenia
+i przekazywać ją do specjalnej metody
+która będzie aktualizować nasz stan tą
+funkcją za chwilę się zajmiemy natomiast
+Wróćmy teraz do funkcji Next State ta
+funkcja przyjmuje aktualny stan i jej
+rolą będzie zaktualizowanego poprzez
+ustawienie pozycji węża oraz owocu tutaj
+skorzystam wody pipes pomocą której
+przekażę nasz stan kolejno do funkcji
+zajmującej się pozycją węża oraz owocu
+No to teraz musimy stworzyć tę funkcję
+zarówno jedna jak i druga będzie
+przyjmować jako argument stan oraz
+zwracać jego zmodyfikowaną kopie i teraz
+tak naprawdę zaczynają się schody Ale
+zaczniemy od owocu z którym jest nieco
+prościej tak naprawdę do tej metody jest
+sprawdzenie czy Wąż zjada owoc Jeżeli
+tak to musimy wygenerować nowy a
+następnie zwiększyć długość węża W
+przeciwnym razie nie robimy nic oznacza
+to mniej więcej tyle że będziemy mieć
+tutaj pewnego rodzaju warunek i w
+momencie gdy jest prawdziwy będziemy
+zwracać nowy obiekt zawierający
+informacje z naszego stanu oraz nową
+informacje o pozycji naszego owocu taka
+pozycja musi zostać wygenerowana z
+pomocą funkcji którą za chwilę stworzymy
+i pozycja horyzontalna uzależniona jest
+od szerokości naszej planszy a pozycja
+wertykalna uzależniona jest od jej
+wysokości
+oprócz wygenerowania owocu mu się
+również zadbać o zwiększenie w długości
+węża więc tutaj po prostu zwiększamy
+jego długość o jeden sytuacji jednak gdy
+nasz warunek nie zostanie spełniony
+czyli nie trafimy na o wosk No to
+zwracamy po prostu niezmienione stan
+teraz musimy Zastanowić się jak napisać
+ten warunek odpowiedź na to pytanie jest
+następująca musimy przewidzieć kolejną
+pozycję głowy węża i sprawdzić czy
+czasem nie jest to aktualna pozycja
+owocu porównania takich prostych
+obiektów możemy dokonać wykorzystując
+metodę ich was do niej przekazujemy
+przede wszystkim kolejny krok węża i
+tutaj musimy też stworzyć funkcję która
+się tym zajmie i jako Drugi argument
+przekazujemy aktualną pozycję owocu w
+ten oto sposób doszliśmy do miejsca w
+którym zadbaliśmy o obsługę zdobycia
+punktu no i za chwile przejdziemy dalej
+ale zajmiemy się teraz funkcją Next Step
+czyli zasadniczo przesunięciem głowy
+węża no i tutaj również Mamy ciekawe
+wyzwanie ponieważ wolą tej funkcji
+będzie zwrócenie punktu określającego
+kolejną pozycję głowy ciężaru do
+określenia takiego punktu będziemy
+potrzebować informacji na temat
+aktualnego węża kierunku w którym
+zmierza czyli tego który jest
+uzależniony od ostatnio wciśniętego
+klawisza strzałek a następnie rozmiaru
+naszej siatki tutaj ponownie skorzystamy
+z funkcji Point Którą stworzyliśmy
+wcześniej do tego aby wygenerować
+współrzędne tutaj jednak od razu musimy
+zadbać o jedną małą rzecz mianowicie za
+każdym razem gdy wąż będzie się
+przesuwał będzie szansa na to że dojdzie
+do krawędzi w tej sytuacji nie chce aby
+gra się zakończyła tylko aby wąż został
+przeniesiony magicznie na drugą stronę
+planszy Dokładnie ta sama zasada będzie
+obowiązywać górnej oraz dolnej krawędzi
+także na podstawie informacji o pozycji
+głowy węża oraz rozmiaru planszy
+będziemy w stanie z pomocą funkcji Edge
+określić czy doszedł już do krawędzi za
+chwilę zajmiemy się jej stworzeniem
+Natomiast tutaj do określenia jego
+pozycji horyzontalnej będzie nam
+potrzebne ostatni element z tablicy
+przechowującej jego stan konkretnie mam
+na myśli są tablice zawierającą punkty i
+chodzi mi o pobranie tego ostatniego
+elementów które wskazuje na głowę węża
+do takiej pozycji muszę dodać minus 11
+loop0 i to akurat będzie uzależnione od
+aktualnego kierunku czyli punktów które
+zdefiniować liśmy tutaj następnie aby
+określić czy jesteśmy już u krawędzi
+będziemy potrzebowali informacji o
+długości naszej planszy będzie to
+jednocześnie maksymalne miejsce w którym
+może znaleźć się głowa węża dokładnie
+analogicznie robimy z pozycją wertykalno
+Z tą różnicą że uwzględniamy tutaj
+wysokość naszej planszy No to teraz
+musimy zdefiniować funkcję Edge funkcja
+ta przyjmuje dwa argumenty pierwszym z
+nich jest współrzędna albo w poziomie
+albo w pionie a drugą zakres czyli
+odpowiednio długość bądź wysokość naszej
+planszy musimy tutaj po prostu sprawdzić
+czy aktualna współrzędna nie jest
+mniejsza od zera czyli albo znajdująca
+się poza lewą krawędzią albo poza górą
+Jeżeli tak faktycznie jest To przenosimy
+ją na koniec aktualnego biznesu czyli
+przykładowo jeżeli głowa węża w pozycji
+horyzontalnej znajduje się poza lewą
+krawędzią a właściwie za chwilę będzie
+się znajdować To przenosimy ją od razu
+na sam koniec pytanie jednak co w
+odwrotnej sytuacji Czyli gdy Zbliżamy
+się do końca naszego bieżącego zakresu
+okazuje się że możemy wykorzystać tutaj
+operator modulo który w javascripcie w
+momencie gdy będziemy tutaj na przykład
+na 25 pozycji zwróci nam wartość zero
+konkretnie przyłączyły się tutaj do
+sandboxa i widzimy że jeżeli x równa się
+25 i maksymalna wartość czyli rozmiar
+naszej planszy również równa się 25
+otrzymujemy wynik 0 z kolei jeżeli
+będziemy na przykład na 23:00 pozycji
+otrzymamy właśnie wynik 23 czyli
+zasadniczo dokładnie to o co nam chodzi
+No to teraz mamy już gotową metodę mecz
+więc możemy zająć się jeszcze metodą
+Random którą mamy tutaj wykorzystaliśmy
+ją dwa razy a jeszcze jej nie zdążyliśmy
+utworzyć W jej przypadku będzie prosto
+ponieważ zależy nam na jakiejś ogromnej
+losowości dlatego wykorzystam taki
+podstawowy sposób generowania liczb
+losowych w określonym zakresie i naszym
+zakresem będą liczbę od zera do
+maksymalnej szerokości bądź wysokości
+pola czyli w tym przypadku 25 wygląda na
+to że nasze Jabłko jest już generowane
+poprawnie więc możemy przejść do
+generowania naszego węża tutaj
+wspominałem że będzie trudno ale
+wykorzystując wiedzę którą mamy już
+teraz tak naprawdę będzie dość łatwo
+konkretnie podobnie jak w poprzednim
+przypadku Musimy sprawdzić tutaj pewien
+warunek i tym warunkiem będzie
+sprawdzenie czy wąż nie zjada sam siebie
+jeżeli faktycznie tak jest No to
+będziemy zwracać stan zaktualizowany do
+momentu początkowego czyli sytuacji w
+której wąż znajduje się na pozycji 5
+oraz 5 oraz jego długość równa się 5 W
+przeciwnym razie czyli Gdy wszystko jest
+w porządku Musimy zwrócić bieżący stan
+oraz dodać nowy element do naszego węża
+i tutaj musimy zrobić to w SPA śliczny
+sposób z jednej strony musimy dodać
+tutaj aktualną pozycję głowę a
+jednocześnie musimy też zadbać o jego
+ogon Z tą różnicą Jednakże Musimy
+pamiętać o tym aby usunąć niepotrzebne
+elementy dzięki czemu wąż będzie się
+przesuwał w pierwszej kolejności
+zadbajmy jednakowo warunek warunek ten
+będzie wykorzystywał tutaj metodę find
+do której przekażemy informacje o naszym
+wężu natomiast bezpośrednio do metody
+find przekażemy tak zwany predykat i w
+tym przypadku Temple dyktatem będzie
+funkcja która sprawdzi czy kolejna
+pozycja węża nie pokrywa się z jednym z
+punktów składających się na jego ogon
+Wygląda na to że nasz Warunek jest tutaj
+gotowy więc teraz musimy zająć się
+funkcją z ale czyli ustawieniem długości
+jego ogona taka funkcja potrzebuje
+przede wszystkim informacji na temat
+samego węża oraz jego aktualnej długości
+nasze zadanie polega tutaj na usunięciu
+odpowiedniej liczby elementów z początku
+tej tablicy w taki sposób aby ta tablica
+zawierała maksymalnie elementów ale
+jednocześnie trzeba pamiętać o tym że na
+początku gry wąż składa się tylko z
+jednego punktu i dopiero Przesuwając się
+dąży do tego aby osiągnąć wartość 5
+oczywiście tak długo aż nie zje owoców
+bądź uderzył swój ogon No to teraz aby
+to osiągnąć musimy tutaj wykorzystać
+metodę drop która zajmuje się w zasadzie
+dokładnie tym o co nam chodzi czyli
+usunięciem określonej liczby elementów z
+początku listy w tym przypadku tablicy
+do tej metody przekażemy wartość
+bezwzględną Ponieważ zależy nam tutaj na
+wartości dodatniej która będzie
+uzależniona od tego czy liczba punktów z
+których składa się wąż jest większa od
+dopuszczalnej jego długości jeżeli jest
+większa to Musimy odjąć od siebie te
+elementy AW przeciwnym razie nie
+będziemy usuwać żadnych elementów i
+dzięki temu na początku gry pozwolimy
+uzyskać wężowi odpowiednią długość na
+koniec Wystarczy że przekażemy tutaj
+jako drugi parametr naszego węża bo to
+właśnie z niego czyli tej tablicy
+będziemy usuwać kolejne elementy teraz
+nie on nam nic innego jak zajęciem się
+funkcją która narysuję nam całą grę
+tutaj w pierwszej kolejności musimy
+zadbać o to aby za każdym razem
+wyczyścić nasz Canvas następnie Musimy
+ustawić kolor na kolorowo to i narysować
+odpowiedni punkt który będzie
+symbolizować ten owoc następnie znowu
+ustawimy kolor ale tym razem na czarny
+bo będziemy testować węża i z pomocą
+metody foreach narysujemy poszczególne
+jego elementy tutaj Zwróć uwagę że
+wykorzystałem właściwości naszego stanu
+Dlatego teraz w ten sposób wyciągnę jest
+naszego obiektu teraz jedyne co musimy
+zrobić to zadbać o utworzenie dwóch
+metod setcolor oraz drop Point w
+przypadku tej pierwszej będzie naprawdę
+łatwe ze względu na to że przyjmuje ona
+tutaj kontekst oraz kolor a następnie
+ustawia właściwość fillstyle na kolor z
+kolei z metodą drop Point będzie nieco
+trudniej do niej tak jak tutaj widzimy
+przekazujemy kontekst następnie punkt
+który chcemy narysować i w tym przypadku
+jest to owoc A w tym przypadku fragment
+węża no i ostatecznie przekazujemy do
+niej naszą siatkę a konkretnie chodzi na
+mojej rozmiary tutaj rysujemy teraz
+prostokąta konkretnie kwadrat
+wykorzystując metodę Field do niej
+musimy odpowiednio przekazać parametry
+wskazujące na pozycję tego kwadratu a
+następnie rozmiar naszej siatki dzięki
+czemu poszczególne punkty zostaną
+narysowane w odpowiednich miejscach
+ostatnie co zostało nam tutaj do
+zdobienia to ustawienie funkcji z
+Direction metodą tej funkcji będzie
+zmodyfikowanie tej konkretnie
+właściwości naszego stanu czyli
+zasadniczo kierunku w którym porusza się
+wąż do tej funkcji przekazujemy przede
+wszystkim kierunek oraz stan a następnie
+zwracamy nową wersję stanu z
+zaktualizowanym kierunkiem Dlatego teraz
+wystarczy że od komentuje tutaj te dwie
+linie które odblokują naszą grę no to
+wygląda na to że nasz wąż zaczął się
+poruszać i mało tego reaguje również na
+strzałki w momencie gdy dochodzi do
+krawędzi Zostaje też przeniesione na
+drugą stronę plaży to również Dobrze
+świadczy o naszym kodzie No i mało tego
+jego długość rośnie wraz ze zdobywaniem
+kolejnych punktów zatem Wygląda na to że
+wszystko tutaj działa poprawnie jeszcze
+tylko Zobaczymy co się stanie w momencie
+gdy esim swój ogon No i stało się w
+zasadzie to że gra została zresetowana
+Czyli dokładnie to co nam chodziło no to
+w zasadzie Oznacza to tyle że
+skończyliśmy pisać naszą grę oczywiście
+kod który tutaj mamy warto byłoby
+podzielić na jakieś moduły ale ja już
+nie będę się tym zajmował tymczasem
+jeżeli film ci się podobał Zapraszam cię
+do moich pozostałych materiałów zarówno
+tych bezpłatnych jak i płatnych które
+pomogą ci w nauce javascriptu a teraz
+Dziękuję ci za uwagę i do usłyszenia
+kolejnym razem

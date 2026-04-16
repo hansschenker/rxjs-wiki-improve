@@ -1,0 +1,123 @@
+Prefer small, single-purpose functions.
+
+Combine them by building higher-order functions (functions that take/return functions).
+
+2) Two “flavors” of composition in TypeScript
+
+A) “Signature-preserving” composition
+B) “Pipe / Compose” composition
+
+3) Functional filtering done properly: predicate combinators (all)
+What you learn: how to build a reusable predicate DSL.
+
+4) Currying via closures: reordering arguments for composition
+What you learn: partial application is essential for composable APIs.
+
+
+5) “Define the signatures first” (design-first FP)
+What you learn: FP design is largely type-shape design.
+
+6) Lazy evaluation mindset: “declare formulas first, execute at the end”
+What you learn: treat your business logic as declarative pipelines and trigger execution once.
+
+7) Comparator composition: reverse() and multi-level combineSort()
+Combine multiple comparators (lexicographic sort)
+
+Sort by salary, then by age, then by something else:
+
+find the first comparator that returns a non-zero result
+
+otherwise return 0 (fully equal) 
+
+Functional-Typescript-Tomasz-Du…
+
+This is a real-world “FP utility” pattern.
+
+8) TypeScript generics: avoid any, and understand “generic per call” vs “generic fixed”
+Then they highlight an important TS concept: the difference between
+
+a type that becomes fixed once parameterized
+
+versus a function that remains polymorphic per call 
+
+Functional-Typescript-Tomasz-Du…
+
+This matters when building reusable composition utilities like reverse() and pipe().
+
+9) “Pipe” is hard in TS because types change at each step (overloads)
+What you learn: in TS, FP ergonomics often means type-level engineering.
+
+10) Point-free-ish style: wrap methods (filter, map) as functions
+instead of devs.filter(...) inside every pipeline
+
+define filter(predicate)(collection) as a reusable function
+
+They call this “pointless / point-free” style and use it to make pipelines cleaner.
+
+11) Maintainability: test small functions, trust compositions
+A subtle but important engineering takeaway:
+
+don’t write a new giant function for every use case
+
+test the small pieces + the composition utilities
+
+then many combinations are automatically correct 
+
+Functional-Typescript-Tomasz-Du…
+
+This is one of the most valuable “FP in production” lessons in the transcript.
+
+Summary: the FP-in-TypeScript “toolbelt” you learn here
+
+From this talk, you gain concrete patterns you can reuse everywhere:
+
+Predicate DSL: all, any, dynamic criteria builders
+
+Closure-based currying to make functions composable
+
+Comparator DSL: reverse, combineSort
+
+Pipeline composition: pipe as a function-builder
+
+Type-first design: write the type shape first, implement after
+
+No any discipline: generics + inference as your default
+
+Execution at the boundary: declarative first, run last (RxJS-friendly)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

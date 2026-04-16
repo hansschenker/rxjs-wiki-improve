@@ -1,0 +1,33 @@
+· Sync observable
+· Async observable
+
+· Empty observable
+· Never observable
+
+· Sync error
+· Async error
+· Values then errors
+
+· Errors in callbacks
+· Test the values passed to callbacks
+
+· Test retrying the result
+· Test repeating the result
+
+· Tested "hot"
+· Tested "cold"
+
+· Test every combination if more than one Observable is required.
+
+THIS is what marble tests were
+designed for
+
+(Really. They're probably overkill for a lot of application tests)
+· Try to use existing operators to create yours
+· If you're publishing the operator for others to use:
+o Test thoroughly
+o Consider crazy edge cases
+o Handle errors in user-provided functions
+· Use marble tests to test your operators
+· Don't overuse marble tests, though.
+

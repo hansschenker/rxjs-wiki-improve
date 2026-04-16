@@ -1,0 +1,7 @@
+
+Benefit	Why It Matters
+Unified async model	Events, promises, timers all look the same
+Declarative logic	Describe what happens, not how
+Powerful composition	Build complex flows from small pieces
+Cancellation & cleanup	Built-in resource management
+Time-based control	Throttling, debouncing, buffering

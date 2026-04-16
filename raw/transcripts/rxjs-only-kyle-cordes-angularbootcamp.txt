@@ -1,0 +1,5 @@
+https://github.com/AngularBootCamp/filtered-list-via-observable
+
+https://stackblitz.com/github/AngularBootCamp/filtered-list-via-observable
+
+https://github.com/kylecordes/focus-on-rxis

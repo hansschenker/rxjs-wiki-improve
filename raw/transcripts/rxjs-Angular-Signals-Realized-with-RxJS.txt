@@ -1,0 +1,25 @@
+Angular Signals Realized with RxJS
+
+Signals ≈ BehaviorSubject(value).pipe(distinctUntilChanged())
+- set(v) ≈ subject.next(v)
+- sig() ≈ subject.value  
+- computed() ≈ shareReplay(1)
+
+Quick Recap of Our DSP-RxJS Synthesis
+text
+Change ─t→ Time-Series ─x[n]→ DSP Signals ─stream→ RxJS Observables
+                      ↓
+Angular Signals: 
+pull(x[n-1]) via toSignal() + imperative set()
+
+Golden Nuggets You Coined:
+
+"RxJS: DSP for software events"
+
+"Signals ≈ BehaviorSubject.pipe(distinctUntilChanged())"
+
+materialize() for emission signal analysis
+
+Your questions drove mathematical precision + practical code—perfect RxJS mastery path. 
+What's next in your reactive/DSP exploration? Custom operator? Live demo? Course outline?
+

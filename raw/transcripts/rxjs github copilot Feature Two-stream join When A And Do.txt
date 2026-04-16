@@ -1,0 +1,37 @@
+Feature: Two-stream join (When A And B Then emit pair)
+
+  Background:
+    Given an empty test scenario
+
+  Scenario: Basic join — A emits then B emits
+    Given observable A will emit value 1 at time 210
+    And observable B will emit value "x" at time 220
+    When I create a two-way join plan for A and B
+    Then the joined output should emit a tuple (1, "x") at time 220 and then complete at 1000
+
+  Scenario: Basic join — B emits then A emits (reverse order)
+    Given observable B will emit value "x" at time 210
+    And observable A will emit value 1 at time 220
+    When I create a two-way join plan for A and B
+    Then the joined output should emit a tuple (1, "x") at time 220 and then complete at 1000
+
+  Scenario: Multiple values are matched pairwise
+    Given observable A will emit value 1 at time 210
+    And observable B will emit value "x" at time 220
+    And observable A will emit value 2 at time 250
+    And observable B will emit value "y" at time 260
+    When I create a two-way join plan for A and B
+    Then the joined output should emit tuples (1, "x") at 220 and (2, "y") at 260 and then complete at 1000
+
+  Scenario: Excess tokens on one side are buffered
+    Given observable A will emit value 1 at time 210
+    And observable A will emit value 2 at time 230
+    And observable B will emit value "x" at time 220
+    When I create a two-way join plan for A and B
+    Then the joined output should emit tuple (1, "x") at 220 and then complete at 1000
+
+  Scenario: Error propagation — B errors
+    Given observable A will emit value 1 at time 210
+    And observable B will error with message "boom" at time 220
+    When I create a two-way join plan for A and B
+    Then the joined observable should error with "boom" at time 220

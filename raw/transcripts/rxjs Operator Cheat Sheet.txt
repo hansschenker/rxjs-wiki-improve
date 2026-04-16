@@ -1,0 +1,24 @@
+Operator Cheat Sheet
+
+PROBLEM					SOLUTION (OPERATOR)
+
+Search-as-you-type			debounceTime
+
+Prevent rapid clicks			throttleTime		
+
+Artificial latency			delay
+
+Polling / Heartbeat / Ticker		timer
+
+Fail fast on lag			timeout		
+
+Batch processing			bufferTime
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,111 @@
+import { combineLatest, Observable, isObservable, of } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+/**
+ * modelFromLatest<modelType> is an util that helps you to create observable model's
+ * under the hood it uses combineLatest, and it fires of a new model when any of the properties update.
+ * if no modelType is provided, it uses the parameters to type the result
+ * (can be nested)
+ * @param modelBase an object that only contains observable properties
+ * sample :
+ * ```
+const invoice$ = modelFromLatest<testModel>({
+  customer: customer$,
+  invoiceHeader : ivh$,
+  invoiceLines : ivh$.pipe(switchmap(ivh => this.loadLines(ivh.id)))
+})
+ ```
+ */
+export function modelFromLatest<T>(modelBase: { [P in keyof T]: Observable<T[P]> | T[P] }): Observable<T> {
+  /** work in non-observable defaults into the array */
+  const sources = Object.values(modelBase).map(val => (isObservable(val) ? val : of(val))) as Observable<unknown>[];
+
+  /** spread out the values into an array, and use combineLatest to "watch" for changes */
+  return combineLatest(sources).pipe(
+    map((values: any[]) =>
+      /** user reduce to reassemble the original structure, but then with the data */
+      Object.keys(modelBase).reduce(
+        (vm, key, i) => {
+          vm[key as keyof T] = values[i];
+          return vm;
+        },
+        /** make sure it conforms to given types. */
+        {} as T
+      )
+    )
+  );
+}
+
+/**
+ * Sample usage:
+ *
+   const demo$ = modelFromLatest({
+     one: of(1),
+     two: of('jj'),
+     sub: modelFromLatest({
+       tree: of(false)
+     })
+   })
+ *
+ */
+----------- get state
+import { BehaviorSubject, ReplaySubject, firstValueFrom } from 'rxjs';
+
+/**
+ * Function that takes a state observable and returns a method for your component
+ * that allows you to get an individual property from the state. It will return
+ * a promise that will resolve to the current property on the state
+ */
+export function createGetStateMethod<T>(state$: ReplaySubject<T> | BehaviorSubject<T>) {
+  async function getState(): Promise<T>;
+  async function getState<K extends keyof T>(prop: K): Promise<T[K]>;
+  async function getState<K extends keyof T>(props: K[]): Promise<Pick<T, K>>;
+  /** getState lets you pull an property out. use it in async functions */
+  async function getState<K extends keyof T>(prop?: K | K[]): Promise<T[K] | T> {
+    const state = await firstValueFrom(state$);
+    if (prop) {
+      if (Array.isArray(prop)) {
+        return prop.reduce((result, prop) => ({ ...result, [prop]: state[prop] }), {} as T);
+      }
+      return state[prop];
+    }
+    return state;
+  }
+  return getState;
+}
+
+-------  set state
+import { BehaviorSubject, ReplaySubject, firstValueFrom, map, tap } from 'rxjs';
+
+/**
+ * Function that takes a state subject and returns a method for your component
+ * that allows you to set an individual property on the state observable
+ */
+export function createSetStateMethod<T>(stateSubject: ReplaySubject<T> | BehaviorSubject<T>) {
+  /**
+   * A state helper method that allows you to easily update the state with
+   */
+  function setState(newState: Partial<T>): Promise<T>;
+  function setState<K extends keyof T>(property: K, newValue: T[K]): Promise<T>;
+  function setState<K extends keyof T>(prop: K | Partial<T>, newValue?: T[K]): Promise<T> {
+    return firstValueFrom(
+      stateSubject.pipe(
+        map(currentState => {
+          if (typeof prop === 'string') {
+            return { ...currentState, [prop]: newValue };
+          }
+          if (typeof prop === 'object') {
+            return { ...currentState, ...prop };
+          }
+          throw new Error('Property needs to be a string or an object');
+        }), // insert the state.
+        tap(newState => stateSubject.next(newState)) // push the update to the view.
+      )
+    );
+  }
+  return setState;
+}
+
+
+
+

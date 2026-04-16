@@ -1,0 +1,358 @@
+Venkat Subramaniam - From Functional to Reactive Programming
+
+RigaDevDays
+1.48K subscribers
+
+Subscribe
+
+238
+
+
+Share
+
+Ask
+
+Save
+
+9.8K views  6 years ago
+We're in the midst of renewed interest in functional programming. At the same time we see quite a bit of excitement around reactive programming. Where did reactive programming come from? How is it related to functional programming, if at all? In this presentation we will discuss the merits of reactive programming and how functional programming concepts seamlessly transition into the programming model espoused by reactive programming. 
+9 Comments
+Hans Schenker
+Add a comment...
+
+@mehmoodrehman6336
+3 years ago (edited)
+Overview 0:00 remarkably interesting overview
+	Reactive programming == (is equal to)
+		Functional programming ++
+	1. Functional programming 7:36  
+		Functional programming:
+			Normal functions: 
+				1) We pass object to function 
+				2) We create object in a function 
+				3) We return object from a function 
+			 Higher-Order Functions: 
+				1) We pass function to function 
+				2) We create function in a function 
+				3) We return function from a function 
+
+			 Functional programming == 
+				functional composition + lazy evaluation 
+		12:40 List Vs Stream
+		List: is data-structure while Stream: is abstraction
+			
+
+	2. Function composition 13:00
+	3. Lazy evaluation 16:00
+	4. Efficiency and lazy evaluations 24:00
+	5. 24:55 Efficiency is attained by not doing things faster, 
+		But by avoiding things should not be done in the first place
+	6. Reactive Programming 26:00
+	7. Responding to stimuli 27:00
+	8. Why do we need a different programming model?  28:00 Answer is a world full of electronic devices, big data & demands on the application performance & different (variety of) user-base as well
+	9. Applications 28:48
+	10. We've lived in CRUD 31:28
+
+	Dataflow computing 34:20 he also talked about serverless computing (AWS lambda & do serverless programming)
+
+	12. Stream of data think dataflow 36:50
+		OOP: 
+			i. Abstraction  خیال,  تصور , خلاصہ
+			ii. Encapsulation (via information hiding like private data)
+			iii. Inheritance 
+			iv. Polymorphism (compile time and runtime)
+		Reactive Programming is: 
+			i. Elastic اپنے آپ کو حالات کے مطابق ڈھالنا computing (something like in "Kubernetes" application must be able to scale or shrink dynamically)
+			ii. Message driven 	(Do not share database)		You can toothbrush but never the database
+				1) Message-driven means instead of using a central database for communication between components/microservices use "Message" driven architecture things like:
+					a) Kafka stream (uses more of a pub/sub approach to send messages)
+					b) RabbitMQ (uses exchanges to route messages to queues)
+					c) Redis is a database that can be used as a message-broker
+					d) AWS offers Amazon Kinesis Data Streams, a Kafka alternative that is fully managed. Running your Kafka deployment on Amazon EC2 provides a high-performance, scalable solution for ingesting streaming data. AWS offers many different instance types and storage option combinations for Kafka deployments.
+					e) Etc. 
+			iii. Responsive (Like in the D-Zone website data (ref-cards) keep coming at the end of the website and you feel like the website never ends)
+			iv. Resilience (fail gracefully)
+	13. Transformation of dataflow 43:00
+	14. Reactive Applications 45:00
+	15. From Reactive to functional 48:55
+                     Java Stream VS Reactive Stream 52:35
+	16. Observable 59:34
+			Strategies in reactive programming:
+			        1. Backpressure (on the data)
+			        2. DROP (the data)
+
+3
+
+
+Reply
+
+
+@abhishekgowlikar
+4 years ago
+Just Awesome Venkat.
+
+
+
+Reply
+
+
+@shyam5694
+5 years ago
+Good lecture ...
+
+2
+
+
+Reply
+
+
+@vikasmalviya8884
+4 years ago
+Amazed ..
+
+
+
+Reply
+
+
+@Nodsaibot
+4 years ago
+Venkat++
+
+
+
+Reply
+
+
+@emoutraspalavras-marloncou4459
+3 years ago
+Professor, I love the way you explain it. It is so hilarious when we take real-life examples and compare them with programming! :) I think I have learned it. Now I am wondering about some complex and breath-taking uses of Throwables, Observables and emitters...
+
+
+
+Reply
+
+
+@alpsavasdev
+3 years ago (edited)
+Very good minds and speakers at this organization, yet non-appreciative, unreactive, dead crowds.
+
+
+
+Reply
+
+
+1 reply
+
+@michaelkohlhaas4427
+3 years ago
+Listening to that guy is almost unbearable!
+
+
+
+Reply
+
+Top is selected, so you'll see featured comments
+
+Ask about this video
+
+Hello! Curious about what you’re watching? I’m here to help.
+
+Not sure what to ask? Choose something:
+
+Summarize the video
+Recommend related content
+Why are paradigm shifts hard?
+How do streams achieve laziness?
+Why treat error as data?
+what is a a higher-order function
+A higher-order function (8:56) is a function that can:
+
+Receive a function as an argument (9:04)
+Create a function within another function (9:06)
+Return a function from a function (9:08)
+This means that functions can be passed around and manipulated in the same way as objects (9:24).
+
+
+
+Why call exceptions normal?
+How do bad apps survive?
+How do streams differ from lists?
+The speaker uses an analogy to explain the difference between a list and a stream (12:45):
+
+A list is like a bucket (12:55)—it's a data structure used to store things (13:43, 13:55).
+A stream is like a pipeline (13:31)—it's an abstraction used to flow things through (13:46, 14:01).
+Essentially, a stream is a pipeline of functions, while a list is a collection of data (13:58-14:28).
+
+
+
+Why use three communication channels?
+How does back pressure prevent data loss?
+Why relate functional programming to reactive?
+what is declarative style
+The video mentions declarative style (10:02) as a characteristic of functional programming, but it doesn't provide a direct definition. It implies that declarative style focuses on what needs to be done rather than how it's done, in contrast to imperative programming.
+
+
+
+Why is elasticity vital for apps?
+Why was data flow computing rebranded?
+How did the professor teach resilience?
+what is lazy evaluation
+Lazy evaluation (14:49) is a key characteristic of functional programming where computation is delayed until the result is actually needed (20:05). The speaker illustrates this with an analogy of children only acting when a "terminal operation" or final command is given (20:05-21:00).
+
+In the context of streams, this means:
+
+Intermediate operations (like filter or map) (21:35) on a stream are lazy; they return another stream and do not trigger immediate computation (21:40-21:47, 24:32-24:42).
+Terminal operations (like findFirst or subscribe) (21:38) are the ones that trigger the actual computation and evaluation of the stream (22:04-22:06, 24:32-24:42, 50:02-50:08).
+This approach prioritizes efficiency by avoiding unnecessary computations (24:42-25:11).
+
+
+
+Why are paradigms critical?
+Why avoid shared central databases?
+How do reactive streams handle failures gracefully?
+what is the Collection Pipeline Pattern
+The Collection Pipeline Pattern (10:53) is a concept where you conceptualize a problem as a series of transformations (11:00-11:02). Instead of focusing on mutating the state of data, you express the problem as data flowing through a pipeline of functions (11:03-11:16). This allows for functional composition, where different functions are chained together to process data sequentially (11:19-12:35).
+
+
+
+Why was programming for CRUD boring?
+How do bad applications build loyalty?
+What are the three channels of communication?
+In reactive streams, the flow or observable provides three channels of communication (56:30-56:36):
+
+Data channel: This is where the actual data flows through (56:36-56:41).
+Error channel: This channel is used to deliver error messages if something goes wrong in the stream (56:58-57:03). The key idea is to treat errors as data, rather than having them blow up the application (57:28-57:41).
+Complete channel: This channel signals that there is no more data coming through the stream (57:05-57:08).
+
+
+How do credit card companies detect fraud?
+Why is responsiveness key for users?
+What makes reactive programming "++"?
+Reactive programming is considered "functional programming plus plus" (6:33-6:36, 51:00-51:02) because it builds upon the core ideas of functional programming by adding several key concepts:
+
+Functional composition and lazy evaluation: These foundational concepts from functional programming are central to reactive programming (51:04-51:07, 1:03:06-1:03:07).
+Back pressure: This mechanism allows the producer and consumer of data to operate at different paces without overwhelming the system (1:00:59-1:01:08, 1:02:10-1:02:13).
+Three channels of communication: Reactive streams include dedicated channels for data, errors, and completion signals (56:30-56:36, 1:02:17-1:02:22).
+Synchronous or asynchronous evaluation: Reactive programming offers the flexibility to choose between synchronous and asynchronous processing based on the problem's needs (1:02:45-1:03:04).
+
+
+Why is polymorphism crucial in OOP?
+How does reactive programming enable scale?
+Why are exceptions "imperative"?
+The speaker describes exceptions as fundamentally imperative programming ideas (53:47-53:56). This is because when an exception occurs in an imperative style, the typical behavior is to "blow up the stack" and return to the try block where the error is handled (54:01-54:06). This "reverse" movement up the call stack doesn't align well with the "pipeline" nature of functional programming, where data is intended to flow in one direction (54:10-54:37).
+
+In contrast, reactive programming aims to deal with errors downstream, treating them as data that flows through a separate error channel rather than stopping the entire process (54:42-54:48, 57:28-57:41).
+
+
+
+How do people rename old concepts?
+Why are streams lazy like children?
+The speaker humorously explains that streams are lazy like children (19:54-20:05) because they both defer action until absolutely necessary.
+
+He uses the analogy of his sons who won't do tasks like turning off the TV, taking out the trash, or doing homework until a "terminal operation" is invoked, such as "I am calling daddy" (20:09-20:47).
+
+Similarly, in programming, streams (21:11) perform intermediate operations (like filter or map) (21:35) only when a terminal operation (like findFirst or subscribe) (21:38) is called. Until that final command, the stream remains "lazy" and does not execute the computations (21:14-21:30).
+
+
+
+Why was reactive programming confusing?
+What are the three essential reactive criteria?
+How does Boston rental car relate?
+How does reactive programming redefine failure?
+Reactive programming redefines failure by treating exceptions as data (57:28-57:33) rather than as disruptive events that "blow up the stack" (54:01-54:06). This aligns with the principle of resilience (47:43-47:46), where applications are designed to deal with problems gracefully.
+
+Instead of crashing, an error in a reactive stream is captured and delivered through a dedicated error channel (56:58-57:03, 58:55-59:05). This allows for a more controlled and predictable way of handling issues, similar to how a good friend would advise safely exiting a freeway after a flat tire, rather than driving in reverse (54:32-54:42).
+
+
+
+Why are paradigms so hard?
+How did "Amazon Lambdas" rebrand old concepts?
+How do reactive apps handle data volume?
+what is dataflow computing
+Dataflow computing is a concept where data flows through a series of transformations (34:54-34:57). It was a significant idea in the 1980s (35:01) and has seen a resurgence with new names like "serverless computing" and "Amazon Lambdas" (35:40-36:13).
+
+Key aspects of dataflow computing include:
+
+Data-driven execution: Operations occur when all necessary input data is available, rather than following a strict program counter.
+Transformation pipeline: Data arrives, is processed by a function, and then transformed into new data that continues to flow through a series of functions (34:36-34:44, 36:19-36:27).
+High parallelism: The model inherently supports parallel execution because independent operations can run simultaneously.
+Modern applications of dataflow computing include:
+
+Real-time fraud detection: Processing credit card transactions as they flow through to immediately identify and respond to potential fraud (33:17-33:38).
+Monitoring tweets: Processing streaming data like tweets to analyze public sentiment or track mentions of products or teams (32:38-32:57).
+ETL (Extract, Transform, Load) workflows: Building robust data pipelines for data warehouses and analytics.
+Dataflow computing contrasts with traditional CRUD (Create, Read, Update, Delete) applications, where data is primarily stored in a database and then retrieved and put back (31:52-32:32).
+
+
+Dataflow – Knowledge and References - Taylor & Francis
+
+Taylor & Francis
+
+What Is Data Flow? The Beginner's Guide - Confluent
+Confluent
+What is Data Flow? | Microsoft Fabric
+Microsoft
+Dataflow, the backbone of data analytics | Google Cloud Blog
+Google Cloud
+Dataflow overview - Google Cloud Documentation
+Google Cloud Documentation
+Dataflow | Encyclopedia of Computer Science - ACM Digital Library
+ACM Digital Library
+Dataflow - Wikipedia
+Wikipedia
+What is Data Flow? - Dremio
+Dremio
+
+
+
+Why was reactive programming needed?
+How do reactive apps build loyalty?
+What does "collection pipeline pattern" mean?
+what is reactive programming
+Reactive programming is a programming paradigm that focuses on data streams and the propagation of change (28:21-28:26, 36:38-36:41). It's essentially an extension of functional programming (6:40-6:42), building on concepts like functional composition and lazy evaluation (51:00-51:07).
+
+Key characteristics of reactive programming include:
+
+Responding to stimuli (28:23-28:26): Reactive applications are designed to react to events and data as they arrive, rather than waiting or polling.
+Dataflow computing (36:15-36:27): It conceptualizes problems as data flowing through a series of transformations, often using asynchronous and non-blocking operations.
+Lazy evaluation (14:49-14:52, 50:02-50:05): Computations are only performed when their results are actually needed, which improves efficiency.
+Resilience and error handling (47:43-47:46): Reactive programming treats errors as data, allowing for graceful handling of exceptions downstream rather than crashing the application (57:28-57:33).
+Back pressure (1:00:59-1:01:08): This mechanism helps manage the flow of data between a producer and a consumer, preventing the consumer from being overwhelmed [1:02:10-1:02:13].
+Three channels of communication (56:30-56:36, 1:02:17-1:02:22): Reactive streams provide distinct channels for data, errors, and completion signals.
+Examples of reactive applications include:
+
+Microsoft Excel (28:56-29:23): When you modify a cell, all dependent cells immediately update.
+Google Docs (29:56-31:18): Multiple users can edit a document simultaneously, with changes propagating in real-time.
+Reactive programming is especially suited for modern applications that handle high volumes of data (big data), high frequency of events, and require high performance and responsiveness (27:40-27:50, 38:00-38:05, 41:46-42:04).
+
+
+Reactive Programming in Java | Payara Services Ltd
+
+Payara Services
+
+What is Reactive Programming? Beginner's Guide to Writing Reactive Code
+freeCodeCamp
+Introduction to Reactive Programming :: Reactor Core Reference Guide
+Project Reactor
+Reactive programming - Wikipedia
+Wikipedia
+Reactive Vs Functional Programming: Which is right for you?
+NashTech Blog
+What Is Reactive Programming? - Built In
+Built In
+
+
+
+Why was reactive programming confusing?
+Why is polymorphism important in OOP?
+How do reactive apps build loyalty?
+Reactive Programming is Elastic, Message driven, Responsive and Fault Tolerant
+Yes, that's correct! The speaker outlines four key characteristics (37:46-37:57) that define reactive programming, aligning with your statement:
+
+Elasticity (38:05-39:21): Reactive systems are designed to be elastic, meaning they can grow and shrink with demand. This allows them to scale up processors when traffic increases and scale down when demand subsides, ensuring you only pay for what you use.
+Message-Driven (41:16-41:41): Reactive applications communicate by exchanging messages rather than sharing data directly (like a central database). This promotes isolation and independence between services, making them more robust.
+Responsiveness (41:43-43:30): A core goal of reactive programming is to ensure applications are responsive and provide immediate feedback to users. The aim is to do the minimum necessary to provide something to the user quickly, rather than processing everything slowly. An example of this is infinite scrolling, where content loads as you scroll, giving the impression of constant availability.
+Resilience (Fault-Tolerant) (43:33-44:00): Reactive applications are designed to be resilient, meaning they can recover gracefully from failures. They treat failures as first-class citizens, promoting a model where errors are handled politely (57:28-57:41) rather than causing the system to crash.
+
+

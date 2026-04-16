@@ -1,0 +1,90 @@
+Snake based on rxjs-spa
+
+This is rxjs-spa — a monorepo for building Single Page Applications using RxJS + TypeScript, without any heavy framework like React or Vue.
+
+Here's the breakdown:
+
+packages/ — the core library suite:
+
+core — foundational primitives
+dom — DOM rendering utilities
+router — client-side routing
+store — state management
+forms — reactive forms
+http — HTTP client
+persist — persistence/storage
+ssr — server-side rendering support
+errors — error handling
+testing — test utilities
+apps/ — example/demo apps built with the library:
+
+playground — quick experimentation
+demo — full-featured demo with routing, auth, SSR
+shop — e-commerce example with cart, products, checkout
+product-configurator — product config UI
+starter-minimal/standard/full — starter templates at different complexity levels
+docs/ — VitePress-powered documentation site with deep-dive guides for each package.
+
+The whole thing is an npm workspaces monorepo, using Vite for building/dev and Vitest for testing. RxJS is pinned to 7.8.2 across all packages. The interesting design choice is that packages export their TypeScript source directly in dev mode (no build step needed during development), and only use compiled output for production builds.
+
+Essentially it's a framework-agnostic SPA toolkit built on top of RxJS observables.
+
+
+
+http://localhost:5173/
+
+The game follows a clean unidirectional data flow — the same MVU (Model-View-Update) pattern used throughout this framework.
+
+ Input Sources          Store (single source of truth)       Output Sinks
+ ─────────────          ──────────────────────────────       ────────────
+ interval(150ms) ──┐
+                   ├──► dispatch(action) ──► reducer ──► state$ ──► canvas.draw()
+ keydown event  ──┘                                          └──► html score display
+game.ts — the Model
+
+Pure logic, zero side effects. Everything is a plain function:
+
+GameState holds the full snapshot: snake array, direction, food position, score, phase (IDLE | RUNNING | PAUSED | DEAD)
+gameReducer(state, action) → state handles all transitions. Given the same inputs it always produces the same output — easy to test in isolation
+The snake is just an array of {x, y} points where index 0 is the head. Moving means prepending a new head and dropping the tail (or keeping it if food was eaten)
+Collision detection is a simple Array.some() check against walls and body segments
+main.ts — the Update + View
+
+Three independent observable streams feed the store:
+
+interval(150)          → TICK action   (game loop)
+keydown (arrows/WASD)  → STEER action  (direction buffer)
+keydown (P)            → PAUSE/RESUME  (phase toggle)
+The direction is buffered as nextDir in state and only applied on the next tick — this prevents a known Snake bug where pressing two keys between ticks can reverse into yourself.
+
+The store's state$ observable drives two sinks:
+
+renderSub — canvas redraw on every emission. The canvas is drawn imperatively (that's the right tool for pixel graphics), but it's triggered reactively
+uiSub — the html template handles score and best score display declaratively via store.select() observables, so they update without touching the canvas
+Why this separation works well
+
+game.ts knows nothing about the DOM, RxJS, or the store — it's just data in, data out
+The store is the single source of truth; there's no local mutable state anywhere
+Adding features (speed levels, walls, high score persistence) means touching the reducer and wiring a new observable — the rest stays unchanged
+
+The reactive model is a genuinely good fit for a game loop. interval() as a tick source, fromEvent() for input, and a reducer for state transitions — that's clean and readable. The unidirectional flow means the game state is always predictable and the logic in game.ts is completely pure and portable.
+
+The store's state$ observable as the single render trigger is elegant. You get automatic "re-render on state change" without a virtual DOM or dirty checking.
+
+Where it feels like friction
+
+The framework is designed around HTML template rendering via the html tag. For a canvas-based game, you end up bypassing most of that — the canvas is drawn imperatively inside a subscribe(), which means you're essentially just using RxJS directly, not the framework's DOM layer. The html template only touches the score display.
+
+So the honest answer is: RxJS did the heavy lifting, @rxjs-spa/dom and @rxjs-spa/store were useful but not essential. You could have written the same game with just RxJS and no framework at all.
+
+Where it would really pay off
+
+A DOM-rendered game (think a grid-based puzzle, a card game, a turn-based strategy) would be a much better showcase. That's where html, list(), when(), and reactive attribute bindings would all pull their weight — updating only the cells that changed, driven by store selectors.
+
+Score: 7/10 for the use case
+
+Good architecture, clean separation, but canvas games are a slightly awkward fit for any HTML-first framework. The framework earns its keep more on the state management side than the rendering side here.
+
+Est. Credits Used: 0.13
+Elapsed time: 13s
+

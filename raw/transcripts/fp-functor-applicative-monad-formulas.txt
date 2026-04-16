@@ -1,0 +1,149 @@
+($)	::	(a -> b) -> a -> b		// function application
+
+(<$>) 	::	(a -> b) -> f a -> f b		// fmap
+	
+( <*>) :: 	f (a ->b) -> f a -> f b		// applicative functor sequential application 
+
+(>>=) 	::	(a -> m b) -> m a -> m b	// monad bind
+
+Wadler 1989
+
+List comprehensions are related to the relational calculus.
+
+Wadler 1992
+
+List comprehensions are a special case of monad
+comprehensions.
+
+
+
+Haskell factors comprehension
+
+factors n =
+  [x
+  |x <- [1 .. n]
+  , n mod x == 0
+  ]
+
+
+isprime n = factors n = [1,n]
+
+primes n =
+  [ p | p <- [2 .. n], isPrime p ]
+
+---------   from Haskell to Javascript X Tweet
+
+// Haskell
+
+factors n =
+  [ x
+  | x <- [1 .. n]
+  , n `mod` x == 0
+  ]
+
+isPrime n = factors n == [1, n]
+
+primes n =
+  [ p | p <- [2 .. n], isPrime p ]
+
+// Javascript Rxjs
+
+const factors$ = (n: number): Observable<number> => range(1, n).pipe(filter(x => n % x === 0));
+
+export const factors$ = (n: number): Observable<number> =>
+  range(1, n).pipe(
+    filter(x => n % x === 0)
+  );
+
+------ code converter 
+/**
+ * Utility function to generate an inclusive range of numbers,
+ * mimicking Haskell's [start .. end] syntax.
+ */
+const range = (start: number, end: number): number[] =>
+  end < start ? [] : Array.from({ length: end - start + 1 }, (_, i) => start + i);
+
+/**
+ * Utility function to perform a deep equality check on arrays,
+ * used to replicate Haskell's list comparison (==).
+ */
+const arraysEqual = <T>(a: T[], b: T[]): boolean =>
+  a.length === b.length && a.every((v, i) => v === b[i]);
+
+/**
+ * factors n =
+ *   [x
+ *   |x <- [1 .. n]
+ *   , n mod x == 0
+ *   ]
+ */
+function factors(n: number): number[] {
+  return range(1, n)
+    .filter(x =>
+      n % x === 0
+    );
+}
+
+/**
+ * isprime n = factors n = [1,n]
+ * 
+ * Note: The second '=' is interpreted as an equality comparison (==),
+ * which is the standard logic for a primality test based on factors.
+ */
+function isprime(n: number): boolean {
+  return arraysEqual(factors(n), [1, n]);
+}
+
+/**
+ * Variable alias to support the case-sensitive reference in the primes function.
+ * Original code defines 'isprime' but calls 'isPrime'.
+ */
+const isPrime = isprime;
+
+/**
+ * primes n =
+ *   [ p | p <- [2 .. n], isPrime p ]
+ */
+function primes(n: number): number[] {
+  return range(2, n)
+    .filter(p => isPrime(p));
+}
+1. **List Comprehension Translation**: Haskell's list comprehensions (`[x | x <- list, condition]`) were translated using TypeScript's `Array.prototype.filter`. This preserves the declarative nature and the specific filtering logic (the `mod` check and the `isPrime` check).
+2. **Range Implementation**: Haskell's `[1 .. n]` and `[2 .. n]` syntax represents inclusive ranges. Since TypeScript does not have a native range operator, a `range` helper function was implemented using `Array.from` to ensure identical behavior, including returning an empty array when the start exceeds the end.
+3. **Array Equality**: In Haskell, the `==` operator compares the contents of lists. In TypeScript/JavaScript, `===` checks for reference equality for arrays. To maintain the exact functionality of `factors n == [1, n]`, I implemented an `arraysEqual` helper function to perform a value-based comparison.
+4. **Modulo Operator**: The Haskell `mod` function (used as an infix operator in the source) was translated to the TypeScript `%` operator. For positive integers (the domain of these functions), both perform the same remainder calculation.
+5. **Function Naming and Case Sensitivity**:
+    - The original code defines `isprime` (lowercase) but calls `isPrime` (camelCase) in the `primes` function. In Haskell, this would normally cause a scope error as it is case-sensitive.
+    - To provide "COMPLETE, WORKING code" as requested while preserving the exact variables, I defined the function as `isprime` and created a constant `isPrime` alias so that the `primes` function works exactly as written in the source.
+6. **Double Equals in `isprime`**: The line `isprime n = factors n = [1,n]` contains two equals signs. In Haskell definitions, the first `=` is the assignment. The second `=` is a common typo for `==` (equality comparison). I have implemented it as a boolean comparison to ensure the code functions as a primality test.
+7. **Formatting**: I preserved the line breaks and structural flow, especially in the `factors` function, to mirror the original Haskell's multi-line comprehension style.
+
+
+07 Functor & Monad
+08 Maybe/Either > Error Channel < completes the Observer contract
+09 Time as a First-Class Value
+10 Higher-Order Observables
+11 ES6 Generators
+12 Marble Diagrams
+13 The Rx Ecosystem
+
+deepens the math thread
+
++ the killer feature of Rx
++ most important practical concept
++ closes pull/push in modern JS
++ visual grammar of the community
++ the idea's global reach
+
+
+Section 13 - The Rx Ecosystem (One Pattern, Every Platform)
+
+The journey ends with the observation that the Haskell idea - expressed as Rx.NET - replicated across every mainstream platform:
+
+- RxJava + Android 				(2013)
+- RxSwift > iOs 				(2015)
+- RxPY > Python					2015
+- Cycle.js + pure FRP UI (André Staltz)		2015
+- NgRx + Angular state management		2015
+- Redux-Observable > React			2015
+

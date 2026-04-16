@@ -1,0 +1,22 @@
+
+
+claude mcp add playwright npx @playwright/mcp@latest
+
+Open the browser and navigate to localhost:3000
+
+I'll open the browser and navigate to localhost:3000.
+
+playwright:browser_navigate (MCP) (url: "http://localhost:3000")
+
+
+{ settings.local.json X
+claude > {} settings.local.json > …
+
+{
+"permissions": {
+"allow": ["mcp_playwright"],
+"deny": []
+}
+}
+
+// look into Playwright MCP Server

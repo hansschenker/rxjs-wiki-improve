@@ -1,0 +1,113 @@
+Unary (1→1)        Binary (2→1)           N-ary (N→1)
+─────────────────────────────────────────────────────────
+map                 combineLatest          forkJoin
+filter              merge                  race
+scan                concat                 zip
+take                withLatestFrom         
+delay               partition (1→2)
+
+
+Strategy      Behavior                    Operators
+─────────────────────────────────────────────────────────
+Merge         Interleaved                 mergeMap, mergeAll, mergeScan
+Concat        Sequential                  concatMap, concatAll, concatMapTo
+Switch        Cancel previous             switchMap, switchAll, switchScan
+Exhaust       Ignore new until done       exhaustMap, exhaustAll
+Expand        Recursive unfold            expand
+
+Must wait for complete        Emits before complete
+────────────────────────────────────────────────────
+reduce                        scan
+forkJoin                      combineLatest
+toArray                       merge
+last                          first
+
+
+Strategy          Behavior                          Operators
+─────────────────────────────────────────────────────────────
+Buffer (unbounded) Queue all                       buffer, toArray
+Buffer (bounded)   Windowed                        bufferCount, bufferTime
+Drop (lossy)       Skip until ready                audit, throttle, sample
+Debounce (lossy)   Wait for quiet                  debounce
+Lossless           Pause source                    concatMap (serializes)
+
+Bounded (fixed)          Unbounded (grows)
+─────────────────────────────────────────
+take(n)                  expand (infinite)
+bufferCount(n)           toArray (waits for complete)
+windowCount(n)           groupBy (open-ended)
+sampleTime               buffer (until close)
+
+Eager (immediate)        Lazy (deferred)           Shared (multicast)
+─────────────────────────────────────────────────────────────────────
+merge                    defer                     share
+combineLatest            iif                       publish
+forkJoin                 empty                     multicast
+of                       throwError                shareReplay
+
+Relative Time            Absolute Time             No Time
+────────────────────────────────────────────────────────────
+delay(1000)              timer(Date)               map
+debounceTime             timeout(Date)             filter
+sampleTime                                         scan
+auditTime                                          reduce
+
+Catch & Replace          Catch & Rethrow           Retry           Ignore
+─────────────────────────────────────────────────────────────────────────
+catchError(fn)           throwError                retry           ignoreElements
+catchError(() => EMPTY)  retryWhen                 retryWhen       
+                         timeout → error
+
+Order Preserved          Order Not Guaranteed      Reordered
+────────────────────────────────────────────────────────────────
+concatMap                mergeMap                  switchMap (latest wins)
+concat                   merge                     race (first wins)
+zip (aligned)            combineLatest             partition (split)
+
+Map (1→1)       FlatMap (1→N)       Fold (N→1)        Unfold (1→∞)
+────────────────────────────────────────────────────────────────────
+map             mergeMap             reduce            expand
+pluck           concatMap            count             interval
+mapTo           switchMap            max               generate
+                exhaustMap           min               timer
+
+Cleanup Guaranteed       No Cleanup                Resource Management
+─────────────────────────────────────────────────────────────────────
+switchMap (cancels)      mergeMap (accumulates)    finalize
+exhaustMap (skips)       concatMap (queues)        using (RxJS resource)
+takeUntil (unsubscribes)                             defer (lazy)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

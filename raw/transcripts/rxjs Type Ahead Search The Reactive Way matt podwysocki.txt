@@ -1,0 +1,117 @@
+Type Ahead Search The Reactive Way
+
+const data = dom.keyup(input)
+.map(e => e. target. value)
+. debounceTime(500)
+.distinctUntilChanged()
+.switchMap(term => search(term).retry(3));
+
+const subscription = data. subscribe(
+data => bindData(data),
+err => handleError(err));
+
+Observable is Subject/Observer Done Right
+
+interface Observable<T>
+subscribe(o: Observer<T>) => Subscription
+
+interface Observer<T> {
+next: (value: T) => void;
+error: (err: any) => void;
+complete: () => void;
+
+interface Subscription {
+unsubscribe() : void;
+
+Observable Grammar Police
+
+next
+Zero or more values
+E.g. events are o sequences
+
+error
+Calls can fail
+
+complete
+Resource management
+Sequencing
+
+Must be a sequence
+No concurrent callbacks
+One time termination
+
+First-Class Asynchronous Values
+
+An object is first-class when it: [4][5]
+. can be stored in variables and data structures
+. can be passed as a parameter to a subroutine
+. can be returned as the result of a subroutine
+. can be constructed at runtime
+. has intrinsic identity (independent of any given name)
+
+The General Theory of Reactivity
+
+Iterable
+
+res =
+stocks
+.filter(q => q.symbol == 'FB')
+.map(q => q.quote)
+
+res.forEach(x =>
+
+Observable
+
+res =
+stocks
+.filter(q => q.symbol == 'FB')
+.map(q => q.quote)
+
+res.forEach(x =>
+
+Multiple values (*)
+
+Object
+var y = f(x);
+var z = g(y);
+
+Promise
+
+fAsync(x).then( ... );
+gAsync(y).then( ... );
+
+Single value (1)
+
+Svnchronous
+
+Asynchronous
+
+Client: Polling for Row Updates
+
+function getRowUpdates(row) {
+let scrolls = Rx. Observable. fromEvent(document, 'scroll');
+let rowVisibilities =
+scrolls.debouceTime(50)
+.map( scrollEvent => row. isVisible(scrollEvent.offset))
+.distinctUntilChanged()
+. share();
+let [rowShows, rowHides] = rowVisibilities.partition( v => v);
+
+return rowShows
+.flatMap(Rx.Observable.interval(10))
+.flatMap(() => row.getRowData().takeUntil(rowHides))
+. toArray ();
+
+The question is: do you really need Redux if you
+already use Rx? Maybe not. It's not hard to re-
+implement Redux in Rx. Some say it's a two-liner
+using Rx . scan() method. It may very well be!
+
+If you're in doubt, check out the Redux source code
+(there isn't much going on there), as well as its
+ecosystem (for example, the developer tools). If you
+don't care too much about it and want to go with
+the reactive data flow all the way, you might want to
+explore something like Cycle instead, or even
+combine it with Redux. Let us know how it goes!
+

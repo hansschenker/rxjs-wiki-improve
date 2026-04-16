@@ -1,0 +1,37 @@
+/**
+ * quicksort :: [Int] -> [Int]
+ * Performs a quicksort on a list of integers.
+ * Note: This implementation follows the provided Haskell logic which excludes 
+ * duplicate values of the pivot 'h' during the concatenation.
+ */
+function quicksort(arr: number[]): number[] {
+  // quicksort []
+  // Base case: an empty list returns an empty list.
+  if (arr.length === 0) {
+    return [];
+  }
+
+  // quicksort (h:rest) = smaller ++ [h] ++ bigger
+  // Recursive case: destructure the array into head (h) and the rest.
+  const [h, ...rest] = arr;
+
+  // where smaller = quicksort [x | x <- rest, x<h]
+  // List comprehension for elements strictly smaller than h.
+  const smaller: number[] = quicksort(rest.filter((x) => x < h));
+
+  // bigger = quicksort [x | x <- rest, x>h]
+  // List comprehension for elements strictly larger than h.
+  const bigger: number[] = quicksort(rest.filter((x) => x > h));
+
+  // Combine the results: smaller elements, the pivot, then bigger elements.
+  return [...smaller, h, ...bigger];
+}
+
+- **Base Case Completion**: The original Haskell snippet included `quicksort []` without an explicit result. In Haskell, this is typically `quicksort [] = []`. I have implemented this as `if (arr.length === 0) return [];` to ensure the recursion terminates correctly.
+- **Pattern Matching**: Haskell's `(h:rest)` pattern matching was translated using TypeScript's array destructuring `const [h, ...rest] = arr;`.
+- **List Comprehension**: The Haskell list comprehensions `[x | x <- rest, x < h]` and `[x | x <- rest, x > h]` were translated using the TypeScript `.filter()` method. This is the functional equivalent in TypeScript for selecting elements based on a predicate.
+- **Concatenation**: Haskell's `++` operator was translated using the TypeScript spread operator `[...]` within a new array literal.
+- **Handling of Duplicates**: Per the original code's logic (`x < h` and `x > h`), if the input list contains multiple instances of the pivot value `h`, only the one used as the pivot in that recursive step is preserved in the output. Subsequent duplicates are filtered out. I maintained this exact functionality as requested.
+- **Typing**: The Haskell type `[Int]` was mapped to `number[]` in TypeScript.
+- **Where Clause**: Haskell's `where` clause defines local variables. These were translated into constant declarations (`const smaller`, `const bigger`) within the function scope before the return statement.
+

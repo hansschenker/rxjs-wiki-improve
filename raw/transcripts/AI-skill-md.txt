@@ -1,0 +1,33 @@
+name: build-web-ui-component
+description: Build UI components for the OpenLifeLog web app (src/web) following Next.js 15, React 19, and Shadcn/ui patterns.
+Use when creating new components, pages, or UI features in the web frontend.
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+
+# Build Web UI Component
+
+Expert skill for building UI components in the OpenLifeLog Next.js web application following established patterns and conventions.
+
+## Tech Stack
+
+- ** Framework **: Next.js 15 (App Router), React 19
+- ** UI Library **: Shadcn/ui components
+- ** Styling **: Tailwind CSS 4
+- ** API Client **: `@openlifelog/sdk'
+- ** State **: React hooks + Context API
+- ** Auth **: AuthContext with JWT tokens
+
+## Component Architecture Patterns
+
+### 1. Server Components by Default
+
+*tsx
+// app/workouts/page.tsx
+import { WorkoutList } from '@/components/workouts/WorkoutList'
+
+export default async function WorkoutsPage() {
+// Server component - can fetch data here
+return (
+<div className="container mx-auto p-4">
+<h1 className="text-2xl font-bold mb-4">Workouts</h1>
+<WorkoutList />
+</div>

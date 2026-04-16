@@ -1,0 +1,65 @@
+a Worktree can only be created from a Git branch
+Actually, that is not entirely correct. While you can create a new worktree starting from a specific branch, it is also possible to specify a commit as the starting point.
+
+As explained in the video (6:00 - 6:40), when you run git worktree add, you can explicitly point to a commit (or tag) instead of just relying on the current HEAD or a branch.
+
+Key takeaways for creating worktrees:
+
+Default behavior: If you don't specify a starting point, Git uses the current HEAD (the latest commit on your current branch) (2:00 - 2:05).
+Explicit starting point: You can direct Git to start the new worktree from any branch or specific commit by adding the reference at the end of the command (6:07 - 6:40).
+Example command:
+git worktree add -b
+
+
+
+How do I verify active Git worktrees?
+Can Git delete a worktree with uncommitted changes?
+Where should I create new worktree folders?
+
+a branch can only have 1 Worktree
+That is correct. In Git, a specific branch can only be checked out in one worktree at a time.
+
+If you try to check out a branch that is already being used in another worktree, Git will prevent it. This ensures that you don't have conflicting states or duplicated files modified in two different directories simultaneously for the same branch.
+
+If you need to work on the same branch in multiple locations, you would typically need to remove the existing worktree using git worktree remove (4:09 - 4:17) or create a new branch or commit-based worktree as demonstrated in the tutorial (0:52 - 1:30).
+
+
+
+How do I switch back to my first worktree?
+Does deleting a worktree remove the Git branch?
+Can I start a worktree from the main branch?
+a Worktree is basically an isolate Git repository context that can be created and worked on while another branch has not commited its changes
+That is exactly right. A Git worktree allows you to have multiple branches of the same repository checked out simultaneously in different directories (0:00 - 0:49).
+
+This is incredibly useful because:
+
+Isolation: You can keep your uncommitted changes in one directory (on one branch) while switching to a separate directory to work on a different task, such as a bug fix or a new feature (0:24 - 0:49).
+No Stashing Required: You don't have to commit or stash your work just to switch contexts, which keeps your workflow clean and prevents the need to frequently move incomplete work in and out of the stash (0:30 - 0:40).
+Once you are done in the new worktree, you can easily delete it using git worktree remove (4:09 - 4:17). Just remember that Git protects you from deleting a worktree that has uncommitted changes unless you use the --force flag (4:23 - 5:05).
+
+
+
+How do I force delete a worktree?
+Where does a new worktree begin?
+Does git auto-switch to new worktrees?
+a Worktree must be created in a different directory
+That is correct. Each Git worktree must reside in its own separate working directory because they represent distinct, concurrent checkouts of your project (0:00 - 0:49).
+
+Key points regarding directory management for worktrees:
+
+Separate paths: Git requires a distinct path for each worktree. As shown in the tutorial, the recommended practice is to place these directories alongside your original project directory (using ../) rather than nesting them inside the current one (1:10 - 1:24).
+Context switching: Since each worktree is a different directory, you switch between your tasks by manually navigating (using cd) into the specific directory associated with that branch or feature (2:34 - 2:51).
+Isolation: By using separate directories, Git ensures that the file state of one branch does not interfere with the files in another, allowing you to maintain uncommitted changes in one worktree while working on a completely different branch in another (0:40 - 0:49).
+
+
+Does git delete the branch during removal?
+Why use relative paths for worktrees?
+What follows a successful worktree removal?
+directories are Git's context boundaries
+That is a great way to summarize it. In the context of git worktree, the directory acts as the boundary that defines your current Git context.
+
+Because each worktree resides in its own separate directory, Git tracks them as distinct working environments. This is why you can safely have different branches checked out simultaneously:
+
+Isolation: Since your files exist in different physical locations on your disk, you can edit code in one directory without it affecting the state of the branch in another (0:40 - 0:49).
+Context Switching: To switch between tasks, you simply navigate between these directories using standard terminal commands like cd. You are effectively switching the "active" context by moving into the path where the desired branch is currently checked out (2:34 - 2:51).
+Workflow Management: This prevents the common problem of needing to stash or commit incomplete work just to switch tasks, as each directory maintains its own independent "clean" or "dirty" state (0:30 - 0:40).

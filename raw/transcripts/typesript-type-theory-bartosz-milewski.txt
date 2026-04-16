@@ -1,0 +1,53 @@
+// Identity function for type a
+function id<a>(x: a): a {
+  return x;
+}
+
+// lu function: extracts the second element from a tuple [void, a]
+function lu<a>(tuple: [void, a]): a {
+  const [, x] = tuple;
+  return x;
+}
+
+// lu_inv function: creates a tuple [void, a] from a value a
+function lu_inv<a>(x: a): [void, a] {
+  return [undefined, x];
+}
+
+// Verifying the properties (conceptually, as TypeScript does not enforce these at runtime)
+const exampleValue = 42;
+console.assert(id(exampleValue) === lu(lu_inv(exampleValue)));
+console.assert(id([undefined, exampleValue]) === lu_inv(lu([undefined, exampleValue])));
+
+---------- recursive types
+
+type Nat = { tag: "Z" } | { tag: "S"; pred: Nat };
+
+const Z: Nat = { tag: "Z" };
+const S = (pred: Nat): Nat => ({ tag: "S", pred });
+
+function rec<A>(base: A, step: (n: Nat, a: A) => A, n: Nat): A {
+  if (n.tag === "Z") {
+    return base;
+  } else {
+    return step(n.pred, rec(base, step, n.pred));
+  }
+}
+
+// Example usage:
+const f = <A>(base: A, step: (n: Nat, a: A) => A) => (n: Nat): A => rec(base, step, n);
+
+// dependant types
+-----------------------
+type Nat = number;
+
+type Vec<A, N extends Nat> = 
+  N extends 0 ? [] : [A, ...Vec<A, SubtractOne<N>>];
+
+// Helper type to subtract one from a Nat (number literal)
+type SubtractOne<N extends Nat> = 
+  ((...args: any[]) => void) extends ((head: any, ...tail: infer Tail) => void) 
+    ? Tail['length'] extends N ? Tail['length'] : never 
+    : never;
+
+-----------

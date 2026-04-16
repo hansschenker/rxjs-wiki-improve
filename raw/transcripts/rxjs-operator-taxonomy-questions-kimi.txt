@@ -1,0 +1,181 @@
+Follow-up questions to narrow down:
+
+Question	If Yes	If No
+"Is the reduction based on position/index?"	take(n), skip(n), takeLast(n), skipLast(n)	Continue →
+"Is the reduction based on a condition/predicate?"	filter (keep matching), takeWhile (stop when false), skipWhile (start when false)	Continue →
+"Do you only need a specific single element?"	first (first match or default), last (requires completion), single (exactly one or error), elementAt(index)	Continue →
+"Is the reduction based on equality/uniqueness?"	distinct (all unique, unbounded memory), distinctUntilChanged (consecutive unique, O(1) memory), distinctUntilKeyChanged (by key)	Continue →
+"Do you want to drop ALL values and only keep completion/error?"	ignoreElements (N→0)	Continue to other branches
+
+START: Value-based + Lossy + Cardinality N→M
+│
+├─→ "Reduce by position?"
+│   └─→ take, skip, takeLast, skipLast, takeUntil, skipUntil
+│
+├─→ "Reduce by predicate?"
+│   └─→ filter, takeWhile, skipWhile
+│
+├─→ "Take exactly one?"
+│   ├─ "First occurrence?" → first
+│   ├─ "Last occurrence?" → last (needs completion)
+│   ├─ "At specific index?" → elementAt
+│   └─ "Exactly one or error?" → single
+│
+├─→ "Remove duplicates?"
+│   ├─ "All-time unique?" → distinct
+│   └─ "Consecutive duplicates only?" → distinctUntilChanged
+│
+└─→ "Drop everything?" → ignoreElements
+
+RxJS Operators (Multi-Dimensional Taxonomy)
+│
+├── Value-Based ───────────────────────────────────────────────────────────┐
+│   │                                                                       │
+│   ├── Lossy ──────────────────────────────────────────────────────────┐  │
+│   │   │                                                                │  │
+│   │   ├── Cardinality: N→M (where M≤N) ────────────────────────────┐  │  │
+│   │   │   │                                                         │  │  │
+│   │   │   ├── Filtering ─────────────────────────────────────────┐  │  │  │
+│   │   │   │   Q: "Do you need FEWER emissions based on position, 
+│   │   │   │      predicate, or specific element selection?"
+│   │   │   │   
+│   │   │   │   └─→ Position-based? 
+│   │   │   │       → "From start or end?" → take/skip | takeLast/skipLast
+│   │   │   │       → "Until condition signals?" → takeUntil/skipUntil
+│   │   │   │       → "While condition holds?" → takeWhile/skipWhile
+│   │   │   │
+│   │   │   │   └─→ Predicate-based?
+│   │   │   │       → "Keep matches?" → filter
+│   │   │   │       → "Extract exactly one?" → first/last/single/elementAt
+│   │   │   │
+│   │   │   └── Distinct ────────────────────────────────────────┘  │  │  │
+│   │   │       Q: "Do you need to REMOVE DUPLICATE values?"
+│   │   │       
+│   │   │       └─→ "All-time uniqueness (growing memory)?" → distinct
+│   │   │       └─→ "Only consecutive duplicates?" → distinctUntilChanged
+│   │   │       └─→ "By object key?" → distinctUntilKeyChanged
+│   │   │
+│   │   ├── Cardinality: N→1 (Aggregate/Fold) ─────────────────────┘  │  │
+│   │       Q: "Do you need to COMPRESS all values into ONE result?"
+│   │       
+│   │       └─→ "Wait for completion, emit final?" → reduce
+│   │       └─→ "Count items?" → count
+│   │       └─→ "Find min/max?" → min/max
+│   │       └─→ "Check ALL satisfy condition?" → every
+│   │       └─→ "Find first match index/value?" → find/findIndex
+│   │       └─→ "Is stream empty?" → isEmpty
+│   │
+│   │   └── Higher-Order: Canceling/Switching ────────────────────────┘  │
+│           Q: "Do you map to inner observables that should CANCEL 
+│              or IGNORE previous/new ones?"
+│           
+│           └─→ "Cancel previous when new arrives?" → switchMap/switchAll
+│           └─→ "Ignore new until current completes?" → exhaustMap/exhaustAll
+│           └─→ "Scan with switch behavior?" → switchScan
+│           └─→ "Race multiple, first wins?" → race
+│
+│   └── Non-Lossy ──────────────────────────────────────────────────────┐ │
+│       │                                                                │ │
+│       ├── Cardinality: 1→1 (Transform) ────────────────────────────┐  │ │
+│       │   Q: "Do you need to TRANSFORM each value to something else?"
+│       │   
+│       │   └─→ "Apply function?" → map
+│       │   └─→ "Extract property?" → pluck
+│       │   └─→ "Map to constant?" → mapTo
+│       │   └─→ "Access previous+current?" → pairwise
+│       │
+│       ├── Cardinality: 1→1 (Iterate/Scan) ─────────────────────────┤  │ │
+│           Q: "Do you need ACCUMULATOR state that EMITS on each value?"
+│           
+│           └─→ "Emit intermediate states?" → scan
+│           └─→ "Merge-scan (flatten during accumulation)?" → mergeScan
+│       
+│       ├── Cardinality: 1→∞ (Unfold) ───────────────────────────────┤  │ │
+│           Q: "Do you need to RECURSIVELY expand each value into more?"
+│           
+│           └─→ "Expand each to stream (tree/DFS)?" → expand
+│       
+│       ├── Cardinality: N→N (Lossless Higher-Order) ────────────────┤  │ │
+│           Q: "Do you map to inner observables PRESERVING ALL emissions?"
+│           
+│           └─→ "Sequential (preserve order, queue)?" → concatMap/concatAll
+│           └─→ "Concurrent (interleaved, buffer)?" → mergeMap/mergeAll
+│       
+│       ├── Grouping (Cardinality: N→Groups) ────────────────────────┤  │ │
+│           Q: "Do you need to SPLIT into keyed groups?"
+│           
+│           └─→ "Group by key function?" → groupBy
+│           └─→ "Split into two streams by predicate?" → partition
+│       
+│       └── Buffer/Window Static ────────────────────────────────────┘  │ │
+│           Q: "Do you need to BATCH emissions by COUNT?"
+│           
+│           └─→ "Buffer to arrays?" → buffer/bufferCount
+│           └─→ "Window to observables?" → window/windowCount
+│       
+│       [Join Operators]
+│           Q: "Do you need to COMBINE multiple streams?"
+│           
+│           └─→ "Latest from each when any emits?" → combineLatest
+│           └─→ "Pairwise aligned (waits for all)?" → zip
+│           └─→ "Sequential (one after another)?" → concat
+│           └─→ "Concurrent (interleaved)?" → merge
+│           └─→ "Attach initial value?" → startWith
+│           └─→ "Sample main with secondary?" → withLatestFrom
+│
+└── Time-Based ─────────────────────────────────────────────────────────────┘
+    │
+    ├── Lossy ─────────────────────────────────────────────────────────────┐
+    │   │                                                                   │
+    │   ├── Backpressure: Drop ──────────────────────────────────────────┐  │
+    │   │   Q: "Do you need to CONTROL EMISSION RATE by dropping excess?"
+    │   │   
+    │   │   └─→ "Emit FIRST, skip rest of window?" → throttle/throttleTime
+    │   │   └─→ "Emit LAST after window?" → audit/auditTime
+    │   │   └─→ "Emit LAST after quiet period?" → debounce/debounceTime
+    │
+    │   ├── Sampling: Fixed Intervals ───────────────────────────────────┤  │
+    │       Q: "Do you need to SAMPLE at fixed time intervals?"
+    │       
+    │       └─→ "Capture latest at interval?" → sample/sampleTime
+    │
+    │   └── Temporal Constraint ─────────────────────────────────────────┘  │
+    │       Q: "Do you need to ENFORCE time limits?"
+    │       
+    │       └─→ "Error if exceeds duration?" → timeout
+    │       └─→ "Switch to backup if exceeds?" → timeoutWith
+    │
+    └── Non-Lossy ───────────────────────────────────────────────────────────┘
+        │
+        ├── Creation (Temporal Source)
+        │   Q: "Do you need a TIME-BASED source of values?"
+        │   
+        │   └─→ "Periodic intervals?" → interval
+        │   └─→ "One-shot or repeating delay?" → timer
+        │
+        ├── Delay
+        │   Q: "Do you need to SHIFT emissions in time?"
+        │   
+        │   └─→ "Fixed delay?" → delay
+        │   └─→ "Delay based on value?" → delayWhen
+        │
+        ├── Buffer/Window Temporal
+        │   Q: "Do you need to BATCH by TIME or SIGNALS?"
+        │   
+        │   └─→ "Fixed time window?" → bufferTime/windowTime
+        │   └─→ "Open/close by signals?" → bufferToggle/windowToggle
+        │   └─→ "Close factory driven?" → bufferWhen/windowWhen
+        │
+        ├── Scheduling
+        │   Q: "Do you need to CONTROL EXECUTION CONTEXT?"
+        │   
+        │   └─→ "Schedule notifications?" → observeOn
+        │   └─→ "Schedule subscription?" → subscribeOn
+        │
+        └── Metadata Augmentation
+            Q: "Do you need to ADD TIMING INFORMATION?"
+            
+            └─→ "Time since last emission?" → timeInterval
+            └─→ "Absolute timestamp?" → timestamp
+
+

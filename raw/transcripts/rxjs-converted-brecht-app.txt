@@ -1,0 +1,33 @@
+This project is now a small single-page application written in plain TypeScript where RxJS handles state, async work, and UI reactions, but the DOM is rendered manually with template strings. The app starts in src/main.ts, which loads CSS and boots the shell in src/rx-app/app.ts.
+
+Core architecture
+
+src/rx-app/app.ts is the composition root. It creates the store, router, API client, and facade, renders the outer shell once, then subscribes to RxJS streams to keep the navbar, notices, spinner, and current page in sync.
+src/rx-app/store.ts replaces NgRx store/reducers with a BehaviorSubject<AppState>. It exposes state$, select(...), and mutation methods like setAuthentication, setWines, updateWine, and setNotice.
+src/rx-app/router.ts replaces Angular Router with a tiny History API router. It parses window.location.pathname, exposes route$, and supports guarded redirects from the shell.
+src/rx-app/facade.ts replaces most NgRx effects/service orchestration. It coordinates login, register, CRUD, session restore, notices, busy-state tracking, logout on 401, and background polling.
+src/rx-app/api.ts replaces Angular HttpClient with fetch wrapped in Observables. Requests are abortable on unsubscribe, auth headers are attached centrally, and API/network errors are normalized.
+src/rx-app/templates.ts contains all HTML as TypeScript template literals. src/styles/styles.css holds the styling.
+How pages work
+
+Each screen is a plain controller with mount() and destroy(), not an Angular component. See src/rx-app/controllers/authentication-page.ts, src/rx-app/controllers/stock-page.ts, and src/rx-app/controllers/wine-form-page.ts.
+Controllers render by setting innerHTML from template functions, then bind native DOM events with addEventListener.
+RxJS is used inside controllers where it adds value. The stock page combines store state with a local search stream, and the wine form uses fromEvent, debounceTime, distinctUntilChanged, and switchMap for Wine.com search suggestions.
+Data flow
+
+User interaction happens in a controller.
+The controller calls the facade.
+The facade calls the API client and updates the store.
+The store emits new state through RxJS.
+The shell or controller subscriptions re-render affected UI.
+Compared to the original Angular/NgRx app, the equivalents are:
+
+Angular components -> controllers + template functions
+NgRx store/actions/reducers -> src/rx-app/store.ts
+NgRx effects/services -> src/rx-app/facade.ts
+Angular router/guards -> src/rx-app/router.ts plus redirect logic in src/rx-app/app.ts
+HttpClient -> src/rx-app/api.ts
+So the converted app is not “Angular without decorators”; it is a framework-free SPA where RxJS is the reactive backbone and the DOM is managed directly. If you want, I can next give you a file-by-file walkthrough or draw the runtime flow as a simple diagram.
+
+
+---------  0

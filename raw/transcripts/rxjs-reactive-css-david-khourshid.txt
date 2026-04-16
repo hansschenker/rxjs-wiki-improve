@@ -1,0 +1,62 @@
+const box = document.querySelector('.box' );
+
+const mouseMove$ = Rx.Observable
+.fromEvent (box, 'mousemove' )
+.map (e => ({
+x: e.clientX,
+y: e.clientY
+});
+
+const hBox = new Hammer (box);
+
+const pan$ = Rx.Observable
+.fromEventPattern (handler =>
+hBox.on('panleft panright', handler))
+.map (e => ({
+deltaX: e.deltaX,
+deltaY: e.deltaY
+});
+
+observable$.subscribe((value) => {
+// do anything with the value
+});
+
+pan$.subscribe((value) => {
+const { deltaX } = value;
+
+box.style
+.setProperty (' -- delta-x', deltaX);
+
+});
+
+------
+
+
+const box = document.querySelector('#box');
+const hBox = new Hammer(box);
+const noop = () => {};
+
+const springBack = fromX => Rx.Observable
+. fromEventPattern(handler => dynamics.animate(
+{ deltaX: fromx },
+{ deltaX: 0 },
+
+change: e => handler(e.deltaX),
+type: dynamics.spring
+
+), noop);
+
+const pan$ = Rx.Observable
+.fromEventPattern(handler =>
+hBox.on('panleft panright panend', e => handler(e)), noop);
+
+const move$ = pan$
+.switchMap(e => e.type === 'panend'
+? springBack(e.deltaX)
+: Rx.Observable.of(e.deltaX));
+
+move$. subscribe(deltaX => {
+box. style. setProperty(' -- delta-x', deltaX);
+})
+
+---------

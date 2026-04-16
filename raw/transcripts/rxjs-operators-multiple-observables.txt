@@ -1,0 +1,164 @@
+Core combination operators (flat, multi-source)
+
+These wire streams together at the value level.
+
+1️⃣ combineLatest
+
+combineLatest(a$, b$, ...)
+
+combineLatestWith(...)
+
+Semantics
+
+waits until all sources have emitted once
+
+emits on any new value
+
+always uses latest value from each source
+
+Shape
+
+A ----a1------a2----->
+B ------b1----------b2->
+C -----------c1--------->
+=> [a2, b1, c1]
+
+2️⃣ withLatestFrom
+
+withLatestFrom(other$, ...)
+
+Semantics
+
+one primary stream
+
+samples latest values from others
+
+only emits when source emits
+
+Policy
+
+“source-driven combineLatest”
+
+3️⃣ zip
+
+zip(a$, b$, ...)
+
+zipWith(...)
+
+Semantics
+
+strict index alignment
+
+waits for nth value from each stream
+
+completes when any source completes early
+
+Policy
+
+“lockstep values”
+
+4️⃣ forkJoin
+
+forkJoin(a$, b$, ...)
+
+Semantics
+
+waits for completion
+
+emits exactly once
+
+uses last value from each source
+
+Policy
+
+“join at the end”
+
+🏁 Competitive operators (multi-source, flat)
+5️⃣ race
+
+race(a$, b$, ...)
+
+raceWith(...)
+
+Semantics
+
+first stream to emit wins
+
+all others are unsubscribed
+
+winner is passed through untouched
+
+Policy
+
+“first responder wins”
+
+🧪 Boolean / aggregation across streams
+
+These still consume multiple Observables, but reduce them to a single value stream.
+
+6️⃣ merge ❌ (excluded)
+
+⚠️ emits values from multiple streams, but does not synchronize
+⚠️ still flat, but conceptually interleaving, not combining
+(you may or may not want to include it depending on strictness)
+
+6️⃣ combineLatestAll ❌ (excluded)
+
+higher-order (works on Observables of Observables)
+
+📦 Utility combinators (less common but valid)
+7️⃣ onErrorResumeNext
+
+accepts multiple Observables
+
+subscribes sequentially on error or completion
+
+never errors
+
+Policy
+
+“fallback chain”
+
+8️⃣ concat ❌ (excluded by nesting rule)
+
+Even though it emits plain values, it subscribes sequentially and treats streams as units, not values.
+
+✅ Final canonical list (what you want)
+Flat, multi-Observable, value-level operators
+Operator	Policy
+combineLatest	latest of all
+combineLatestWith	pipeable form
+withLatestFrom	source-driven sampling
+zip	index-aligned
+zipWith	pipeable form
+forkJoin	join on completion
+race	first wins
+raceWith	pipeable form
+onErrorResumeNext	fallback sequencing
+🧠 Mental model (RxJS machine view)
+
+These operators:
+
+do not create inner streams
+
+do not flatten
+
+only decide how values line up in time
+
+are pure wiring policies
+
+Flattening operators (mergeMap, switchMap, …) decide execution.
+These decide coordination.
+
+If you want next:
+
+a decision table: Which one do I pick and why?
+
+a timeline diagram set (combineLatest vs zip vs withLatestFrom)
+
+or a formal algebra:
+combineLatest = cartesian + time,
+zip = cartesian + index,
+withLatestFrom = sample + gate
+
+Say the word 👌

@@ -1,0 +1,527 @@
+https://www.youtube.com/watch?v=ZOCCzDNsAtI&list=PLw5h0DiJ-9PDGI3vMoBLRpsx3ZYD65-Qd&index=1
+
+
+This video provides an introduction to Functional Reactive Programming (FRP) (0:07) in JavaScript. The speaker, Chris Meiklejohn, discusses the motivations behind FRP, contrasting it with traditional imperative programming by highlighting the difficulties of managing mutable state and expressing relationships over time (1:08-3:41).
+
+Key Concepts of FRP:
+
+Reactive Programming (2:57): Focuses on expressing how values relate over time, where changes in one value automatically trigger recomputation in dependent values (3:46). This is often seen in data flow languages like Verilog (4:07).
+Functional Reactive Programming (5:17): Applies functional programming techniques (like map, filter, lift) to the reactive programming model (5:20-5:37).
+Event Streams (5:47): Represent discrete occurrences of events over time, such as mouse clicks or key presses (5:57-6:31). These streams are composable using operations like filter (6:47), map (7:27), and merge (7:52).
+Behaviors (Signals) (8:26): Represent values that have a continuous value over time, such as mouse position or the value of an input field (8:34-9:08). Behaviors can be transformed using functions like lift (9:11).
+Switching (10:36): A mechanism to change the system's behavior based on higher-order event streams, allowing the system to observe different streams under varying conditions (10:36-11:23).
+Glitch-Free Propagation (11:32): A desirable property in some FRP systems that ensures topological evaluation of dependencies to prevent inconsistent states or errors like "divide by zero" (11:32-13:10).
+The video then explores several implementations and frameworks:
+
+Flapjax (14:08): One of the first major JavaScript implementations of FRP, known for its "transparent reactivity" where operations on behaviors automatically expose and evaluate underlying event streams (15:50-18:23).
+RxJS (18:27): Originating from Microsoft, this library provides reactivity through observables and observers, with features like throttle and distinctUntilChanged (18:57-21:10). It does not, however, guarantee glitch-free propagation (19:16).
+Bacon.js (21:13): Inspired by RxJS and Reactive Banana, it offers similar stream manipulation and behavior changes (21:35-25:27), but also lacks glitch-free propagation (21:42).
+Finally, the speaker discusses the application of FRP in Node.js (25:38) using libraries like RxJS (25:43) and how Flapjax and Bacon.js can be used in Node.js (27:10). He also mentions other options like ClojureScript libraries Shafty and Javelin (28:01), and the language Elm (29:22) for building FRP applications.
+
+
+
+Why avoid state mutation?
+What is glitch-free propagation?
+How does 'switching' work?
+What is transparent reactivity?
+Transparent reactivity is a concept in Functional Reactive Programming where you don't need to use special operators to perform mapping or transformations on behaviors (15:50). Instead, when you apply a normal operation (like division in the example), the system automatically (15:38):
+
+Exposes the underlying event stream of the behavior.
+Calls and sets the function of evaluation every time that event stream emits a new value.
+Saves the new value.
+For instance, if you have a behavior whose value changes over time and you divide it by a number, the system transparently handles the re-evaluation and updates the result whenever the behavior's value changes (15:31-15:45).
+
+
+
+How do FRP types differ?
+How do Flapjax and Bacon.js / RxJS approaches compare?
+How does Elm relate to FRP?
+What is Flapjax
+Flapjax is one of the first and most notable implementations of Functional Reactive Programming (FRP) in JavaScript (14:08). It was developed at Brown University (0:59, 14:09), and a paper about it was published at OOPSLA 2009 (14:35).
+
+Key features of Flapjax (14:20):
+
+It provides both a language and a framework for FRP.
+It includes a Haskell compiler that can emit JavaScript code.
+It offers a JavaScript runtime that can be integrated directly into your program, allowing for interoperability with existing JavaScript code.
+Flapjax is known for its transparent reactivity (15:50), meaning you don't need special operators to map or transform behaviors; the system automatically handles the propagation of changes.
+The video provides an example of Flapjax code to demonstrate how a timer behavior can be defined and transformed, and how event streams can be used to react to changes in the window's hash (14:51-17:02). It also illustrates how Flapjax handles switching (17:08) to dynamically change system behavior based on event streams (17:08-18:23).
+
+
+
+Why use synchronous data flow?
+How does `scan` operate in Bacon.js?
+How can Node.js integrate FRP?
+how does Flapjax handle propagation of changes
+Flapjax handles the propagation of changes through a concept called transparent reactivity (15:50).
+
+This means that when you apply operations to behaviors (values that change over continuous time), Flapjax automatically (15:36):
+
+Exposes the underlying event stream of that behavior (15:38).
+Calls the function of evaluation for that operation every time the event stream emits a new value (15:41-15:43).
+Saves the new value of the transformed behavior (15:45).
+Essentially, Flapjax "automatically knows" when any of the underlying behaviors or event streams change, and it recomputes the dependent values without requiring explicit calls to special operators for mapping or transformation (24:16-24:19).
+
+
+
+Why avoid shared mutable state?
+How does `select` operate in RxJS?
+What are higher-order event streams?
+what is the difference between reactive and functional reactive programming
+The video explains the difference between reactive and functional reactive programming as follows:
+
+Reactive Programming (2:57):
+
+It's a programming paradigm where you express relationships between values over time (3:46).
+If a value changes, any other values that are dependent on it are automatically recomputed (3:50-3:52).
+It essentially involves building a dependency tree where the value of one variable is dependent on others, and when those dependencies change, the variable is recomputed (3:54-4:04).
+It has roots in data flow languages like Verilog, Lucid, and Lustre (4:07-4:15).
+Functional Reactive Programming (FRP) (5:17):
+
+FRP is the application of the reactive programming model using functional programming techniques (5:20-5:24).
+This means it incorporates operations and concepts commonly found in functional programming, such as map, lift, filter, and delaying events (5:26-5:34).
+Essentially, FRP takes the idea of reacting to changes over time and combines it with the principles of pure functions and immutability for easier reasoning about code (1:40-1:46).
+
+
+Why avoid depth-first evaluation?
+How do observables enhance reactivity?
+How does Bacon.js handle constant streams?
+a + b = c is a one time relationship
+In a traditional, imperative program, an assignment like "a = b + c" represents a one-time relationship (2:57-3:25).
+
+Here's why (3:00):
+
+When a is assigned the value of b plus c, it gets that specific value at that moment in time.
+If b or c change their values later on, a will not automatically update (3:08-3:10).
+a's value becomes independent of b and c once it's assigned, unless explicitly reassigned (3:13-3:15).
+This is a key contrast with reactive programming, where the relationship is continuous over time (3:46-3:52).
+
+
+
+Why verify critical systems?
+How does `distinctUntilChanged` optimize?
+What are FRP's core motivations?
+in reactive programming we are building a dependency tree
+Yes, that's correct! In reactive programming, you are essentially building a dependency tree (3:54).
+
+The value of one variable, like a, is declared to be dependent on the values of other variables, such as b and c. If b or c change, a will be automatically recomputed (3:48-3:52). This ongoing relationship is what defines the dependency tree.
+
+
+
+How do behaviors cache values?
+How does Bacon.js manage activity?
+How can FRP aid Node.js?
+how can a dependency tree be built in Javascript
+In JavaScript, a dependency tree in reactive programming is built by using specialized libraries that provide constructs for event streams and behaviors. The video highlights how this is achieved through different functional reactive programming frameworks:
+
+Flapjax (14:08):
+
+It allows you to define behaviors that represent values over continuous time, like timerB which continuously provides the current time (14:54-15:08).
+Operations like Math.floor(timerB / 1000) automatically create a dependency. secondsB depends on timerB (15:22-15:34). Flapjax uses "transparent reactivity," where the system automatically re-evaluates the expression whenever timerB changes, without requiring special syntax for the dependency (15:50-15:55).
+You can also derive event streams and then convert them into behaviors, filtering for unique changes to establish a dependency on those specific changes (16:39-16:55).
+RxJS (18:27):
+
+You create "observables" from events, like key presses in an input field (19:22-19:24).
+You then chain operations like select (to extract values), where (to filter based on conditions), throttle (to control event frequency), and distinctUntilChanged (to emit only unique values) (19:27-20:04).
+Each chained method creates a new observable that depends on the previous one, forming a processing pipeline that is a form of dependency tree.
+switchLatest is a powerful operator that handles dependencies by ensuring only the latest active observable's values are processed, effectively managing changing dependencies (20:28-20:47).
+Bacon.js (21:13):
+
+You can create "event streams" from DOM events, such as button clicks (21:58-22:04).
+These streams can be mapped to new values (e.g., mapping a '+' click to 1 and a '-' click to -1) (22:25-22:36).
+Event streams can then be merged, creating a new stream that depends on both merged sources (22:38-22:45).
+The scan operator is used to build a dependency for an accumulating value (like a counter), where the current value depends on the previous value and the latest event (23:04-23:11).
+For behaviors (properties), Bacon.onValues allows you to define a function that will be applied whenever any of the dependent properties change, explicitly stating the dependency (23:34-23:40).
+flatMapLatest is similar to RxJS's switchLatest, allowing the system's behavior to switch its dependency to a different event stream based on external activity (24:40-25:27).
+In essence, these libraries provide functions and operators that, when chained together, implicitly or explicitly define how data flows and how one piece of data depends on another, thereby building a dependency tree.
+
+
+
+Why was Flapjax significant?
+How does `switchLatest` improve UX?
+What are "properties" in Bacon.js?
+Functions that depend on each other can build a dependency tree
+Yes, that's absolutely correct! Functions that depend on each other are precisely how a dependency tree is built in reactive programming (3:54-3:56).
+
+Here's how it works in the context of functional reactive programming:
+
+Expressions Define Dependencies: Instead of assigning a fixed value, you define an expression where the value of one "reactive" element (like a behavior or event stream) is calculated based on the values of others (3:48-4:04).
+Automatic Recomputation: When any of the "inputs" to that expression change, the function that defines their relationship is automatically re-executed, and the "output" is updated (3:50-3:52). This means the relationship isn't a one-time assignment but a continuous, dynamic one.
+Chaining Operations: In FRP libraries like Flapjax, RxJS, or Bacon.js, you chain functions (like map, filter, merge, scan, lift) to transform or combine event streams and behaviors (5:26-5:34, 13:13-13:56). Each of these operations creates a new reactive element that is dependent on the element(s) it's applied to.
+For example, if you have a behavior representing the current time, and then you apply a function to divide that time by 1000 to get seconds, the seconds behavior is dependent on the original time behavior (15:22-15:34). If the time behavior changes, the seconds behavior automatically recomputes. This chaining of functions creates the dependency tree, where the flow of data and updates is managed by these inter-dependent functional transformations.
+
+
+
+Why use `filterRepeats`?
+How do Haskell and JavaScript FRP differ?
+What are "reified interfaces" in Node.js?
+to build a dependency tree you must be able to build a pipeline of operations
+Yes, that's an excellent way to put it! To build a dependency tree in reactive programming, you must be able to build a pipeline of operations (19:27-20:04, 22:50-22:57).
+
+The video demonstrates this through several examples:
+
+Chaining Transformations: You start with an initial event stream or behavior (like key presses or mouse movements) and then apply a sequence of operations such as map, filter, or select (6:47-7:10, 19:27-19:39). Each operation takes the output of the previous one as its input, forming a pipeline where data is transformed step-by-step.
+Combining Streams: Operations like merge or lift allow you to combine multiple streams or behaviors into a new one (7:44-8:01, 10:24-10:29). This new stream or behavior is dependent on all its source inputs, creating a branching point in the dependency tree that then continues the pipeline.
+Controlling Flow: Operations like throttle or distinctUntilChanged manage how frequently or under what conditions values propagate through the pipeline, refining the dependency (19:42-20:04).
+This pipeline approach is how the continuous relationships and automatic recomputation inherent in reactive programming are achieved, as each step in the pipeline is a function that reacts to changes from its upstream operations upstream.
+
+
+
+Why use `map` in FRP?
+What are "void callbacks"?
+How do event streams compose?
+Lustre is a dataflow programming language
+Yes, the video explicitly states that Lustre is a data flow language (4:14-4:15).
+
+It's mentioned in the context of reactive programming having a lot of history in data flow languages, alongside Verilog and Lucid (4:07-4:15). The presenter also points to a compelling paper about verifying critical systems using synchronous data flow languages, highlighting Lustre's use in expressing dependencies declaratively and enabling static analysis (4:20-5:14).
+
+
+
+Why use `collect`?
+How does Bacon.js integrate jQuery?
+What is `shafty`'s purpose?
+FRP is functional programming techniques combined with reactive programming
+Yes, that's exactly right!
+
+Functional Reactive Programming (FRP) combines the reactive programming model with functional programming techniques (5:17-5:24).
+
+This means it leverages concepts like (5:26-5:34):
+
+Map: Transforming values in a stream.
+Lift: Applying functions to reactive values (often in the context of behaviors).
+Filter: Selecting specific events from a stream.
+Delay: Postponing the propagation of a value.
+
+
+Why use `startWith`?
+What are `asynchronous subjects`?
+What is Javelin's unique model?
+FRP has two main data types Events and Behaviors
+That's correct! The video explains that Functional Reactive Programming (FRP) primarily uses two main data types:
+
+Event Streams (also called "Events" or "Streams") (5:42-5:50):
+
+These represent discrete occurrences over time (6:05-6:07).
+Examples include mouse clicks (6:11-6:15) or key presses in a text field (6:27-6:31).
+Event streams are composable, meaning you can apply operations like filter (6:47-7:08) or map (7:27-7:41) to them, or even merge multiple streams together (7:44-8:12).
+Behaviors (sometimes called "Signals" in earlier literature) (5:51-5:53, 8:26-8:32):
+
+These represent values that exist over continuous time (8:34-8:36, 8:56-8:59).
+Examples include the continuous position of a mouse on a screen (8:40-8:51) or the current value of an input field (9:02-9:08).
+Behaviors typically have underlying event streams and can be thought of as caching the last value seen from that stream (9:42-9:51).
+You can apply functions to behaviors (e.g., lift to transform the value, like making text uppercase) to derive new behaviors (9:09-9:39).
+
+
+How did Flapjax influence other FRP?
+What are "reified interfaces" for Node.js?
+How does `scan` differ from `map`?
+Events are sequences of discrete events like keypressen
+That's right! The video describes Events (or Event Streams) as (5:42-5:50):
+
+Discrete occurrences over time (6:05-6:07).
+A prime example given is key presses (6:38-6:41). Other examples include mouse clicks (6:09-6:15) or change events in a text field when a key is pressed (6:27-6:31).
+They are distinct from behaviors, which have a value at all points in continuous time (8:56-8:59).
+
+
+
+Why avoid void callbacks?
+How do behaviors handle time?
+Behaviors are designed to represent values that exist over continuous time (8:34-8:36, 8:56-8:59).
+
+Here's how the video explains it:
+
+Always Have a Value: Unlike event streams, which have discrete occurrences, a behavior always has a value at any given point in time (8:51-8:56).
+Values Change at Discrete Points: While they exist continuously, their values only change at discrete points in time, typically driven by an underlying event stream (9:56-9:59).
+Caching Last Value: A behavior can be thought of as "caching the last value it saw of an event stream" (9:44-9:51). This means it holds the current state derived from those discrete events, making it available at any moment.
+An example given is the mouse position on the monitor (8:40-8:55) or the value of an input field (9:02-9:08). Even though the mouse isn't constantly moving or a key isn't always being pressed, its position or the field's value always exists and can be queried.
+
+
+
+Why are side effects problematic?
+How do event streams provide composability?
+What is a "behavior" in FRP?
+What is transparent reactivity?
+Transparent reactivity is a concept in Functional Reactive Programming (FRP) where you don't need to use special operators to apply functions to behaviors or event streams (15:48-15:55).
+
+The video explains this using a Flapjax code example where a time behavior (timerB) is directly divided by 1000 (15:29-15:34). Even though timerB is a behavior that changes over time, the system automatically knows to re-evaluate the division and update the derived value every time timerB emits a new value (15:36-15:47). It essentially exposes the underlying event stream and sets the function for evaluation whenever that stream emits a new value, then saves that value (15:38-15:47).
+
+
+
+Why use `switch`?
+What are FRP's data flow origins?
+What's the "hello world" of FRP?
+KP --> EKP
+Saya tidak dapat memenuhi permintaan tersebut. Coba tanyakan hal lain tentang video ini.
+
+
+
+merge results in either or
+That's a key characteristic of the merge operation in FRP, as explained in the video (7:52-7:53)!
+
+When you merge two event streams, like Mouse events and Key press events (7:44-7:52), the resulting merged stream will contain events from either of the original streams (8:00-8:08). It's crucial to understand that it's "either-or" and not a unified object (8:08-8:12). The merged stream will emit an event whenever any of its source streams emit an event, preserving the individual event types.
+
+
+
+What are "signals" in FRP?
+What is `floc`?
+What's the "to-do FRP" repo?
+What are Signals
+Signals are another name for behaviors (8:26-8:28), as referenced in the early Conal Elliott literature (8:29-8:31).
+
+As explained in the video, signals (behaviors) are (8:34-8:36):
+
+Values that have values over continuous time.
+Examples include the mouse position on a monitor (8:40-8:55) or the value of an input field (9:02-9:08), because these values always exist even when they are not actively changing.
+
+
+What are FRP's two main data types?
+How does `transparent reactivity` simplify coding?
+How does Bacon.js's `flat map latest` work?
+mouse position is a Behavior, it has always a value
+Yes, that's correct! The video uses mouse position as a primary example of a Behavior (8:40-8:48), emphasizing that it always has a value over continuous time (8:56-8:59). Even though the mouse's value might change at discrete points, its position is continuously available.
+
+
+
+Why use `lift`?
+How does `collect` function?
+What is a data flow invariant?
+merge, switch and union
+The video explains two of these concepts within Functional Reactive Programming (FRP):
+
+Merge: This operation combines two or more event streams into a single new stream (7:52-7:53). The resulting stream will receive events from both of the original streams (7:58-8:00). It's important to note that the merged stream will contain either the mouse move event or the key press event, not a unified object (8:05-8:12).
+
+Example: Merging mouse events and key press events into a single stream (7:44-7:53).
+Switch: This concept allows for changing the behavior of the system based on higher-order event streams (10:36-10:47). It enables you to dynamically choose which event stream to observe (11:02-11:09). Essentially, you can have an event stream that produces other event streams, and switch will let you observe the events from the latest active of these nested streams (10:40-11:09, 17:08-17:14).
+
+Example: In Flapjax, a switch operation can change observation from an edit box's value stream to a "stop editing" sentinel stream based on user input like blurring or pressing return (17:43-18:20). In RxJS, switchLatest ensures you're always listening to the most recent AJAX request if a user types rapidly (20:26-20:47).
+The concept of "union" in the context of FRP operations is not explicitly discussed in this video.
+
+
+
+Why avoid void callbacks?
+What are "reified interfaces" for Node.js?
+How does `scan` differ from `map`?
+switch means get latest
+Yes, in essence, switch often means getting the "latest" or "most active" stream among a set of dynamically changing streams.
+
+As the video explains, switch allows you to (10:42-10:47, 17:08-17:14):
+
+Change the behavior of the system based on higher-order event streams.
+Return whichever of the latest of these streams was most active, or return the latest event in that stream (11:02-11:09).
+For example, with RxJS' switchLatest (20:26-20:29), if a user is typing quickly and initiating multiple search requests, switchLatest ensures that only the results from the latest search query are observed, discarding any previous, slower requests (20:38-20:47).
+
+
+
+What makes Flapjax unique?
+How does `distinctUntilChanged` benefit streams?
+How does Bacon.js handle constant streams?
+what is glitch free propagation
+Glitch-free propagation is a desirable property in some Functional Reactive Programming (FRP) systems (11:32-11:40).
+
+It ensures that when values propagate through a dependency graph, the system performs a topological evaluation (12:00-12:01). This means that all dependencies of an object are evaluated before the object itself is recomputed (12:04-12:11).
+
+The video illustrates a "violation of a data flow invariant" (12:14-12:18) where, without glitch-free propagation, a depth-first evaluation could lead to errors like a divide by zero (12:46). To prevent this, the system must ensure that all dependencies are computed in the correct order (12:48-12:52).
+
+While beneficial for correctness, implementing glitch-free propagation can slow down propagation due to the overhead of topological sorting (13:01-13:04). Not all FRP systems have this property (12:54-12:55), and its necessity depends on the application's concerns (12:59-13:02).
+
+
+
+What are "properties"?
+Why use `switchLatest`?
+How does `shafty` relate?
+glitchfree means applying a topological sort on the dependency graph
+Yes, that's correct! The video states that to achieve glitch-free propagation, it's necessary to perform a topological evaluation or topological sort on the dependency graph (12:00-12:01, 13:04-13:06).
+
+This ensures that all dependencies are computed in the correct order before a value is recomputed, preventing inconsistencies or errors (12:07-12:11, 12:48-12:52).
+
+
+
+Why is mutation problematic?
+How does `startWith` affect behaviors?
+How does `delay` function?
+what is breath-first evaluation
+In the context of the dependency graph in Functional Reactive Programming, "breath-first evaluation" refers to evaluating all the dependencies of an object before evaluating its dependents (12:04-12:11).
+
+The video specifically mentions this as a method to ensure a topological evaluation for glitch-free propagation (12:00-12:01, 12:04-12:07). This means that computations proceed level by level through the dependency graph, ensuring that all upstream values are settled before any downstream calculations that rely on them are performed.
+
+
+
+What is an observer?
+What is Verilog's FRP history?
+How does `throttle` function in RxJS?
+when is a  value settled
+The video does not explicitly define when a "value is settled."
+
+However, in the context of glitch-free propagation and breath-first evaluation, the implication is that a value is considered "settled" once all of its dependencies have been evaluated and their current values determined (12:07-12:11). This ensures that when a value is computed or recomputed, it uses the correct and final values from all the inputs it depends on for that particular propagation cycle (12:48-12:52).
+
+
+
+Why use `filterRepeats`?
+How does `shafty` relate?
+What are "reified interfaces" for Node.js?
+Common FRP operators are:
+- SEND 
+- HOLD 
+- MERGE 
+-CONSTANT
+- CHANGES 
+- BIND 
+- SWITCH 
+- MAP 
+- NOT
+- DELAY 
+- COLLECT 
+- FILTER 
+- SEND 
+- ONCE 
+- LIFT
+- SKIP-FIRST 
+- FILTER-REPEATS 
+- SNAPSHOT
+You've listed many common Functional Reactive Programming (FRP) operators, and the video discusses several of them:
+
+Merge: Combines event streams (13:19-13:20, 7:52-7:53).
+Constant: Emits a constant value every time an event is received (13:21-13:24).
+Changes: Exposes the underlying event stream of a behavior (10:06-10:12).
+Switch: Changes the system's behavior by switching to the latest active event stream (10:36-10:47, 17:08-17:14).
+Map: Transforms values within a stream (13:29-13:31, 7:27-7:30).
+Delay: Delays the propagation of a value (13:32-13:34).
+Collect (similar to Reduce/Scan): Aggregates values in a stream (13:34-13:36, 23:04-23:10).
+Filter: Filters events based on a condition (13:36-13:38, 6:47-6:50).
+Once: Not explicitly listed as "once," but distinct until changed (19:55-19:58) and filter repeats (16:45-16:46) achieve a similar effect of only emitting unique changes.
+Lift: Applies a function to a behavior (9:09-9:13).
+Skip-First: Skips values in the stream (13:54-13:56).
+Filter-Repeats: Only emits unique changes on an event stream (16:45-16:46).
+Snapshot: Returns things back to values (13:51-13:54).
+The operators SEND, HOLD, BIND, and NOT are not explicitly mentioned in the video's discussion of common FRP operations.
+
+
+
+Why verify critical systems?
+How did Flapjax address Haskell FRP issues?
+What are "asynchronous subjects"?
+what is flapjax
+Flapjax is one of the early and significant implementations of Functional Reactive Programming (FRP) in JavaScript (14:08-14:15).
+
+Here's a breakdown of what it is:
+
+Language and Framework It provides both a language and a framework for FRP (14:22).
+Haskell Compiler Integration Flapjax has a Haskell compiler that can emit JavaScript code, or it can provide a JavaScript runtime that integrates with existing JavaScript programs (14:25-14:32).
+Key Concepts It uses core FRP concepts like Behaviors (values that change over time, like elapsedTime in a timer) and Event Streams (discrete occurrences, like button clicks).
+Transparent Reactivity A notable feature of Flapjax is its "transparent reactivity" (15:50-15:55). This means you don't need special operators to define how values derived from behaviors should react to changes. For example, dividing a time-varying behavior by 1000 automatically sets up the system to re-evaluate that expression whenever the behavior's value changes (15:31-15:45).
+Declarative Dataflow It simplifies web application development by allowing you to declare relationships between data, and Flapjax automatically handles re-evaluation when inputs change, much like a spreadsheet.
+Flapjax was developed at Brown University, and a paper about it was presented at OOPSLA 2009 (0:57-1:01, 14:35-14:39). It was one of the first major JavaScript implementations to address issues seen in Haskell FRP implementations (14:43-14:48).
+
+It aims to simplify the complexity of handling asynchronous operations and building rich user interfaces by providing a more functional and compositional approach compared to traditional callback-heavy JavaScript.
+
+Flapjax: Functional Reactive Web Programming
+
+Brown University Department of Computer Science
+
+Flapjax - Wikipedia
+Wikipedia
+Flapjax: a programming language for Ajax applications
+ACM Digital Library
+Flapjax - Functional Reactive Ajax | Lambda the Ultimate
+Lambda the Ultimate
+
+
+
+What are "reified interfaces" for Node.js?
+How does `distinctUntilChanged` optimize?
+What are FRP's core motivations?
+what is transparent reactivity
+Transparent reactivity is a feature in some Functional Reactive Programming (FRP) systems, like Flapjax (15:50-15:55), where you don't need to use special operators to define how computations should react to changes in their underlying values (15:50-15:55).
+
+Instead, the system automatically detects dependencies and re-evaluates expressions when any of the values they depend on change (15:31-15:45).
+
+The video gives an example where a behavior (timerB) is divided by 1000:
+javascript
+math.floor(timerB / 1000)
+
+Even though timerB is a behavior that changes over time, this expression is automatically re-evaluated every time timerB emits a new value, and the result is saved (15:31-15:45). This makes the code appear more like traditional synchronous programming, as the reactivity is handled "transparently" by the framework (15:46-15:55).
+
+
+
+Why does Bacon.js use `onValues`?
+What does RxJS `select` do?
+How did Javelin simplify glitch-free?
+why does Rxjs not have the glitch-free behavior
+RxJS does not have glitch-free propagation because, unlike some other FRP systems, it does not perform a topological sort on the dependency graph of values being propagated (19:16-19:18).
+
+This means that if a value depends on multiple other values that are updated in a single "tick" of the system, it's possible for the dependent value to be computed with an intermediate, inconsistent state, leading to a "glitch" or a temporary incorrect value. Systems with glitch-free propagation ensure that all dependencies are updated before a value is recomputed, preventing these inconsistencies (12:00-12:11, 12:48-12:52).
+
+
+
+What is `Javelin`'s core distinction?
+How does Flapjax implement `transparent reactivity`?
+What are `reified interfaces` in Node.js for?
+how can we manually assure glitch-free Behaviors in Rxjs
+The video states that RxJS does not have glitch-free propagation (19:16-19:20). It explains that this is because it doesn't perform a topological evaluation on the dependency graph, which can lead to situations where a value might be recomputed before all of its dependencies have settled on their final values for that propagation cycle (12:00-12:52).
+
+The video does not provide information on how to manually assure glitch-free behaviors in RxJS.
+
+
+
+
+
+
+----------------------------------------------------------------------------------------------------
+
+/* Only get the value from each key up */
+var keyups = Rx.Observable.fromEvent(input, 'keyup')
+.select(function (e) {
+return e.target.value;
+
+.where(function (text) {
+return text.length > 2;
+
+/* Now throttle/debounce the input for 500ms */
+var throttled = keyups
+.throttle(500 /* ms */);
+
+/* Now get only distinct values, so we eliminate the arrows */
+var distinct = keyups
+.distinctUntilChanged();
+
+-----
+function searchWikipedia(term) {
+var url = 'http://en.wikipedia.org/w/api.php?action=opensearch'
++ '&format=json'
++ '&search=' + encodeURI(term);
+return Rx.Observable.getJSONPRequest(url);
+
+var suggestions = distinct
+.select(function (text) {
+return searchWikipedia(text);
+
+.switchLatest()
+.where(function (data) {
+return data. length == 2 && data[1].length > 0;
+
+var suggestions = distinct
+.select(function (text) {
+return searchWikipedia(text);
+
+.switchLatest()
+.where(function (data) {
+return data.length == 2 && data[1].length > 0;
+
+suggestions.subscribe( function (data) {
+var results = data[]];
+/* Do something with the data like binding */
+}, function (e) {
+/* handle any errors */
+
+
+
+
+
+
+
+
+
+
+
+
+

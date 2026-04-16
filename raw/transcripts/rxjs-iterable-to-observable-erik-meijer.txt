@@ -1,0 +1,44 @@
+type Iterable[T] = ()=>(()=>Try[Option[T]])
+
+@headinthebox *loves* baby types: a factory
+function of a factory function to generate values
+of type T
+
+// flip the arrows
+
+()=> (()=>Try[Option[T]])
+
+(Try[Option[T]]=>Unit) =>Unit
+
+
+type Observable[T] = (Try[Option[T]] => Unit) =>Unit
+
+@haedinthebox loves baby types: callback that
+takes a callback that takes a value
+
+trait Observer[TJ {
+def onError(error: Throwable): Unit
+def onCompleted(): Unit
+def onNext(value: T): Unit
+}
+
+
+trait Observable[T] = {
+def subscribe(observer: Observer[T]) := >Unit
+
+}
+
+what are the four essential effects in programming
+The video explains four essential effects in programming, connected through dualization and category theory (8:46-9:38):
+
+Computation Failure (Try of T): This effect signifies that a computation can fail (8:46-8:56).
+Asynchronous Computation with Failure (Futures): Represents a computation that takes time and can also fail. Futures are shown to be connected to the "Try of T" concept through dualization (8:56-9:10).
+Synchronous Collections (Iterables): This refers to collections of values where you "pull" or block until the next value is available (9:10-9:22).
+Asynchronous Push-Based Sequences (Observables): This is the dual of iterables, representing sequences of values delivered asynchronously (9:22-9:28).
+
+def flatMap(f: T=>Observable[S]): Observable[S] = { map(f).merge }
+
+https://github.com/ReactiveX/RxJava/wiki
+
+. Introduction
+

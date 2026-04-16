@@ -1,0 +1,33 @@
+"Collections are primarily concerned with the efficient management of, and
+access to, their elements. By contrast, streams do not provide a means to
+directly access or manipulate their elements, and are instead concerned
+with declaratively describing their source and the computational operations
+which will be performed in aggregate on that source."
+
+When you consider collections such as hash tables, arrays, lists, and so forth, they all provide operations that allow you to directly access and modify values within the collection. In contrast, with a stream, you can only iterate through the values and perform actions on them, ultimately producing a new collection. This is a crucial distinction highlighted here between the two approaches. I believe this represents a significant shift from the traditional method of performing imperative mutations on collections to a more functional programming style.
+
+old world: imperative index based mutation
+new world: fp operation on collection to create new collection
+
+The values that are circles, and what you observe is that there is a new collection containing only circles. It doesn't really matter what the original collection is—I should have called it a stream, since the underlying collection could be a hash table or a list. The important part is that we take the values from the original collection, present them as a stream, then filter out everything except the circles. This results in a new stream that contains only circles, and we can then apply additional operations. Essentially, stream programming involves applying transformations to streams of values.
+
+We start with circles, and then we can incorporate additional operations. Essentially, stream programming focuses on building transformations on streams of values. If you're familiar with SQL, this is somewhat similar to what database professionals have been doing since the early 1970s. Here's another stream operation: mapping. Mapping takes a stream—in this example, a stream of circles—and produces a new stream, here a stream of diamonds. It does this by applying a function that converts a circle into a diamond. This illustrates the functional programming aspect of stream processing.
+
+To convert one stream into another, you need to provide a function that processes each element, specifying how to change a circle into a diamond. Then, you apply that function across the stream to transform it into a new stream. In the brief example, we also looked at the sum operation, which takes a stream of numerical values and returns either a stream or a value representing the total sum of the stream. The question arises: how do you represent the outcome of an operation like sum, an aggregate function? In the original example, you can see that sum returns an integer
+
+
+The sum function takes a stream of numerical values and returns a stream or a value that represents the total sum of those numbers. The question arises: how do you represent the result of an operation like sum, which is an aggregate? In the original example, sum returns an integer, but that is not the only possible option. From a more database-oriented perspective, when performing an aggregate, a collection is reduced to another collection containing just a single element, which is the sum.
+
+Stream
+Abstract: Bulk Operations Over Streams, Stream is a super simple data structure
+
+abstract away all of the underlaying collection
+making less assumption 
+
+We need to begin thinking in terms of streams, which are sequences of values where you cannot directly access any underlying data structure. The only thing you can do is receive the values one at a time, although you might not even be aware of this. Then, you transform these streams into other streams by applying higher-order functions. When I say you might not know that you get these values individually, it's because, for example, when you use map as we saw earlier, the underlying implementation of map might actually execute many of the map functions you provide in parallel. If you are familiar with Hadoop or MapReduce, this is exactly what happens—they use this abstraction of bulk processing over streams.
+
+One approach is the iterator method, which provides an iterator that includes the Choice function, as ASO would describe it, and that function is the next one. This allows you to repeatedly request the next value in the stream, and that's the extent of what you can do with a stream. By limiting ourselves to a very simple interface, we can achieve remarkable results by combining higher-order functions over such basic collections. A key advantage of a stream, or in this case an erall, is that it doesn't necessarily require an underlying collection to support the iterable. For instance, here I'm creating a straightforward program that generates a stream of random numbers. As you can see, I'm producing a stream of random numbers and then printing them, implementing it this way.
+
+
+
+

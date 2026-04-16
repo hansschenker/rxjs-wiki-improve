@@ -1,0 +1,190 @@
+circ :: Behavior Region
+circ = translate (cos time, sin time) (circle 1)
+
+/**
+ * Type representing a value that varies over time.
+ * In Haskell FRP (Functional Reactive Programming), this is typically defined as a function from Time to a value.
+ */
+export type Time = number;
+export type Behavior<T> = (t: Time) => T;
+
+/**
+ * The 'time' behavior represents the current time.
+ * Equivalent to 'time :: Behavior Time' in Haskell.
+ */
+export const time: Behavior<number> = (t: Time) => t;
+
+/**
+ * Utility to lift a constant value into a Behavior.
+ * Equivalent to 'lift0' or the 'Num' instance for Behaviors in Haskell.
+ */
+export function constant<T>(value: T): Behavior<T> {
+  return (_t: Time) => value;
+}
+
+/**
+ * Lifting a unary function (like Math.cos) to work on Behaviors.
+ */
+function lift1<A, B>(f: (a: A) => B): (b: Behavior<A>) => Behavior<B> {
+  return (b: Behavior<A>) => (t: Time) => f(b(t));
+}
+
+/**
+ * Lifted trigonometric functions.
+ * These allow 'cos time' and 'sin time' to result in a Behavior<number>.
+ */
+export const cos: (b: Behavior<number>) => Behavior<number> = lift1(Math.cos);
+export const sin: (b: Behavior<number>) => Behavior<number> = lift1(Math.sin);
+
+/**
+ * Abstract representation of a geometric Region.
+ * This mimics the 'data Region' Algebraic Data Type (ADT) in Haskell.
+ */
+export abstract class Region {}
+
+/**
+ * A Circle region, which is a primitive shape.
+ */
+export class Circle extends Region {
+  constructor(public radius: number) {
+    super();
+  }
+}
+
+/**
+ * A Translation region, which shifts another region by (x, y).
+ */
+export class Translation extends Region {
+  constructor(public x: number, public y: number, public region: Region) {
+    super();
+  }
+}
+
+/**
+ * Creates a circle behavior.
+ * Handles both constant radius and time-varying radius.
+ * @param radius The radius (Behavior or constant number)
+ */
+export function circle(radius: Behavior<number> | number): Behavior<Region> {
+  const radiusBehavior = typeof radius === 'number' ? constant(radius) : radius;
+  return (t: Time) => new Circle(radiusBehavior(t));
+}
+
+/**
+ * Translates a region behavior based on an offset behavior.
+ * @param offset A tuple of [x-behavior, y-behavior]
+ * @param regionB The region behavior to translate
+ */
+export function translate(
+  offset: [Behavior<number>, Behavior<number>],
+  regionB: Behavior<Region>
+): Behavior<Region> {
+  return (t: Time) => {
+    const x = offset[0](t);
+    const y = offset[1](t);
+    const region = regionB(t);
+    return new Translation(x, y, region);
+  };
+}
+
+/**
+ * circ :: Behavior Region
+ * circ = translate (cos time, sin time) (circle 1)
+ * 
+ * Defines a circle of radius 1 that moves in a circular path over time.
+ */
+export const circ: Behavior<Region> = translate(
+  [cos(time), sin(time)],
+  circle(1)
+);
+
+--------------- integral
+
+integral :: Behavior Real -> Behavior Real
+integral fb =
+\ts@(t:ts') -> 0 : loop t 0 ts' (fb ts)
+where loop t0 acc (t1:ts) (a:as)
+= let acc' = acc + (t1-t0) *a
+in acc' : loop t1 acc' evs ts as
+
+
+---
+/**
+ * Type alias for Behavior, representing a time-varying value sampled at specific timestamps.
+ * In this sampling-based model, it is a function from a list of times to a list of values.
+ */
+type Real = number;
+type Behavior<T> = (ts: Real[]) => T[];
+
+/**
+ * Computes the integral of a behavior with respect to time using a discrete sampling model.
+ * 
+ * integral :: Behavior Real -> Behavior Real
+ * integral fb =
+ * \ts@(t:ts') -> 0 : loop t 0 ts' (fb ts)
+ * where loop t0 acc (t1:ts) (a:as)
+ * = let acc' = acc + (t1-t0) *a
+ * in acc' : loop t1 acc' evs ts as
+ */
+const integral = (fb: Behavior<Real>): Behavior<Real> => {
+  return (ts: Real[]): Real[] => {
+    // Haskell: \ts@(t:ts') -> ...
+    // ts is the whole list, t is the first element, tsPrime is the rest.
+    if (ts.length === 0) return [];
+    const t = ts[0];
+    const tsPrime = ts.slice(1);
+
+    /**
+     * Recursive loop to perform the accumulation for integration.
+     * Haskell: where loop t0 acc (t1:ts) (a:as)
+     * 
+     * @param t0 Previous timestamp
+     * @param acc Current accumulated integral value
+     * @param times Remaining timestamps to process
+     * @param values Remaining values from the behavior
+     */
+    const loop = (t0: Real, acc: Real, times: Real[], values: Real[]): Real[] => {
+      // Pattern match (t1:ts) and (a:as). If lists are empty, recursion ends.
+      if (times.length === 0 || values.length === 0) {
+        return [];
+      }
+
+      const t1 = times[0];
+      const tsTail = times.slice(1); // the 'ts' variable in (t1:ts)
+      const a = values[0];
+      const asTail = values.slice(1); // the 'as' variable in (a:as)
+
+      // Haskell: = let acc' = acc + (t1-t0) *a
+      const accPrime = acc + (t1 - t0) * a;
+
+      // Haskell: in acc' : loop t1 acc' evs ts as
+      // Note: 'evs' is not defined in the original source and is treated as a typo.
+      // We pass the tails (tsTail and asTail) to match the loop definition signature.
+      return [accPrime, ...loop(t1, accPrime, tsTail, asTail)];
+    };
+
+    // Haskell: 0 : loop t 0 ts' (fb ts)
+    // The initial call starts with an accumulation of 0 and the behavior values for the whole list.
+    return [0, ...loop(t, 0, tsPrime, fb(ts))];
+  };
+};
+
+--- explanation
+
+- **Language Features**:
+    - **Type Aliases**: Defined `Real` as `number` and `Behavior<T>` as a function type to match the Haskell context.
+    - **As-Patterns**: The Haskell syntax `ts@(t:ts')` allows referring to the whole list as `ts` while binding the head and tail. This was implemented using standard array indexing and slicing.
+    - **Where Clause**: The Haskell `where` clause was translated as an inner function `loop` within the closure of the main function, preserving the local scope.
+    - **List Construction**: Haskell's `:` operator for list construction was translated using the TypeScript spread operator `[head, ...tail]`.
+
+- **Implementation Decisions**:
+    - **Handling 'evs'**: The provided Haskell code snippet includes a variable `evs` in the recursive call `loop t1 acc' evs ts as`. However, `evs` is not defined anywhere in the snippet, and the `loop` definition provided only takes 4 parameters: `t0`, `acc`, `(t1:ts)`, and `(a:as)`. Including `evs` would result in a syntax/runtime error in both Haskell and TypeScript. Consequently, I have treated `evs` as a typo and implemented the 4-argument recursive call necessary for the integration logic (`loop(t1, accPrime, tsTail, asTail)`).
+    - **Recursion**: preserved the recursive structure exactly as written. In a production TypeScript environment, one might use an iterative approach to avoid stack overflow on very large arrays, but the instructions require an exact translation of the source logic.
+    - **Naming**: Preserved original variable names like `t0`, `acc`, `t1`, `a`, etc. The Haskell identifier `ts'` was mapped to `tsPrime` as primes are not allowed in TypeScript identifiers.
+
+- **Dependencies**: No external dependencies are required.
+- **Potential Issues**: For extremely large timestamp arrays, the recursive `loop` might hit the JavaScript engine's call stack limit. This is a direct consequence of the source code's recursive design.
+
+
+----
+

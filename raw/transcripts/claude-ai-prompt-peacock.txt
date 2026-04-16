@@ -1,0 +1,10 @@
+I like to create a new CLI option inside internal which is going to be called get-diffs. The
+function of this CLI command is going to be to look at a different repo, the project repo, and
+get all of the commits from that repo up to a named commit. That named commit will need to be
+passed in to the CLI command. What it will then do is for each exercise, it will attempt to
+find commits in that commit history related to that exercise. For instance, if the exercise is
+02.02, it will look for commits starting with 02.02. Once it finds those commits, it's going to
+take the diff related to those commits and save it to that exercise's folder. The folder will
+be in {explainer| solution}/diffs. If it can't find a relevant folder, then it should throw an
+error. The commits are saved with this format: "02.02.01 Description". The diffs should be
+saved in this format: diffs/01-description-in-dash-case.diff

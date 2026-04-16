@@ -1,0 +1,57 @@
+So is there an algebra of time inside RxJS?
+
+Yes — in a practical sense. You can think of RxJS as extending your small LINQ-style operator algebra with a temporal algebra.
+
+A useful RxJS time algebra looks like this:
+
+time creation / clocks
+timer, interval, scheduler-driven sources.
+
+time shifting
+delay, delayWhen.
+
+time gating
+debounceTime, throttleTime, auditTime.
+
+time sampling
+sampleTime, sample, withLatestFrom when a clock stream is the trigger.
+
+time annotation
+timestamp, timeInterval via the API list / scheduler model.
+
+time windows
+bufferTime, windowTime; Rx.NET docs also show time-based overloads for buffer/window.
+
+virtual time
+VirtualTimeScheduler, marble testing with TestScheduler
+
+from, map, filter, scan, combine, latest, with, merge, concat, switch, exhaust, all, share
+
+timer, interval, delay, debounce, throttle, audit, sample, timestamp, timeInterval, windowTime, bufferTime, scheduler
+
+The best conceptual bridge
+
+SQL/LINQ gives you an algebra over collections/sequences.
+Rx adds an algebra over event time.
+
+RxJS algebra
+= LINQ-like query algebra
++ temporal algebra
++ higher-order flattening policy
++ cancellation
++ shared execution
+
+My precise verdict
+
+Yes, there are established theories for time: continuous-time signals, discrete-time signals, temporal logics, timed automata, synchronous dataflow.
+
+RxJS is not “the” Time Algebra.
+
+RxJS is best seen as a practical discrete-event temporal algebra over observable sequences, with schedulers providing the time context and time-based operators providing temporal rewiring.
+
+A very RxJS-native phrasing would be:
+
+LINQ gave Rx the sequence algebra. Time-based operators gave Rx the event-time algebra.
+
+I can turn this into a compact chart: SQL algebra vs LINQ algebra vs RxJS temporal algebra vs FRP continuous/discrete time.
+

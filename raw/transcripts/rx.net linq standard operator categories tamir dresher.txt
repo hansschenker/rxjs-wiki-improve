@@ -1,0 +1,14 @@
+
+Filtering
+Projection
+Partitioning
+Joins
+Grouping
+Set
+Time and
+Concurrency
+Element
+Generation
+Quantifiers
+Aggregation
+Error Handling

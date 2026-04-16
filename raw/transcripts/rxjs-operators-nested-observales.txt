@@ -1,0 +1,134 @@
+These are the higher-order RxJS operators — they output Observables as values:
+
+input: Observable<T>
+output: Observable<Observable<…>> (or Observable<GroupedObservable<…>>)
+
+In your mental model: they wrap packages into packages (nested streams). Nothing is flattened unless you add a flattening policy later.
+
+1) The “map-to-inner-stream” family (creates nested streams)
+
+These project each value to an Observable, but do not flatten by themselves when you use the “map” (not “Map”) variant:
+
+map (if your mapping function returns an Observable → result is nested)
+
+mergeMap / concatMap / switchMap / exhaustMap ✅ (these also flatten — but they still produce inner streams as part of their job)
+
+mergeScan ✅ (accumulator returns an Observable; effectively produces inner streams while managing state + concurrency)
+
+expand ✅ (recursively projects to Observables; creates inner streams repeatedly)
+
+If you want the explicitly nested version (no flatten), you typically use map(x => inner$) rather than mergeMap.
+
+2) Windowing operators (emit inner Observables as windows)
+
+These always produce nested Observables:
+
+window
+
+windowCount
+
+windowTime
+
+windowToggle
+
+windowWhen
+
+Each emitted value is an Observable representing a “time slice / window” of the source.
+
+3) Grouping (emit GroupedObservable)
+
+This is nested, but with a key:
+
+groupBy
+
+Output is Observable<GroupedObservable<K, T>>.
+
+4) Higher-order join helpers (return Observables from join functions)
+
+These create inner streams as part of the coordination:
+
+partition (returns a tuple of two Observables, not nested-in-one, but still “produces Observables”)
+
+connect (lets you build a shared multicast and return a composed Observable; not nested, but it manufactures streams)
+
+(These two aren’t “Observable-of-Observable”, but they produce new Observables structurally, so I’m calling them out.)
+
+The clean “canonical” nested-output list
+
+If you mean strictly Observable<Observable<…>> (or GroupedObservable), the tight list is:
+
+window, windowCount, windowTime, windowToggle, windowWhen
+
+groupBy
+
+plus any use of map / scan / etc. where your function returns an Observable (user-controlled nesting)
+
+And if you include the operators that create inner streams and immediately flatten (still nested conceptually):
+
+mergeMap, concatMap, switchMap, exhaustMap
+
+mergeScan
+
+expand
+
+If you want, I can also give you a one-line “why/when” per operator, or a strict split into:
+
+nested-only (produce inner streams, don’t flatten)
+
+nested+flatten (produce inner streams, then apply a flattening policy)
+
+nested only would be the Operators ...All
+
+Exactly 👍 — “nested only” = the …All operators.
+
+These operators consume an Observable<Observable<T>> and do not flatten by policy themselves.
+They simply delegate flattening to an explicit strategy.
+
+✅ RxJS nested-only (…All) operators
+
+These produce nested Observables as input and then apply a flattening policy, but only because the nesting already exists.
+
+Canonical list
+
+mergeAll
+→ flatten policy: allow overlap
+
+concatAll
+→ flatten policy: queue inner streams
+
+switchAll
+→ flatten policy: only latest
+
+exhaustAll
+→ flatten policy: ignore while busy
+
+🧠 Mental model (your language)
+
+These operators:
+
+do not create inner Observables
+
+only consume nested streams
+
+are pure flattening policies
+
+are the second half of map → flatten
+
+In equations:
+
+mergeMap   = map(fn) + mergeAll
+concatMap  = map(fn) + concatAll
+switchMap  = map(fn) + switchAll
+exhaustMap = map(fn) + exhaustAll
+
+🔍 Why this matters
+
+Using …All makes the pipeline structurally explicit:
+
+Where nesting is created → map
+
+How nesting is executed → …All
+
+When cancellation happens → policy, not accident
+
+This is the cleanest way to teach, debug, and reason about higher-order RxJS.

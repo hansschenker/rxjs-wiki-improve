@@ -1,0 +1,180 @@
+RxJS is a library designed for functional reactive programming (FRP) that offers a mathematically sound abstraction for handling asynchronous, event-driven, and time-dependent computations in JavaScript and TypeScript.
+
+The Observable type serves as a primary representation of values that change over time.  
+Observable: the core abstraction  
+An Observable<T> denotes a lazy, potentially infinite, time-ordered sequence of values of type T.
+
+| Iterable                    | Observable                    |  
+| --------------------------- | ----------------------------- |  
+| Pull-based                  | Push-based                    |  
+| Consumer controls iteration | Producer controls emission    |  
+| Synchronous                 | Asynchronous (or synchronous) |  
+| Finite by default           | Potentially infinite          |
+
+RxJS has strong foundations in functional programming and category theory.
+
+Observable is a Functor:  
+map :: Observable<A> → (A → B) → Observable<B>  
+It adheres to identity and composition laws.
+
+Applicative Functor  
+RxJS enables Applicative-style composition through operators like:  
+combineLatest, withLatestFrom  
+These allow independent time-varying computations to be combined without ordering effects.
+
+Monad
+
+Observable is also a Monad, with:  
+of as pure  
+switchMap, mergeMap, concatMap as bind  
+switchMap :: Observable<A> → (A → Observable<B>) → Observable<B>  
+This supports effectful sequencing, where each value triggers a new asynchronous computation.
+
+7. Why RxJS exists
+
+RxJS addresses challenges that arise in systems involving:  
+Multiple asynchronous data sources  
+Events changing over time  
+Cancellation and cleanup  
+Complex coordination logic  
+Declarative, composable workflows  
+Common application areas include:  
+User interfaces  
+Animations  
+Networking  
+Streaming data  
+State machines  
+Reactive DSLs
+
+in abstract terms:
+
+RxJS models asynchronous, effectful, time-dependent computations as composable, lazy, 
+push-based monadic streams with explicit resource management.
+
+This is why RxJS scales from simple event handling to domain-specific reactive languages, while remaining type-safe, algebraic, and principled—especially when used with advanced TypeScript typing.
+
+
+[{ T, a } …]
+is therefore a valid semantic abstraction, not a claim about runtime representation.
+
+
+
+An RxJS Observable can be semantically modeled as a lazy, possibly infinite, time-ordered sequence of timestamped notifications (T × Notification<A>), interpreted relative to a scheduler and instantiated upon subscription.
+
+
+| JavaScript Iterable / Iterator | RxJS Observable / Observer |
+| ------------------------------ | -------------------------- |
+| **Pull-based**                 | **Push-based**             |
+| Consumer requests next value   | Producer emits next value  |
+| `next(): IteratorResult<A>`    | `next(value: A): void`     |
+| Control at consumer            | Control at producer        |
+| Synchronous by design          | Asynchronous-capable       |
+| Demand-driven                  | Supply-driven              |
+
+
+7. Why the duality is not perfect
+
+Important caveats:
+
+Backpressure
+  Iterables have implicit backpressure (consumer controls pace)
+  Observables require explicit coordination
+
+Asynchrony
+  Iterables cannot express time
+ Observables encode time intrinsically
+
+Termination
+  Iterators terminate via { done: true }
+  Observables terminate via complete or error
+
+Thus the duality is structural, not an isomorphism.
+
+
+In JavaScript, the Observer protocol is the push-based categorical dual of the Iterator protocol, and Observable is the corresponding dual of Iterable, obtained by reversing control and variance of value flow.
+
+
+. What RxJS really combines
+
+RxJS Observables unify:
+
+Iterator / Enumerable semantics (sequences, map, filter, reduce)
+
+Observer pattern (push-based event delivery)
+
+Time and effects (schedulers, cancellation, asynchrony)
+
+So yes, RxJS can be seen as:
+
+Iterable algebra + Observer pattern + time + cancellation
+
+
+RxJS models all producer–consumer topologies by separating sequence algebra (n→1) from sharing (1→n), with Subjects collapsing both directions into a single mutable node.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

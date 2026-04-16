@@ -1,0 +1,4 @@
+This is a compiled-template,
+direct-DOM, RxJS-driven
+architecture. It is NOT a Virtual
+DOM.

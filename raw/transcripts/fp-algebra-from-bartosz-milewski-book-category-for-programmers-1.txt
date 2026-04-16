@@ -1,0 +1,14 @@
++
+
+FUNCTIONAL PROGRAMMING REPLACES ERROR-PRONE LOW-LEVEL POINTER
+MANAGEMENT WITH HIGH-LEVEL MATHEMATICAL SPECIFICATIONS.
+
+The type-safe code representation
+
+FORMAL GRAMMARS ARE THE BLUEPRINTS FOR DATA TYPES
+
+To construct complex structures systematically, we need a formal grammar.
+In functional programming, this grammar is directly translated into code.
+
+Defines the structural rules (leaves and nodes)
+

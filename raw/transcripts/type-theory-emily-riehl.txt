@@ -1,0 +1,30 @@
+type theory
+----------
+
+A
+x : A
+0,1
+Ax B
+A+B
+A -> B
+x : AI B(x)
+x : AFb : B(x)
+ΠΑ.Α Β(x)
+Σ .. Α Β(x)
+p: x=Ay
+ΣΧΥ:ΑΧ =ΑΥ
+
+set theory
+----------
+
+set
+element
+0, {0}
+set of pairs
+disjoint union
+set of functions
+family of sets
+fam. of elements
+product
+disjoint sum
+

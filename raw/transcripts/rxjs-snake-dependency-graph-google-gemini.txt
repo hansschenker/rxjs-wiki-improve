@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RxJS Snake Game Dependency Graph</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #f8f9fa; display: flex; justify-content: center; padding-top: 20px; }
+        .node rect { stroke: #333; stroke-width: 2px; rx: 8; ry: 8; transition: all 0.2s; }
+        .node text { font-size: 14px; font-weight: bold; pointer-events: none; }
+        .link { fill: none; stroke: #999; stroke-width: 3px; transition: all 0.2s; }
+        
+        /* Default Colors */
+        .source rect { fill: #bbdefb; stroke: #1976d2; }
+        .state rect { fill: #fff9c4; stroke: #fbc02d; }
+        .terminal rect { fill: #ffcdd2; stroke: #d32f2f; }
+        
+        /* Hover States */
+        .dimmed { opacity: 0.1 !important; }
+        .highlight-node rect { stroke-width: 4px; filter: brightness(0.9); }
+        .highlight-link-in { stroke: #1976d2 !important; stroke-width: 5px !important; }
+        .highlight-link-out { stroke: #d32f2f !important; stroke-width: 5px !important; }
+    </style>
+</head>
+<body>
+    <svg width="1000" height="700" id="graph"></svg>
+    <script>
+        // Define exact grid coordinates to prevent overlapping
+        const nodes = [
+            { id: "tick$", class: "source", x: 300, y: 50 },
+            { id: "requestedDirection$", class: "source", x: 700, y: 50 },
+            { id: "currentDirection$", class: "state", x: 700, y: 150 },
+            { id: "snakeHeadPosition$", class: "state", x: 500, y: 250 },
+            { id: "snakeBodyPositions$", class: "state", x: 200, y: 350 },
+            { id: "isEatingApple$", class: "state", x: 500, y: 350 },
+            { id: "currentApplePosition$", class: "state", x: 800, y: 350 },
+            { id: "isSelfCollision$", class: "state", x: 200, y: 450 },
+            { id: "isOutOfBounds$", class: "state", x: 350, y: 450 },
+            { id: "currentLength$", class: "state", x: 500, y: 450 },
+            { id: "isGameOver$", class: "terminal", x: 275, y: 550 },
+            { id: "currentScore$", class: "state", x: 500, y: 550 }
+        ];
+
+        const links = [
+            { source: "tick$", target: "snakeHeadPosition$" },
+            { source: "requestedDirection$", target: "currentDirection$" },
+            { source: "currentDirection$", target: "snakeHeadPosition$" },
+            { source: "snakeHeadPosition$", target: "isEatingApple$" },
+            { source: "currentApplePosition$", target: "isEatingApple$" },
+            { source: "isEatingApple$", target: "currentLength$" },
+            { source: "currentLength$", target: "currentScore$" },
+            { source: "snakeHeadPosition$", target: "isSelfCollision$" },
+            { source: "snakeBodyPositions$", target: "isSelfCollision$" },
+            { source: "isSelfCollision$", target: "isGameOver$" },
+            { source: "isOutOfBounds$", target: "isGameOver$" },
+            { source: "snakeHeadPosition$", target: "snakeBodyPositions$" },
+            { source: "isEatingApple$", target: "snakeBodyPositions$" },
+            { source: "isEatingApple$", target: "currentApplePosition$" },
+            { source: "snakeBodyPositions$", target: "currentApplePosition$" },
+            { source: "snakeHeadPosition$", target: "currentApplePosition$" }
+        ];
+
+        const svg = d3.select("#graph");
+
+        // Arrow marker
+        svg.append("defs").append("marker")
+            .attr("id", "arrow")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 10)
+            .attr("refY", 0)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("fill", "#999")
+            .attr("d", "M0,-5L10,0L0,5");
+
+        // Draw Links
+        const link = svg.selectAll(".link")
+            .data(links)
+            .enter().append("line")
+            .attr("class", "link")
+            .attr("marker-end", "url(#arrow)")
+            .attr("x1", d => nodes.find(n => n.id === d.source).x)
+            .attr("y1", d => nodes.find(n => n.id === d.source).y + 20)
+            .attr("x2", d => nodes.find(n => n.id === d.target).x)
+            .attr("y2", d => nodes.find(n => n.id === d.target).y - 25);
+
+        // Draw Nodes
+        const node = svg.selectAll(".node")
+            .data(nodes)
+            .enter().append("g")
+            .attr("class", d => `node ${d.class}`)
+            .attr("transform", d => `translate(${d.x},${d.y})`);
+
+        // Node Rectangles
+        node.append("rect")
+            .attr("x", -85)
+            .attr("y", -20)
+            .attr("width", 170)
+            .attr("height", 40);
+
+        // Node Text
+        node.append("text")
+            .attr("dy", 5)
+            .attr("text-anchor", "middle")
+            .text(d => d.id);
+
+        // Hover Interactivity
+        node.on("mouseover", function(event, d) {
+            svg.selectAll(".node, .link").classed("dimmed", true);
+            d3.select(this).classed("dimmed", false).classed("highlight-node", true);
+            
+            link.each(function(l) {
+                if (l.source === d.id) {
+                    d3.select(this).classed("dimmed", false).classed("highlight-link-out", true);
+                    svg.selectAll(".node").filter(n => n.id === l.target).classed("dimmed", false);
+                }
+                if (l.target === d.id) {
+                    d3.select(this).classed("dimmed", false).classed("highlight-link-in", true);
+                    svg.selectAll(".node").filter(n => n.id === l.source).classed("dimmed", false);
+                }
+            });
+        }).on("mouseout", function() {
+            svg.selectAll(".node, .link").classed("dimmed", false)
+               .classed("highlight-node", false)
+               .classed("highlight-link-in", false)
+               .classed("highlight-link-out", false);
+        });
+    </script>
+</body>
+</html>

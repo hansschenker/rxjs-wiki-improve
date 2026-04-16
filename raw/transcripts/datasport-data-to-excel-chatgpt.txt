@@ -1,0 +1,239 @@
+from openpyxl import load_workbook
+from openpyxl.chart import ScatterChart, Reference, Series
+from openpyxl.chart.label import DataLabelList
+from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+
+src = "/mnt/data/sports_competition_results_langlauf_chart.xlsx"
+out = "/mnt/data/sports_competition_results_year_event_time_chart.xlsx"
+
+wb = load_workbook(src)
+results = wb["Results"]
+
+# remove old sheets if rerun
+for name in ["Year Event Time Data", "Year Event Time Chart"]:
+    if name in wb.sheetnames:
+        del wb[name]
+
+# gather rows from Results and sort by extracted year ascending
+def extract_year(datum):
+    s = str(datum).strip()
+    if len(s) >= 4 and s[-4:].isdigit():
+        return int(s[-4:])
+    # fallback
+    import re
+    m = re.search(r'(\d{4})', s)
+    return int(m.group(1)) if m else None
+
+rows = []
+for r in results.iter_rows(min_row=2, values_only=True):
+    datum, event, sportart, wettbewerb, zeit, kategorie = r
+    year = extract_year(datum)
+    if year is not None:
+        rows.append((year, datum, event, zeit))
+rows.sort(key=lambda x: (x[0], str(x[1]), str(x[2])))
+
+# create data sheet
+ds = wb.create_sheet("Year Event Time Data")
+headers = ["Datum", "Event", "Time", "Year", "Time Value"]
+ds.append(headers)
+
+for _, datum, event, zeit in rows:
+    ds.append([datum, event, zeit, None, None])
+
+# style
+header_fill = PatternFill("solid", fgColor="D9E2F3")
+thin_gray = Side(style="thin", color="D9D9D9")
+for cell in ds[1]:
+    cell.font = Font(bold=True)
+    cell.fill = header_fill
+    cell.alignment = Alignment(horizontal="center", vertical="center")
+    cell.border = Border(bottom=thin_gray)
+
+# formulas
+for r in range(2, ds.max_row + 1):
+    ds[f"D{r}"] = f'=IF(ISNUMBER(A{r}),YEAR(A{r}),IF(LEN(TRIM(A{r}))=4,VALUE(TRIM(A{r})),VALUE(RIGHT(TRIM(A{r}),4))))'
+    ds[f"E{r}"] = (
+        f'=VALUE(LEFT(C{r},FIND(":",C{r})-1))/24+'
+        f'VALUE(MID(C{r},FIND(":",C{r})+1,FIND("@",SUBSTITUTE(C{r},":","@",2))-FIND(":",C{r})-1))/1440+'
+        f'VALUE(SUBSTITUTE(RIGHT(C{r},LEN(C{r})-FIND("@",SUBSTITUTE(C{r},":","@",2))),",","."))/86400'
+    )
+    ds[f"E{r}"].number_format = "[h]:mm:ss.0"
+
+for row in ds.iter_rows(min_row=2, max_row=ds.max_row, min_col=1, max_col=5):
+    for cell in row:
+        cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+
+for col, width in {"A":14, "B":48, "C":14, "D":10, "E":14}.items():
+    ds.column_dimensions[col].width = width
+ds.freeze_panes = "A2"
+ds.auto_filter.ref = f"A1:E{ds.max_row}"
+ds.sheet_view.showGridLines = False
+
+# chart sheet
+cs = wb.create_sheet("Year Event Time Chart")
+cs["A1"] = "Year / Event / Time chart"
+cs["A1"].font = Font(bold=True, size=14)
+cs["A3"] = "Source data is sorted by year ascending on the 'Year Event Time Data' sheet."
+cs["A3"].font = Font(italic=True, size=10)
+
+chart = ScatterChart()
+chart.title = "Time by year"
+chart.x_axis.title = "Year"
+chart.y_axis.title = "Time"
+chart.style = 2
+chart.height = 12
+chart.width = 24
+chart.legend = None
+chart.y_axis.numFmt = "[h]:mm:ss.0"
+
+xvalues = Reference(ds, min_col=4, min_row=2, max_row=ds.max_row)
+yvalues = Reference(ds, min_col=5, min_row=2, max_row=ds.max_row)
+series = Series(yvalues, xvalues, title="Time")
+series.marker.symbol = "circle"
+series.graphicalProperties.line.solidFill = "4F81BD"
+series.graphicalProperties.line.width = 20000
+chart.series.append(series)
+
+cs.add_chart(chart, "D2")
+cs.sheet_view.showGridLines = False
+
+wb.save(out)
+print(out, ds.max_row-1)
+
+------
+bash -lc python - <<'PY'
+from artifact_tool import SpreadsheetArtifact
+artifact = SpreadsheetArtifact.load('/mnt/data/sports_competition_results_year_event_time_chart.xlsx')
+print(artifact.sheets())
+rendered = artifact.render()
+print(rendered)
+PY
+
+-----------
+
+bash -lc ls -l /mnt/data/sports_competition_results_year_event_time_chart.xlsx && python - <<'PY'
+from artifact_tool import SpreadsheetArtifact
+artifact = SpreadsheetArtifact.load('/mnt/data/sports_competition_results_year_event_time_chart.xlsx')
+print('sheets', artifact.sheets())
+rendered = artifact.render()
+print('rendered', rendered)
+PY
+
+-------
+bash -lc ls -lh /mnt/data/sports_competition_results_year_event_time_chart.xlsx
+---
+from artifact_tool import SpreadsheetArtifact
+artifact = SpreadsheetArtifact.load('/mnt/data/sports_competition_results_year_event_time_chart.xlsx')
+print(artifact.sheets())
+rendered = artifact.render()
+print(rendered)
+
+-----
+
+from artifact_tool import SpreadsheetArtifact
+
+# test formulas
+artifact = SpreadsheetArtifact("Test")
+s = artifact.sheet("S")
+s.cell("A1").value = "2:27:11.3"
+tests = {
+"B1": '=VALUE(LEFT(A1,FIND(":",A1)-1))',
+"C1": '=LEFT(A1,FIND(":",A1)-1)',
+"D1": '=LEFT(A1,FIND(":",A1)-1)/24',
+"E1": '=VALUE(SUBSTITUTE(RIGHT(A1,LEN(A1)-FIND("@",SUBSTITUTE(A1,":","@",2))),",","."))',
+"F1": '=SUBSTITUTE(RIGHT(A1,LEN(A1)-FIND("@",SUBSTITUTE(A1,":","@",2))),",",".")',
+"G1": '=SUBSTITUTE(RIGHT(A1,LEN(A1)-FIND("@",SUBSTITUTE(A1,":","@",2))),",",".")/86400',
+}
+for cell, formula in tests.items():
+    s.cell(cell).formula = formula
+# render triggers calc maybe
+artifact.render()
+for cell in tests:
+    c=s.cell(cell)
+    print(cell, c.formula, c.value, c.is_calculation_error(), c.get_calculation_error_message())
+
+
+--------
+
+from artifact_tool import SpreadsheetArtifact
+artifact = SpreadsheetArtifact("Test2")
+s = artifact.sheet("S")
+for txt,row in [("2:27:11.3",1),("12:55:00,1",2)]:
+    s.cell(f"A{row}").value = txt
+    s.cell(f"B{row}").formula = f'=RIGHT(A{row},LEN(A{row})-FIND("@",SUBSTITUTE(A{row},":","@",2)))'
+    s.cell(f"C{row}").formula = f'=RIGHT(A{row},LEN(A{row})-FIND("@",SUBSTITUTE(A{row},":","@",2)))/86400'
+artifact.render()
+for row in [1,2]:
+    for col in "BC":
+        c=s.cell(f"{col}{row}")
+        print(f"{col}{row}", c.value)
+
+
+----------
+
+from artifact_tool import SpreadsheetArtifact
+artifact = SpreadsheetArtifact("Test2")
+s = artifact.sheet("S")
+for txt,row in [("2:27:11.3",1),("12:55:00,1",2)]:
+    s.cell(f"A{row}").value = txt
+    s.cell(f"B{row}").formula = f'=RIGHT(A{row},LEN(A{row})-FIND("@",SUBSTITUTE(A{row},":","@",2)))'
+    s.cell(f"C{row}").formula = f'=RIGHT(A{row},LEN(A{row})-FIND("@",SUBSTITUTE(A{row},":","@",2)))/86400'
+artifact.render()
+for row in [1,2]:
+    for col in "BC":
+        c=s.cell(f"{col}{row}")
+        print(f"{col}{row}", c.value)
+
+
+
+-----------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

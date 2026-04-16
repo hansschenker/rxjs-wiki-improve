@@ -1,0 +1,13 @@
+import { Behavior, Event } from 'some-reactive-library'; // Replace with actual reactive library imports
+
+type Color = 'red' | 'yellow' | 'green';
+
+const warning = (level: number): Color => {
+  if (level > 100) return 'red';
+  if (level > 80) return 'yellow';
+  return 'green';
+};
+
+const warningColor: Behavior<Color> = audioLevel.map(warning);
+
+const shiftClick: Event<[number, number]> = when(keyHeld('shift'), click);

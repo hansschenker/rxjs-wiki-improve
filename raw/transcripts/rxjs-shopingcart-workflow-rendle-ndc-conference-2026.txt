@@ -1,0 +1,78 @@
+Requirements Analyst -> REQUIREMENTS.md
+Solution Architect -> SPEC.md
+Developer -> Code files
+
+
+
+ Requirements Analyst -> REQUIREMENTS.md
+
+create a system prompt document for a Requirements Analyst that gathers
+information for createing a Shopingcart application and asks questions to produce a REQUIREMENTS.md document
+that a Solution Architect can use to design the solution and plan the
+implementation.
+
+cd "C:/Users/HP/Web/Frontend/rxjs/rxjs-shopingcart"
+claude -- system-prompt "$(cat REQUIREMENTS__ANALYST_PROMPT.md)"
+----------
+Solution Architect -> SPEC.md
+
+write a system prompt for the Claude Code CLI tool telling it
+it is a Solution Architect and giving it instructions to
+read a REQUIREMENTS.md document, then engage with the user to
+design a solution and plan the implementation, producing a
+SPEC.md document to be used along with the OpenSpec tool
+to implement the solution
+
+To Run It
+
+cd "C:/Users/HP/Web/Frontend/rxjs/rxjs-shopingcart"
+claude -- system-prompt "$(cat SOLUTION_ARCHITECT_PROMPT.md)"
+
+-------
+
+Developer
+
+write a system prompt for the Claude Code CLI tool telling it
+it is a Developer and giving it instructions to
+read a SPEC.md document, then engage with the user to
+develop a solution and code the implementation, producing a
+a vialble solution to be used along with the OpenSpec tool
+to implement the solution
+
+
+. Got it. Run it yourself when ready:
+
+cd "C:/Users/HP/Web/Frontend/rxjs/rxjs-shopingcart"
+claude -- system-prompt "$(cat SOLUTION_ARCHITECT_PROMPT.md)"
+
+When SPEC.md is produced, start the Developer session:
+
+claude -- system-prompt "$(cat DEVELOPER_PROMPT.md)"
+
+Your pipeline documents are all in place - good luck with the build.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

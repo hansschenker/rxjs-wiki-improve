@@ -1,0 +1,424 @@
+import React, { useState, useEffect } from 'react';
+
+type Point = { x: number; y: number };
+
+const words = (
+  <>
+    <h1>Hello StrangeLoop!</h1>
+    <p>Thanks for coming! :)</p>
+  </>
+);
+
+const img = <img src="/yogi.jpg" width={200} height={200} alt="yogi" />;
+
+const stack = (
+  <div style={{ display: 'flex', flexDirection: 'column' }}>
+    {words}
+    {img}
+  </div>
+);
+
+function shapes(x: number, y: number) {
+  const rotation = (x: number) => `rotate(${x}deg)`;
+  const scale = (y: number) => `scale(${y / 100})`;
+
+  const blue = '#0000FF';
+  const red = '#FF0000';
+
+  // SVG for a 5-sided polygon (ngon 5 50)
+  const ngon = (
+    <polygon
+      points="50,0 15.45,47.55 40.45,95.11 59.55,95.11 84.55,47.55"
+      fill={blue}
+      transform={rotation(x)}
+    />
+  );
+
+  // SVG circle with dashed red outline
+  const circle = (
+    <circle
+      cx="100"
+      cy="100"
+      r="70"
+      fill="none"
+      stroke={red}
+      strokeDasharray="5,5"
+      transform={scale(y)}
+    />
+  );
+
+  return (
+    <svg width={200} height={200} viewBox="0 0 200 200">
+      <g>{ngon}</g>
+      <g>{circle}</g>
+    </svg>
+  );
+}
+
+function useKeyboardArrows() {
+  const [position, setPosition] = useState<Point>({ x: 0, y: 0 });
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const dir: Point = { x: 0, y: 0 };
+      switch (event.key) {
+        case 'ArrowUp':
+          dir.y = -1;
+          break;
+        case 'ArrowDown':
+          dir.y = 1;
+          break;
+        case 'ArrowLeft':
+          dir.x = -1;
+          break;
+        case 'ArrowRight':
+          dir.x = 1;
+          break;
+      }
+      setPosition((pos) => ({ x: pos.x + dir.x, y: pos.y + dir.y }));
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  return position;
+}
+
+export default function Main() {
+  const pos = useKeyboardArrows();
+
+  return (
+    <div>
+      {stack}
+      {shapes(pos.x, pos.y)}
+    </div>
+  );
+}
+
+-------- move yogi
+import React from 'react';
+
+const img = <img width={200} height={200} src="/yogi.jpg" alt="yogi" />;
+
+const words = <div>words</div>;
+
+const stack = (
+  <div style={{ display: 'flex', flexDirection: 'column' }}>
+    {words}
+    {img}
+  </div>
+);
+
+type Point = { x: number; y: number };
+
+function shapes([x, y]: [number, number]) {
+  const style: React.CSSProperties = {
+    width: 200,
+    height: 200,
+    position: 'relative',
+    overflow: 'hidden',
+  };
+
+  const scaledStyle: React.CSSProperties = {
+    position: 'absolute',
+    transform: `translate(${x}px, ${y}px) scale(0.2)`,
+  };
+
+  return (
+    <div style={style}>
+      <div style={scaledStyle}>
+        {/* toForm 1 equivalent - assuming a simple shape or element */}
+        <div style={{ width: 50, height: 50, backgroundColor: 'black' }} />
+      </div>
+    </div>
+  );
+}
+
+// The Elm code snippet is incomplete for main and foldp usage,
+// so here is a placeholder for main using React state and effect.
+
+import { useState, useEffect } from 'react';
+
+function Main() {
+  const [pos, setPos] = useState<[number, number]>([0, 0]);
+
+  // Example foldp equivalent: updating position based on direction input
+  // Here dir is assumed to be an object with x and y properties
+
+  function updatePosition(dir: { x: number; y: number }) {
+    setPos(([x, y]) => [x + 10 * dir.x, y + 10 * dir.y]);
+  }
+
+  // Placeholder usage of updatePosition, e.g., on some event or interval
+  useEffect(() => {
+    const interval = setInterval(() => {
+      updatePosition({ x: 1, y: 0 }); // example direction
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return shapes(pos);
+}
+
+export { img, stack, shapes, Main };
+
+
+------------  mario
+-- MODEL
+mario = { x=0, y=0, vx=0, vy=0 }
+
+-- UPDATE
+step
+
+- DISPLAY
+render ( w',h' ) mario
+let ( w, h) =( toFloat
+src = "/imgs/mario/stand/right.gif"
+in collage w' h'
+rect w h
+rect w 50
+toForm ( image 35 35 src ) |> move ( mario .x, mario .y + 62 - h/2)
+
+dt mario = mario
+
+w', toFloat
+
+> filled
+
+.
+
+hʼ )
+
+( rgb 174 238 238)
+> filled ( rgb 74 163 41)
+> move ( 0, 24 - h/2)
+
+i
+
+input
+
+- MARIO
+= fps 25
+
+main =
+lift2 render
+-- lift asText input
+Window. dimensions, ( foldp step mario input )
+
+-------  mario typescript initial
+
+type Mario = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+};
+
+const mario: Mario = { x: 0, y: 0, vx: 0, vy: 0 };
+
+function step(mario: Mario): Mario {
+  return mario;
+}
+
+function render(dimensions: [number, number], mario: Mario): HTMLElement {
+  const [w, h] = dimensions;
+  const src = "/imgs/mario/stand/right.gif";
+
+  const container = document.createElement("div");
+  container.style.position = "relative";
+  container.style.width = `${w}px`;
+  container.style.height = `${h}px`;
+  container.style.backgroundColor = "rgb(174, 238, 238)";
+
+  const ground = document.createElement("div");
+  ground.style.position = "absolute";
+  ground.style.bottom = `${24 - h / 2}px`;
+  ground.style.width = "100%";
+  ground.style.height = "50px";
+  ground.style.backgroundColor = "rgb(74, 163, 41)";
+  container.appendChild(ground);
+
+  const img = document.createElement("img");
+  img.src = src;
+  img.style.position = "absolute";
+  img.style.width = "35px";
+  img.style.height = "35px";
+  img.style.left = `${mario.x}px`;
+  img.style.top = `${mario.y + 62 - h / 2}px`;
+  container.appendChild(img);
+
+  return container;
+}
+
+// Example usage with window dimensions and input handling
+// Assuming input is some event stream or state updates
+// and foldp is a fold function over input events
+
+// Placeholder for foldp function
+function foldp<T, U>(stepFn: (state: U, input: T) => U, initial: U, inputs: T[]): U {
+  return inputs.reduce(stepFn, initial);
+}
+
+// Placeholder for window dimensions
+function getWindowDimensions(): [number, number] {
+  return [window.innerWidth, window.innerHeight];
+}
+
+// Example main function
+function main(inputs: any[]): HTMLElement {
+  const dimensions = getWindowDimensions();
+  const currentMario = foldp(step, mario, inputs);
+  return render(dimensions, currentMario);
+}
+
+------- updated with gravitiy
+type Mario = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+};
+
+const mario: Mario = { x: 0, y: 0, vx: 0, vy: 0 };
+
+function physics(dt: number, mario: Mario): Mario {
+  return {
+    ...mario,
+    x: mario.x + mario.vx * dt,
+    y: Math.max(0, mario.y + mario.vy * dt),
+  };
+}
+
+function walk(x: number, mario: Mario): Mario {
+  return {
+    ...mario,
+    vx: x / 10,
+  };
+}
+
+function jump(y: number, mario: Mario): Mario {
+  if (y > 0 && mario.y === 0) {
+    return {
+      ...mario,
+      vy: 0.5,
+    };
+  }
+  return mario;
+}
+
+function gravity(dt: number, mario: Mario): Mario {
+  return {
+    ...mario,
+    vy: mario.vy - dt / 400,
+  };
+}
+
+function step(
+  input: { dt: number; dir: { x: number; y: number } },
+  mario: Mario
+): Mario {
+  const { dt, dir } = input;
+  return gravity(dt, jump(dir.y, walk(dir.x, physics(dt, mario))));
+}
+
+// Display related code would depend on the rendering library used in TypeScript.
+// Below is a conceptual translation using a hypothetical rendering approach.
+
+type Dimensions = [number, number];
+
+function render(dimensions: Dimensions, mario: Mario) {
+  const [w, h] = dimensions.map((v) => v);
+  const src = "/imgs/mario/stand/right.gif";
+
+  // Hypothetical rendering functions:
+  // rect(width, height): draws a rectangle
+  // image(width, height, src): creates an image element
+  // move(position, element): moves element to position
+  // collage(width, height, elements): groups elements into a scene
+
+  const background = rect(w, h);
+  const ground = rect(w, 50);
+  const marioImage = move([mario.x, mario.y + 62 - h / 2], image(35, 35, src));
+
+  return collage(w, h, [background, ground, marioImage]);
+}
+
+// Input and main loop would depend on the environment (e.g., browser, game engine).
+// The Elm code uses lift2, foldp, fps, Keyboard.arrows, Window.dimensions which are Elm-specific.
+// In TypeScript, you would implement event listeners and game loop accordingly.
+
+------------- final version
+
+type Mario = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+};
+
+const mario: Mario = { x: 0, y: 0, vx: 0, vy: 0 };
+
+function physics(dt: number, mario: Mario): Mario {
+  return {
+    ...mario,
+    x: mario.x + mario.vx * dt,
+    y: Math.max(0, mario.y + mario.vy * dt),
+  };
+}
+
+function walk(x: number, mario: Mario): Mario {
+  return { ...mario, vx: x / 10 };
+}
+
+function jump(y: number, mario: Mario): Mario {
+  if (y > 0 && mario.y === 0) {
+    return { ...mario, vy: 0.5 };
+  }
+  return mario;
+}
+
+function gravity(dt: number, mario: Mario): Mario {
+  return { ...mario, vy: mario.vy - dt / 400 };
+}
+
+type Direction = { x: number; y: number };
+
+function step([dt, dir]: [number, Direction], mario: Mario): Mario {
+  return gravity(dt, jump(dir.y, walk(dir.x, physics(dt, mario))));
+}
+
+// For rendering, assuming a canvas or similar environment
+// This is a placeholder function to represent the rendering logic
+function render(
+  dimensions: [number, number],
+  mario: Mario
+): { verb: string; dir: string; src: string; width: number; height: number } {
+  const [w, h] = dimensions.map((v) => v * 1.0);
+  let verb: string;
+  if (mario.y > 0) {
+    verb = "jump";
+  } else if (mario.vx !== 0) {
+    verb = "walk";
+  } else {
+    verb = "stand";
+  }
+  const dir = mario.vx < 0 ? "left" : "right";
+  const src = `/imgs/mario/${verb}/${dir}.gif`;
+
+  return { verb, dir, src, width: w, height: h };
+}
+
+// Input and main loop handling would depend on the environment (e.g., browser, Node.js)
+// Example input type and main loop placeholder:
+
+type Input = [number, Direction];
+
+// Example usage:
+// const input: Input = [dt, { x: dirX, y: dirY }];
+// const newMario = step(input, mario);
+// const frame = render([windowWidth, windowHeight], newMario);
+
+--------
+
+
+

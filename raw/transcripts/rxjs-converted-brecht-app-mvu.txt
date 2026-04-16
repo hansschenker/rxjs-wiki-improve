@@ -1,0 +1,71 @@
+explain the MVU Architecture you created based on the app in rx-app
+
+
+The MVU architecture in src/rx-mvu is a reorganization of the same app behavior from src/rx-app, but around one explicit loop:
+
+Model -> View -> Msg -> Update -> Commands/Subscriptions -> Msg
+
+What changed from rx-app
+In rx-app, responsibility was split like this:
+
+store.ts: global state
+controllers: page-local state and DOM lifecycle
+facade.ts: workflows and async orchestration
+app.ts: shell and route/controller switching
+In rx-mvu, those concerns are reassembled into:
+
+model.ts: the full app state
+msg.ts: every event that can happen
+update.ts: the only place that decides the next state
+commands.ts: side effects
+subscriptions.ts: long-lived reactive inputs
+view.ts and components: pure rendering
+The MVU loop
+
+app.ts is the runtime.
+DOM events are captured once at the root and turned into Msg values.
+dispatch(msg) calls update.ts.
+update(model, msg) returns { model, commands }.
+The new model is rendered by view.ts.
+Commands run async work and emit more messages back into the loop.
+Subscriptions derive background streams from the current model.
+That is the Elm-like part: the app is message-driven, state transitions are centralized, and effects are pushed out of the update function.
+
+How it maps to the old app
+
+rx-app page-local state is now explicit in the model.
+Example: auth form mode, stock search text, pending wine ids, wine form draft, catalog suggestions.
+rx-app facade methods became message handlers plus commands.
+Example: login/register, save wine, remove wine, fetch wines, background sync.
+rx-app controllers became pure component-style views plus root event delegation.
+See components/auth-page.ts, components/stock-page.ts, and components/wine-form-page.ts.
+rx-app router logic was kept conceptually, but routing is now folded into the MVU loop through route messages and route initialization in update.ts.
+Why this is more MVU
+The biggest architectural difference is that state is no longer hidden in objects with lifecycle methods. In rx-app, a lot of UI behavior lived inside controller instances. In rx-mvu, that behavior is represented as:
+
+model fields
+messages
+pure transitions
+effect commands
+So instead of “the stock page controller changes its local state and calls the facade,” it becomes “a Msg arrives, update changes AppModel, and commands handle the side effects.”
+
+Why I call the views React-like
+The view layer is component-shaped:
+
+small rendering functions
+parent-to-child composition
+props/state in, markup out
+no component-owned side effects
+But it is not React runtime architecture:
+
+no JSX
+no virtual DOM
+no hook system
+rerendering is done by replacing innerHTML in app.ts
+So the best label is:
+
+Elm-like MVU with RxJS commands/subscriptions and pure component-style views
+
+If you want, I can also give you a side-by-side file mapping from rx-app to rx-mvu.
+
+

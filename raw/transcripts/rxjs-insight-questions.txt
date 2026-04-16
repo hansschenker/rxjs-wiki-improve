@@ -1,0 +1,70 @@
+- what are the roots of Rxjs: from Haskell List Comprehensions to LINQ to Rx.net to Rxjs
+
+- LINQ is Language integrated Monad
+
+- Monad in the Language moved from LINQ to Rx.net to Rxjs
+
+- What of LINQ survived in Rxjs , LINQ’s greatest contribution was a Unified Programming Model.
+In RxJS, it doesn't matter if the source is a WebSocket, a Mouse Click, or a Promise—they are all treated as the same type (Observable) and can be queried with the same operators.You said
+Rxjs Operators work on Observable Type no matter what type of the values that are emitted by the Observable, that allows for Observable and Operators to be applied to any Domain be it a Web Animation or GPS Sensor data
+
+- Microsoft Rx.net made Web UI Events first-class citizen allowing for composition of Web Event Sources
+
+- Rxjs Observable/Observer are the Mathematical Dual of Iterable/Iterator
+
+- Rxjs is the combination of the Iterator Pattern with the Subject/Observer Pattern
+
+- Rxjs Observable is a Producer and Rxjs Observer is a Consumer
+
+- Rxjs supports two Communication Styles
+  - Unicast: 1 Producer to 1 Consumer
+  - Multicast: 1 Producer to N Consumers
+
+- Hot/Cold is about the Producer Behavior, Unicast/Multicast is about the Consumer Behavior
+
+- in Functional Programming Data and Logic are separate
+  in Rxjs Observable is the Data and Operators enabling coding the Logic
+
+- Rxjs pipeline creates a Depencency Graph emitted values and a Subscription graph from Subscriptions
+ 
+
+- Rxjs Observable is basically a lazy, potentially infinite Sequence of Pairs of Time T and Value a: [{T,a}..]
+
+- Rxjs has Operators that work on T and Operators that work on a and Operators that work on T and a
+
+- Rxjs has 3 Variants of Observable
+  - Standard Observable
+  - ConncetedObservable
+  - Subject as Observable
+
+- Rxjs Subscription is tracking the Lifecycle of an Observable
+
+- Rxjs Subscriptions build a tree of Subscriptions allowing for unsubscribing nested subscriptions with one unsubscribe
+
+- Rxjs has a canonical 3 step Workflow
+  - 1. enter Rxjs World with a creation Operator
+  - 2. once in Rxjs World all Operators are at your disposal for dataflow transformation
+  - 3. exit Rxjs world and apply all the planned Side Effects
+
+- Rxjs is 3 things
+  - Observable
+  - LINQ Standard Query Operators + a set of time-sensitive Operators
+  - Schedulers for controlling Time and Concurrency
+
+- Rxjs Subject is a Proxy between the Observer and the Observable, allowing for Multicast Behavior in Rxjs
+
+- in Rxjs the Domain can change (web animations, gps sensor data, …) but the Operators stay the same
+
+- Rxjs Schedulers are central Dispatchers controlling Time and Concurrency
+
+- in Rxjs we have 4 basic Scenarios
+  - no Observable: create one with a creation Operator
+  - one Observable: transform emitted values with value- and time-based Operators
+  - many Observables: use combination operators to combine many into one
+  - nested Observables: use concurrency operators to flatten into one resulting observable
+
+- Rxjs is a Domain Specific Language for time-varying values
+
+- I have developed a pattern for dealing with the technical operator names in an Rxjs pipeline
+  - rename standard Rxjs operators in the pipeline to custom operators with a domain-specific naming scheme that Domain users understand
+  - these custom operators allow for testing in Isolation and allow for specific error handling

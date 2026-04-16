@@ -1,0 +1,412 @@
+// intermediate level
+
+Interactive Analytics Dashboard
+A SPA where users can filter large datasets, switch between multiple chart types, and configure saved views in real time without full page reloads.
+
+Project/Task Management Board
+A kanban-style board with drag-and-drop tasks, inline editing, real-time updates across collaborators, and deep URL-based routing for boards and filters.
+
+Multi-step Form Wizard for Onboarding
+A guided, multi-step registration or onboarding flow with validation, conditional steps, progress persistence, and back/forward navigation handled entirely client-side.
+
+Collaborative Document Editor
+A rich-text or markdown editor supporting autosave, presence indicators, comments, and optimistic UI updates synchronized with a backend in near real time.
+
+Customizable E-commerce Product Configurator
+A product page where users configure variants (size, color, add-ons), see live price and availability updates, and switch between views (gallery, specs, reviews) without navigation.
+
+// advanced use cases
+Real-time Collaborative Code Editor
+An SPA enabling multiple developers to edit code simultaneously with live cursors, conflict resolution, syntax highlighting, and version diffing—all synchronized via WebSockets without page refreshes.
+​
+
+Advanced Data Visualization Canvas
+An interactive canvas where users drag, zoom, and manipulate complex graphs, geospatial layers, and time-series data with smooth transitions, filtering, and export options handled client-side.
+​
+
+Infinite Canvas Whiteboard with AI Assistance
+A boundless drawing board supporting infinite scrolling, shape recognition, real-time multiplayer strokes, and integrated AI for auto-grouping content and generating suggestions on the fly.
+​
+Google Maps—instant zooming and location searches
+Slack—real-time team communication
+
+Trello—drag-and-drop project management
+
+Spotify Web Player—seamless music streaming
+WhatsApp Web—continuous messaging interface
+
+
+------------- claude 2026-02-15
+
+Essential Missing Features (by priority)
+
+Tier 1 - High-impact gaps most SPA frameworks solve
+
+1. Nested/Child Routes - The router is flat. No layout routes, no parent-child outlet nesting. Every real app needs shared layouts (sidebar + content, tabs within a page). Currently
+requires fully manual outlet management.
+
+2. Template / Declarative Rendering - All HTML is written via innerHTML strings or imperative DOM calls. There's no compile-time safety, no conditional rendering primitive (if$/when$), no
+show/hide operator beyond classToggle('hidden'). This is the single biggest ergonomic gap.
+
+3. Component Model - No formal component abstraction with lifecycle hooks (onMount, onDestroy, onUpdate). The (container, ... deps) => Subscription convention works but isn't enforced. No
+way to compose components declaratively.
+
+4. Dependency Injection / Service Layer - Services are singleton imports. No DI container means testing requires manual wiring and there's no per-route or per-component scoping of services.
+
+5. Selector Memoization - select() uses basic distinctUntilChanged. No createSelector equivalent with multi-input memoization (like Reselect/NgRx selectors). Performance degrades as state
+trees grow.
+
+Tier 2 - Expected by most production apps
+
+6. Nested/Cross-Field Form Validation - No form groups, form arrays, async validators, or cross-field validation (password === confirmPassword). Real-world forms hit this quickly.
+7. Animation/Transition System - No route transition animations, no enter/leave animations for list items, no JS-driven animation primitives. CSS-only workarounds are limited.
+8. Store Middleware / DevTools - No Redux DevTools integration, no middleware pipeline, no time-travel debugging. This makes debugging state changes in non-trivial apps painful.
+9. WebSocket / Real-time Support - No built-in WebSocket or SSE Observable factory. For an RxJS framework, this is a natural fit that's conspicuously absent.
+10. Named Route Generation - No router.urlFor('user-detail', { id: '42' }). URLs are built manually as strings, which is error-prone as route patterns change.
+
+Tier 3 - Expected for framework maturity
+
+11. SSR / Hydration - Zero server-side rendering support. window is assumed everywhere. No renderToString, no hydration. Critical for SEO-sensitive apps.
+12. CLI / Scaffolding - No create-rxjs-spa or code generators. Every new project/route/store must be manually wired.
+13. i18n / Localization - No internationalization support at all.
+14. Error Boundaries at Component Level - createErrorHandler is global. No way to catch and recover at a subtree level (like React error boundaries).
+15. Marble Testing Helpers - The testing package has mock utilities but no TestScheduler integration - surprising for an RxJS-native framework.
+
+My Recommendation - What to build next
+
+If the goal is a credible, usable SPA framework, the highest-leverage additions would be:
+
+1. Nested routes + layout system - unlocks real app architectures
+2. A declarative rendering layer - even a minimal tagged-template or hyperscript system (h('div', {}, ... )) would dramatically improve DX
+3. createSelector - small effort, big payoff for derived state
+4. WebSocket Observable factory - natural for an RxJS framework, small surface area
+5. Named route URL generation - small but removes a whole class of bugs
+
+The framework is genuinely functional today for small-to-medium SPAs. The biggest gap isn't any single missing feature - it's the imperative DOM story. Every competing framework (React,
+Vue, Svelte, Solid, Angular) provides declarative rendering. That's the single feature that would most transform this from "a collection of RxJS utilities" into "a framework people would
+choose to build with."
+
+--------------- implementations 
+- html*
+
+- packages/router/src/public.ts - 5 new exports, full backward compat
+- packages/router/src/public.test.ts - 16 new test cases
+- packages/testing/src/public.ts - matched field added to MockRouter's RouteMatch
+
+New API:
+- RouteConfig<N> - tree-based route definition with path, name, children
+- RouteMatch.matched[] - chain of matched segments (root-first); single entry for flat routes
+- createOutlet(el, route$) - manages child view lifecycle (teardown + clear on route change)
+- routeAtDepth(depth) - operator to prevent parent re-renders when only children change
+- Both flat Record<string, N> and nested RouteConfig<N>[] accepted by createRouter
+
+Feature 2: Tagged Template Literals (@rxjs-spa/dom)
+
+Files created:
+- packages/dom/src/template.ts - 430 lines, full template engine
+- packages/dom/src/template.test.ts - 36 test cases
+
+New API:
+.. ' - tagged template with Observable text, @event, .prop, ?boolattr, reactive attribute bindings
+- when(condition$, thenFn, elseFn?) - conditional rendering with lazy creation/teardown
+- list(items$, keyFn, templateFn) - keyed list with per-item BehaviorSubject<T>
+unsafeHtml(value) - opt-in raw HTML rendering
+- Template caching via WeakMap for performance
+- XSS-safe by default (text interpolations use textContent, not innerHTML)
+
+Feature 3: Component Model (@rxjs-spa/dom)
+
+Files created:
+- packages/dom/src/component.ts - 100 lines
+- packages/dom/src/component.test.ts - 13 test cases
+
+New API:
+defineComponent<P>(setup) - creates reusable components with lifecycle hooks
+Lifecycle. onMount(fn) - runs after DOM insertion (microtask), supports cleanup return
+- Lifecycle. onDestroy(fn) - runs on subscription teardown
+- Components return TemplateResult - embed directly in html templates and list()
+
+Test Results
+
+- 284 total tests, 0 failures across all 13 test files
+- 57 original router tests + 16 new = 73 router tests
+- 17 original DOM tests preserved, 36 template + 13 component = 66 new DOM tests
+- All other packages unaffected (store, http, forms, errors, persist, core, testing, playground)
+
+Baked for 20m 21s
+
+
+----------    Antigravitity Feature Review 
+
+1. Rendering Engine ( @rxjs-spa/dom )
+It features a custom rendering engine that rivals libraries like lit-html .
+. Template Syntax: Uses native Tagged Template Literals ( TS html \'<div class="${class$]"> ...< /div>\ ) so no compiler is needed.
+. Reactivity: It binds Observable values directly to the DOM. When an observable emits, only that specific text node or attribute updates. There is no Virtual DOM
+overhead; it's fine-grained reactivity.
+. Control Flow: Includes structural directives like ${when (cond$, ... ) } (for if/else ) and ${list (items$, ... ) } (for efficient list rendering without full re-
+renders).
+
+2. Router ( @rxjs-spa/router )
+It has a fully featured router that supports both Hash and History modes.
+. Nested Routes: Supports deep nesting of routes and layouts (parent components wrapping child outlets).
+. Guards: Has a TS withGuard operator to protect routes (e.g., authentication checks) before navigation completes.
+. Lazy Loading: The Ts lazy(() => import( ... )) utility allows splitting code by route, a critical feature for large SPAs.
+. Lifecycle: It handles scroll resetting and title updates automatically via operators.
+
+3. State Management ( @rxjs-spa/store )
+It implements a robust Model-View-Update (MVU) architecture, similar to Redux or NgRx, but simplified:
+. Unidirectional Data Flow: data moves through Actions $\to$ TS Reducer $\to$ State$ $\to$ TS View.
+. Side Effects: Side effects (like API calls) are handled by listening to actions$, executing the work, and dispatching new actions (actions-in, actions-out).
+. Select: You can derive slices of state efficiently using store.select (state => state.prop) .
+
+4. Form Handling ( @rxjs-spa/forms)
+This is often a weak point in custom frameworks, but this project has a professional-grade forms library:
+. Schema-based: You define a schema (validators, types) and it generates a form object.
+. Reactive Validation: Errors, dirty states, and touch states are all observables.
+. Nesting: It supports complex nested form groups (e.g., an address object inside a user object).
+
+5. HTTP Client ( @rxjs-spa/http)
+. Interceptors: It supports request/response interceptors (essential for things like attaching Auth tokens or global error handling).
+. RemoteData Pattern: It includes utilities to wrap requests in a TS RemoteData type ( TS idle | TS loading | TS success | error ), making UI loading states consistent
+and easy to handle.
+
+--------------- SSR feature implemented by Antigravitiy
+
+I'm glad you like the plan! The SSR implementation is now complete and verified.
+Using the server-agnostic @rxjs-spa/ssr package, you can now render your reactive views to static strings in any JavaScript
+environment (Node.js, Deno, Bun, Workers).
+
+Summary of Work
+
+1. New Package: Created @rxjs-spa/ssr with the core TS renderToString function.
+2. Environment Agnostic: Refactored @rxjs-spa/dom to detect the server environment (via IS_SSR flag or missing
+TS document ) and produce "virtual" templates instead of DOM nodes.
+3. Verification: Created Ts apps/demo/prerender.ts which successfully generated:
+. </> dist/index.html (Static content)
+</> dist/about.html (Async content resolved from Observables)
+
+You can see the full details in the f3 walkthrough.
+
+Next Steps
+
+The current implementation performs Static Site Generation (SSG) (pre-rendering HTML). When the JavaScript loads on the
+client, the application will currently "re-render" the view (replace the static HTML with the live DOM).
+If you want to take this further in the future, the next logical step would be Hydration-allowing the client-side app to "attach"
+to the existing static HTML without re-creating the DOM nodes, which prevents layout shifts and improves startup performance.
+Would you like to explore Hydration now, or is there another feature you'd like to work on?
+----------------- Hydration , what is it, what do gain
+Hydration represents the next level of maturity for our SSR solution.
+Currently (without hydration), your app does this:
+
+1. Server: Sends HTML -> Browser displays it (Fast First Paint).
+2. Client JS runs: Wipes the HTML -> Recreates DOM from scratch (Slow, causes flicker).
+
+With Hydration, the flow becomes:
+
+1. Server: Sends HTML -> Browser displays it.
+2. Client JS runs: Finds the existing HTML nodes -> Attaches event listeners -> Done.
+
+Benefits:
+. Zero Flicker: The user never sees the page "reset".
+. Faster Interactive Time: The browser works less (no heavy DOM creation).
+. State Preservation: If the user typed in a static input before JS load, hydration keeps that value (re-rendering would wipe
+it).
+
+Do you want to proceed with the Implementation Plan for Hydration?
+
+--------------- Hydration plan
+Implementation Plan - Client-Side Hydration
+Hydration is the process where client-side JavaScript "picks up" the static HTML sent by the server and makes it interactive without destroying and recreating the DOM nodes.
+
+Why Implement Hydration?
+
+Performance (LCP): 
+The browser doesn't need to re-paint the entire page. It just attaches event listeners.
+
+User Experience (CLS): 
+Prevents the "flash of content" where the static page disappears and reappears as the JS loads.
+
+Efficiency: Reduces CPU work on startup by reusing existing DOM elements.
+
+Proposed Changes
+
+packages/dom
+[MODIFY] 
+template.ts
+Implement hydrate() function (alongside 
+render()
+).
+Modify 
+prepareTemplate
+ to understand "hydration markers" (comments like <!--__RX_0-->) left by SSR.
+
+During hydration, instead of document.createElement, walk the existing DOM to find the marked nodes and bind Observables to them.
+packages/ssr
+[MODIFY] 
+index.ts
+Ensure 
+renderToString
+ outputs the necessary markers (e.g. <!--__RX_0-->) so the client knows where data belongs. (Currently it does this, but we need to verify strict consistency).
+
+Verification Plan
+
+Automated Tests
+SSR a template to string -> <div><!--__RX_0-->value</div>.
+In test (JSDOM), insert that string into document.body.
+Call hydrate(template, document.body).
+Assert that value updates when the Observable emits without the <div> being replaced.
+
+Manual Verification
+Update apps/demo to use hydrate() instead of clearing innerHTML.
+
+--------- SSR Implementation Antigravity
+
+. Router SSR Integration
+The router was enhanced to support server-side initialization.
+
+Feature: initialUrl option in 
+createRouter
+ creates a static route stream for SSR, bypassing browser history APIs.
+File: 
+packages/router/src/public.ts
+4. SSR Rendering Logic
+We fixed and verified the 
+renderToString
+ implementation in the @rxjs-spa/ssr package to correctly serialize 
+TemplateResult
+, including those from 
+defineComponent
+.
+
+Fix: Correctly extracting templateEl.innerHTML instead of non-existent properties.
+Fix: Properly wrapping and serializing DocumentFragment content.
+Verification Results
+We verified the SSR output using 
+apps/demo/verify-ssr-routing.ts
+. The script simulates a server environment (using JSDOM) and renders the application string for various routes.
+
+Test Cases
+Route	Action	Result	Notes
+/	Initial Load	PASS	Renders "Welcome to rxjs-spa"
+/users	Unauthenticated	PASS	Redirects/Empty (handled by Auth Guard)
+/users	Authenticated	PASS	Renders "Users" view (mocks login)
+/not-found	Invalid Path	PASS	Renders "404" view
+Usage for SSR
+To render the app on the server (e.g., in a Node.js handler):
+
+import { AppLayout } from './src/App'
+import { createRouter } from '@rxjs-spa/router'
+import { renderToString } from '@rxjs-spa/ssr'
+// 1. Create Router with request URL
+const router = createRouter(routes, { initialUrl: req.url })
+// 2. Create App Template
+const template = AppLayout({ router })
+// 3. Render to HTML
+const html = await renderToString(template)
+// 4. Send response
+res.send(html)
+
+
+Implementation Plan - SSR Routing Integration
+SSR Routing Integration connects the URL requested by the user/crawler to the specific component tree that should be rendered by the server.
+
+...
+
+Proposed Changes
+apps/demo
+[NEW] 
+src/App.ts
+Define App component.
+Accepts router as a prop.
+Returns 
+html
+ structure: <nav>...</nav><main>${routeView$}</main>.
+Handles route matching and lazy loading declaratively.
+[MODIFY] 
+src/main.ts
+Create BrowserRouter.
+Mount App({ router }) to the DOM.
+[MODIFY] 
+prerender.ts
+Create StaticRouter (via 
+createRouter
+ with initialUrl).
+renderToString(App({ router }))
+.
+
+I have completed the SSR and Hydration implementation.
+Final Actions:
+
+1. Refactoring: Implemented bindTextSlot with robust Observable<TemplateResult> support to handle async route
+updates during hydration.
+2. Cleanup: Updated apps/demo/tsconfig.json to include vite/client types, resolving lint errors with import.meta.ho
+
+3. Documentation: Updated task.md and walkthrough.md to reflect the finished state of the project.
+
+The application now supports:
+. Server-Side Rendering of the App Shell and initial route.
+. Client-Side Hydration that preserves the SSR content and seamlessly attaches behavior.
+. Async Routing where the client takes over to load views lazily.
+
+I verified this with valid test scripts ( verify-ssr-routing.ts and verify-hydrate.ts ) which are currently in apps/demo/.
+You can keep them for regression testing or delete them if you prefer.
+Note: The Contact and Login views are placeholders. If you'd like, I can continue by refactoring those into full
+components.
+
+--------------- Store devtools integration - Antigravitiy
+Store DevTools & Middleware Implementation Plan
+Goal
+Implement a lightweight debugging solution for the RxJS-based store, including console logging and a visual DevTools UI. This addresses the user's need to debug state changes in non-trivial apps without the complexity of Redux DevTools or heavy middleware pipelines.
+
+User Review Required
+NOTE
+
+I am implementing this as part of the apps/demo for now to verify it works with the existing packages/dom. If successful, we can consider moving the generic parts to packages/store or a new package later.
+
+Proposed Changes
+Apps / Demo
+[NEW] 
+devtools/logger.ts
+Create a createLogger function.
+Subscribes to store.actions$ and store.state$.
+Logs actions and state changes to the console with styling (grouping).
+Exposes the store on window for manual inspection (e.g., window.myStore).
+[NEW] 
+devtools/DevTools.ts
+Create a DevTools component using @rxjs-spa/dom.
+Features:
+verify that packages/dom capabilities are sufficient (usage of html, list, when).
+Dockable Panel: Floating overlay in the app.
+Action Log: List of dispatched actions (type + payload).
+State Inspector: View the current state (JSON view).
+Action/State Diff: (Optional, if time permits) Show what changed.
+State Management:
+The DevTools itself will have its own local state (open/close, selected action) managed via BehaviorSubject.
+[MODIFY] 
+main.ts
+Initialize the logger for globalStore.
+Mount the DevTools component into the app (or append to body).
+[MODIFY] 
+style.css
+Add basic styles for the DevTools panel (fixed position, z-index, dark mode aesthetics).
+Verification Plan
+Manual Verification
+Console Logging:
+Open Browser Console.
+Interact with the app (Login, Toggle Theme).
+Verify logs appear: [Action] TOGGLE_THEME, [State] { ... }.
+DevTools UI:
+Verify a floating "DevTools" button or panel appears on the screen.
+Open the panel.
+Click "Toggle Theme".
+Verify a new action appears in the list.
+Click the action to see details (if implemented) or just see the latest state update.
+JSON State view updates in real-time.
+------------
+
+
+
+
+
+
+

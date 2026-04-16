@@ -1,0 +1,226 @@
+what is neede to publish rxjs-spa as an Npm library that can be used as Open source Library
+
+Searched for 2 patterns, read 3 files, listed 4 directories (ctrl+o to expand)
+
+Here's a complete picture of what's needed, organized by priority:
+
+Blockers - can't publish without these
+
+1. Remove "private": true from all package package.json files
+
+Every package has this flag. npm refuses to publish private packages.
+
+2. Fix the types field and exports map
+
+The current setup points types at the TypeScript source (./src/index. ts) - that's a dev convenience fo
+Vite, not something consumers get. Published packages need:
+
+"types": "./dist/index.d.ts",
+"exports": {
+
+"types": "./dist/index.d.ts"
+"import": "./dist/index. js"
+"require": "./dist/index.cjs"
+
+The current development/production conditions are Vite-specific - standard tools (tsc, webpack,
+esbuild, Rollup) don't understand them and will fall through to default, which happens to be correct.
+But types must be in the exports map so TypeScript can find declarations.
+
+3. Add a files field to each package
+
+Without it, npm publishes everything - src/, *. test.ts, vite. config.ts, tsconfig *. json, node_modules
+symlinks. A proper allowlist:
+"files": ["dist", "src"]
+
+4. Fix tsconfig. build. json - test files leak into dist
+
+tsc -p tsconfig.build.json currently emits .d.ts for *. test.ts files because the include is "src"
+without exclusions. Add:
+"exclude": [" ** / *. test.ts", " ** / *. spec.ts"]
+
+5. Add a LICENSE file + "license" field
+
+No LICENSE file exists. MIT is the standard for OSS. Every package. json needs "license": "MIT".
+
+Required for quality - npm will accept without these but users expect them
+
+6. Add metadata fields to every package. json
+
+Currently missing:
+"description":
+"author": "Hans Schenker",
+"repository": {
+"type": "git",
+"url": "https://github.com/hansschenker/rxjs-spa",
+"directory": "packages/store"
+
+"homepage": "https://hansschenker.github.io/rxjs-spa",
+"bugs": "https://github.com/hansschenker/rxjs-spa/issues",
+"keywords": ["rxjs", "spa", "mvu", "reactive", "typescript"]
+
+7. Fix cross-package peerDependencies version ranges
+
+@rxjs-spa/persist and @rxjs-spa/errors list "@rxjs-spa/store": "0.1.0" as a peer. After publishing,
+this must be a semver range ("^0.1.0") not an exact pin, otherwise npm will warn on every install.
+
+8. Add a Node.js engine field
+
+"engines": { "node": ">=18" }
+
+9. Scope the npm org
+
+@rxjs-spa/ is a scoped package. You either need to own that npm org (rxjs-spa) or rename to your
+personal scope (@hansschenker/spa-store, etc.). Scoped packages published without org membership will
+fail with 403 Forbidden.
+
+Process - needed before the first npm publish
+
+10. Build all packages before publishing
+
+Currently npm run build runs per-workspace, but publishing from a clean clone requires:
+npm install && npm run build # produces all dist/ folders
+Add a root-level prepublish or a publish script that ensures dist is current.
+
+11. Versioning strategy - Changesets (already mentioned in README)
+
+With 9 packages, manual version bumps across package.json files don't scale. Changesets handles this:
+npm install -D @changesets/cli
+npx changeset init
+Workflow: npx changeset (describe change) > npx changeset version (bump versions + generate CHANGELOG)
++ npx changeset publish (publish all changed packages).
+
+With 9 packages, manual version bumps across package. json files don't scale. Changesets handles this:
+npm install -D @changesets/cli
+npx changeset init
+Workflow: npx changeset (describe change) > npx changeset version (bump versions + generate CHANGELOG)
++ npx changeset publish (publish all changed packages).
+
+CI/CD - automates publishing safely
+
+12. GitHub Actions workflow
+
+Two workflows needed:
+
+ci.yml - runs on every push/PR:
+- npm ci
+- npm run build
+- npm run test:run
+
+release.yml - runs on push to main, uses Changesets action:
+- npm ci && npm run build
+- uses: changesets/action@v1
+with:
+publish: npx changeset publish
+env:
+NPM_TOKEN: ${{ secrets. NPM_TOKEN }}
+
+Summary checklist
+
+2
+
+3
+
+5
+
+6
+
+7
+
+8
+
+9
+
+What
+
+Remove "private": true
+
+Fix types + exports map
+
+Add files: ["dist", "src"]
+
+Exclude tests from tsconfig.build.json
+
+Add LICENSE file + "license" field
+
+Add description, author, repository, etc.
+
+Loosen cross-dep peer ranges to ^0.1.0
+
+Claim or rename the npm @rxjs-spa scope
+
+Add engines field
+
+Where
+
+All 9 packages/*/package. json
+
+All 9 packages
+
+All 9 packages
+
+All 9 packages
+
+Root + all 9 packages
+
+All 9 packages
+
+persist, errors
+
+npm registry
+
+All 9 packages
+
+
+All 4 tasks complete. Here's the final summary:
+
+Tasks 1-3: All changes committed
+
+Commit
+
+cd241d9
+
+4d612d3
+
+b47c26e
+
+Message
+
+chore: add MIT license
+
+chore: prep all packages for npm publish (metadata, exports, files, engines)
+
+chore: exclude test files from declaration emit in all packages
+
+Task 4 verification: all green
+- Build: 0 errors, all 9 packages + apps + docs
+- Tests: 410 passed, 0 failed, 21 test files
+- npm pack -- dry-run: only dist/ and src/ packed, no "private" field, @rxjs-spa/store@0.1.0 ready
+
+One minor observation flagged during pack dry-run: files: ["dist", "src"] includes src/public.test.ts
+in the tarball. This is harmless for publishability but inflates package size. If you want cleaner
+tarballs you could either change files to ["dist"] only, or add a per-package .npmignore to exclude
+*. test.ts from src/. The src/ is currently included to support the development export condition, so
+dropping it is a trade-off.
+
+Remaining before first npm publish (items 10-12 from the checklist, not in scope today):
+- Claim/verify the @rxjs-spa npm org scope (Item 8)
+- Install Changesets for versioning + CHANGELOG
+- Add GitHub Actions CI/CD for automated publishing
+
+Cogitated for 58m 0s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

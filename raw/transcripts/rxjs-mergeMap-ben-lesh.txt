@@ -1,0 +1,262 @@
+project: (value: In) => Observable<Out>): OperatorFunction<In, Out> {  
+  return (source) => new Observable(subscriber => {  
+    let active = 0;  
+    let isComplete = false;  
+
+    const subscription = source.subscribe({  
+      next: value => {  
+        const inner = project(value);  
+        active++;  
+        inner.subscribe({  
+          next: innerValue => subscriber.next(innerValue),  
+          error: err => subscriber.error(err),  
+          complete: () => {  
+            active--;  
+            if (active === 0 && isComplete) {  
+              subscriber.complete();  
+            }  
+          }  
+        });  
+      },  
+      error: err => subscriber.error(err),  
+      complete: () => {  
+        isComplete = true;  
+        if (active === 0) {  
+          subscriber.complete();  
+        }  
+      }  
+    });  
+  });  
+
+  // ---------- with global subscription to add inner subscriptions  
+  function myMergeMap<In, Out>(  
+    project: (value: In) => Observable<Out>  
+  ): OperatorFunction<In, Out> {  
+    return (source) => (subscriber: Subscriber<Out>) =>  
+      new Observable((subscriber) => {  
+        let active = 0;  
+        let isComplete = false;  
+
+        const subscription = new Subscription();  
+
+        subscription.add(  
+          source.subscribe({  
+            next: (value) => {  
+              const inner = project(value);  
+              active++;  
+              subscription.add(  
+                inner.subscribe({  
+                  next: (innerValue) => subscriber.next(innerValue),  
+                  error: (err) => subscriber.error(err),  
+                  complete: () => {  
+                    active--;  
+                    if (active === 0 && isComplete) {  
+                      subscriber.complete();  
+                    }  
+                  }  
+                })  
+              );  
+            },  
+            error: (err) => subscriber.error(err),  
+            complete: () => {  
+              isComplete = true;  
+              if (active === 0) {  
+                subscriber.complete();  
+              }  
+            }  
+          })  
+        );  
+      });  
+
+  // --------- no subscription, replace subscription with subscriber  
+  const source = interval(100).pipe(take(5));  
+
+  const subscription = source.subscribe(console.log);  
+
+  function myM(  
+    project: (value: In) => Observable<Out>  
+  ): OperatorFunction<In, Out> {  
+    return (source) =>  
+      new Observable((subscriber) => {  
+        let active = 0;  
+        let isComplete = false;  
+
+        subscriber.add(  
+          source.subscribe({  
+            next: (value) => {  
+              const inner = project(value);  
+              active++;  
+              subscriber.add(  
+                inner.subscribe({  
+                  next: (innerValue) => subscriber.next(innerValue),  
+                  error: (err) => subscriber.error(err),  
+                  complete: () => {  
+                    active--;  
+                    if (active === 0 && isComplete) {  
+                      subscriber.complete();  
+                    }  
+                  }  
+                })  
+              );  
+            },  
+            error: (err) => subscriber.error(err),  
+            complete: () => {  
+              isComplete = true;  
+              if (active === 0) {  
+                subscriber.complete();  
+              }  
+            }  
+          })  
+        );  
+
+        return subscriber;  
+      });  
+}
+
+// firehose Observable
+
+
+const firehose = new Observable<number>((subscriber) => {
+let n = 0;
+while (!subscriber.closed) {
+subscriber.next(n++);
+if (n === 100) {
+subscriber.error(new Error('too many values!'));
+
+---------- Subscribers are both the Observer and the Subscription, you need to create a Subscriber
+
+// source Subscriber
+export class Subscriber<T> extends Subscription implements Observer<T> {
+
+* If another instance of Subscriber is passed in, it will automatically wire up unsubscription
+* between this instnace and the passed in instance.
+
+* If a partial or full observer is passed in, it will be wrapped and appropriate safeguards will be applied.
+
+* If a next-handler function is passed in, it will be wrapped and appropriate safeguards will be applied.
+
+* @param destination A subscriber, partial observer, or function that receives the next value.
+
+constructor(destinatione: Subscriber<T> | Partial<Observer<T>> | ((value: T) => void) | null) {
+super();
+// The only way we know that error reporting safety has been applied is if we own it.
+this.destination = destination instanceof Subscriber ? destination : createSafeobserver(destination);
+
+// Automatically chain subscriptions together here.
+// if destination appears to be one of our subscriptions, we'll chain it.
+if (hasAddAndunsubscribe(destination)) {
+destination.add(this);
+
+}
+
+/ **
+* The {@link Observer} callback to receive notifications of type 'next from
+* the Observable, with a value. The Observable may call this method 0 or more
+* times.
+@param value The 'next value.
+*/
+next(value ?: T): void {
+if (this.isstopped) {
+handlestoppedNotification(nextNotification(value), this);
+} else {
+
+// Subscription has an Add method and an unsubscribe on it for checking reasons
+
+It's a bit confusing, but to explain what's going on here: if you pass a subscriber instance to subscribe, that becomes your subscription and controls it. It's basically a cancellation token at that point because it acts as both a subscription and the Observer, combining the two. So, you provide this subscription to use, and internally, our subscribe function checks this. Looking at the internal observable and the subscribe call further down, you can see that if it's an instance of subscriber, it just uses that directly and returns it—it's essentially the same thing. This creates a somewhat odd situation where we're using this, and although it's marked as deprecated, maybe we should reconsider that. In the upcoming version eight, there's a better utility for this, which is improved for several reasons. For now, since we're using the deprecated subscriber, I'll explain why the new approach is better if you encounter this.
+---------
+
+// operate destination is the next subscriber in the line, controls subscription
+
+// using operate in version 8, shown on takeLast
+export function takelast<T>(count: number): MonoTypeoperatorFunction<T> {
+return count <= e
+? () -> EMPTY
+: (source) =>
+new Observable((destination) -> (
+// This is a ring buffer that will hold our values
+let ring - new Array<T>(count);
+// This counter is how we track where we are at in the ring buffer.
+let counter - 0;
+source.subscribe(
+operate(4
+destination,
+next: (value) -> {
+ring[counter++ % count] - value;
+
+complete: () -> {
+// We need to loop through our ring buffer.
+// If we haven't filled the buffer yet, we can start at zero.
+const start - count <- counter ? counter : 0;
+// Only need to emit however many values we've seen,
+// up to the expected count
+const total - Math.min(count, counter);
+for (let n - 0; n < total; n++) {
+// The tricky bit here is we're incrementing 'n', and moving
+// through our ring buffer, starting at the 'start' index we
+// found above. The "% count' will "wrap" us around to read
+// the remaining values, if necessary.
+destination.next(ring[(start + n) % count]);
+
+// All done. This will also trigger clean up.
+destination.complete();
+
+finalize: () -> {
+// During finalization release the values in our buffer.
+riing - null !;
+---------- map operator with operate function
+
+export function map<T, R>(project: (value: T, index: number) => R): OperatorFunction<T, R> {
+return (source) =>
+new Observable((destination) => {
+// The index of the value from the source. Used with projection.
+let index = 0;
+// Subscribe to the source, all errors and completions are sent along
+// to the consumer.
+source.subscribe(
+operate({
+destination,
+next: (value: T) => {
+// Call the projection function with the appropriate this context,
+// and send the resulting value to the consumer.
+destination.next(project(value, index++));
+
+I
+
+});
+
+}
+
+----------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

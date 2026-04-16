@@ -1,0 +1,31 @@
+partition
+of
+from
+defer
+iif
+interval
+timer
+range
+generate
+fromEvent
+fromEventPattern
+bindCallback
+bindNodeCallback
+scheduled
+animationFrames
+EMPTY
+NEVER
+throwError
+ajax
+webSocket
+combineLatest
+concat
+merge
+zip
+race
+forkJoin
+partition(source$, predicate) (static): returns [pass$, fail$]
+onErrorResumeNext(...) (deprecated; renamed to onErrorResumeNextWith)
+firstValueFrom(source$)
+lastValueFrom(source$)
+toPromise

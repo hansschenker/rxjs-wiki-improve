@@ -1,0 +1,226 @@
+sequence : : Monad m => [m a] -> m [a]
+sequence = foldr (liftM2 (:)) (return [])
+
+
+/**
+ * Since Haskell's Monad is a type class and TypeScript does not have native Higher-Kinded Types (HKT),
+ * we use the lightweight higher-kinded polymorphism pattern.
+ */
+export interface HKT<M, A> {
+  readonly _M: M;
+  readonly _A: A;
+}
+
+/**
+ * Monad type class definition.
+ * Corresponds to Haskell's: class Applicative m => Monad m
+ */
+export interface Monad<M> {
+  /** return :: a -> m a */
+  readonly pure: <A>(a: A) => HKT<M, A>;
+  /** (>>=) :: m a -> (a -> m b) -> m b */
+  readonly flatMap: <A, B>(ma: HKT<M, A>, f: (a: A) => HKT<M, B>) => HKT<M, B>;
+}
+
+/**
+ * liftM2 :: Monad m => (a1 -> a2 -> r) -> m a1 -> m a2 -> m r
+ * liftM2 f m1 m2 = do { x1 <- m1; x2 <- m2; return (f x1 x2) }
+ */
+export const liftM2 = <M>(m: Monad<M>) =>
+  <A, B, C>(f: (a: A) => (b: B) => C) =>
+  (ma: HKT<M, A>, mb: HKT<M, B>): HKT<M, C> =>
+    m.flatMap(ma, (a) =>
+      m.flatMap(mb, (b) =>
+        m.pure(f(a)(b))
+      )
+    );
+
+/**
+ * foldr :: (a -> b -> b) -> b -> [a] -> b
+ * TypeScript equivalent using reduceRight.
+ */
+export const foldr = <A, B>(f: (val: A, acc: B) => B) =>
+  (z: B) =>
+  (list: A[]): B =>
+    list.reduceRight((acc, val) => f(val, acc), z);
+
+/**
+ * sequence :: Monad m => [m a] -> m [a]
+ * sequence = foldr (liftM2 (:)) (return [])
+ */
+export const sequence = <M>(m: Monad<M>) => {
+  /** (:) :: a -> [a] -> [a] (Cons operator) */
+  const cons = <A>(x: A) => (xs: A[]): A[] => [x, ...xs];
+
+  /**
+   * The translated implementation matches the point-free style of the original.
+   * Haskell: foldr (liftM2 (:)) (return [])
+   */
+  return <A>(ms: HKT<M, A>[]): HKT<M, A[]> =>
+    foldr(liftM2(m)(cons))(m.pure([] as A[]))(ms);
+};
+
+1. **Higher Kinded Types (HKT)**: Haskell uses type constructors (like `m a` where `m` is a variable) natively. TypeScript doesn't support this directly. I implemented a common "HKT" pattern using an interface placeholder (`HKT<M, A>`) to allow the code to be generic over any Monad `m`.
+2. **Monad Interface**: I defined a `Monad<M>` interface to act as the type class dictionary. It includes `pure` (the equivalent of Haskell's `return`) and `flatMap` (the equivalent of Haskell's `>>=` bind operator).
+3. **`return` to `pure`**: In TypeScript, `return` is a reserved keyword. I used `pure` as is standard in modern functional programming libraries in TypeScript (like fp-ts) to represent the Haskell `return` functionality.
+4. **`foldr` Implementation**: Haskell's `foldr` is a fundamental list function. I implemented it using TypeScript's `Array.prototype.reduceRight`. Note that in `reduceRight`, the accumulator is the first argument, whereas in Haskell's `foldr` callback, the element is the first argument. I swapped them in the `foldr` helper to maintain exact Haskell logic.
+5. **`liftM2` Adaptation**: I implemented `liftM2` using `flatMap` and `pure`. In the Haskell code, `liftM2` is applied to `(:)`, which is a curried function `a -> [a] -> [a]`. To match this, the TypeScript `liftM2` and `cons` helper are implemented in a curried style.
+6. **Cons Operator `(:)`**: The Haskell list constructor `(:)` was translated to a helper function `cons` which uses the spread operator `[x, ...xs]` to prepend an element to an array.
+7. **Point-free Style**: The Haskell definition `sequence = foldr (liftM2 (:)) (return [])` is point-free (it doesn't explicitly name the list argument). I maintained this structure in the TypeScript version by having `sequence` return the result of the partially applied `foldr`.
+8. **Polymorphism**: The Haskell code is polymorphic over type `a`. The TypeScript translation uses generics `<A>` to preserve this.
+
+---------
+
+
+
+
+
+
+
+
+
+ma >>= \a ->
+mb >>= \b ->
+return (f a b)
+
+do a <- ma
+b <- mb
+return (f a b)
+
+
+
+
+
+
+
+
+
+
+/**
+ * To provide a complete and working translation of Haskell's Monad operations,
+ * we must first define the Monad structure in TypeScript.
+ */
+
+// Interface representing the Monad type class
+interface Monad<T> {
+  flatMap<U>(f: (value: T) => Monad<U>): Monad<U>;
+}
+
+// A concrete implementation (Identity Monad / Box) to make the code executable
+class Box<T> implements Monad<T> {
+  constructor(private readonly value: T) {}
+
+  // Equivalent to Haskell's 'return' or 'pure'
+  static pure<U>(value: U): Box<U> {
+    return new Box(value);
+  }
+
+  // Equivalent to Haskell's '>>=' (bind)
+  flatMap<U>(f: (value: T) => Box<U>): Box<U> {
+    return f(this.value);
+  }
+
+  // Helper to retrieve the value
+  getValue(): T {
+    return this.value;
+  }
+}
+
+// Helper function to mimic the 'return' function locally for the snippets
+const pure = <T>(value: T): Box<T> => Box.pure(value);
+
+/**
+ * Supporting variables for the translation
+ * These represent the generic values 'f', 'ma', and 'mb' from the source
+ */
+const f = (a: number, b: number): number => a + b;
+const ma: Box<number> = Box.pure(10);
+const mb: Box<number> = Box.pure(20);
+
+/**
+ * Translation of Snippet 1: Manual Bind Chain
+ * Haskell:
+ * ma >>= \a ->
+ * mb >>= \b ->
+ * return (f a b)
+ */
+ma.flatMap(a =>
+mb.flatMap(b =>
+pure(f(a, b))))
+
+/**
+ * Translation of Snippet 2: Do Notation
+ * Haskell:
+ * do a <- ma
+ *    b <- mb
+ *    return (f a b)
+ * 
+ * In TypeScript, 'do' notation is desugared into nested flatMaps, 
+ * maintaining the exact same functional logic.
+ */
+ma.flatMap(a =>
+mb.flatMap(b =>
+pure(f(a, b))))
+
+1. **Language-Specific Feature Adaptations**:
+    - **Bind Operator (`>>=`)**: Haskell uses the infix operator `>>=` for binding. In TypeScript, this is translated to the `flatMap` method (also known as `bind` or `chain` in various functional libraries).
+    - **Lambdas (`\a ->`)**: Haskell's backslash lambda syntax is translated directly to TypeScript arrow functions (`a => ...`).
+    - **`return` Function**: In Haskell, `return` is a function used to wrap a value into a monad. In TypeScript, `return` is a reserved keyword for exiting functions. To maintain the exact functionality, I implemented a `pure` helper function that wraps values into the `Box` monad, serving as the direct equivalent to Haskell's `return`.
+    - **`do` Notation**: TypeScript does not have a native "do-notation" for general monads (unlike `async/await` for Promises). In Haskell, `do` notation is purely syntactic sugar for the bind (`>>=`) chain. Therefore, the second snippet is translated into the same nested `flatMap` structure to preserve the exact logical execution.
+
+2. **Type System Differences**:
+    - TypeScript requires explicit interface/class definitions to handle generic monadic behavior. I implemented a `Monad<T>` interface and a `Box<T>` class (Identity Monad) to ensure the code is complete, type-safe, and runnable without external dependencies.
+
+3. **Formatting and Structure**:
+    - The line-by-line structure of the Haskell code was preserved. 
+    - The nesting in the translation reflects the scoping of variables `a` and `b` in the original Haskell code, where `b` is in scope within the lambda of `a`, and both are in scope for the final call to `f`.
+
+4. **Potential Issues**:
+    - Because TypeScript lacks the specific `do` syntax, both Haskell snippets resolve to the same structural representation in TypeScript. This is the most accurate way to represent the underlying logic as the Haskell compiler would desugar them identically.
+
+------------- left id
+
+
+return x >>= f  == f x
+ 
+m >>= return    == m
+
+(m >>= f) >>= g == m >>= \x -> f x >>= g
+
+
+
+
+http://www.cse.chalmers.se/~rjmh/OPLSS/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

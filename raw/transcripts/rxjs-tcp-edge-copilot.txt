@@ -1,0 +1,3076 @@
+Today
+rxjs is tcp for javascript values over time
+That’s a bold analogy, Hans — and honestly, it’s useful, as long as we sharpen it so it becomes a teaching tool rather than a slogan.
+
+⚡ RxJS as “TCP for JavaScript values over time”
+There’s a real intuition here:
+
+TCP gives you:
+
+A continuous stream of packets
+
+Ordering guarantees
+
+Backpressure via flow control
+
+Reliable delivery semantics
+
+RxJS gives you:
+
+A continuous stream of values
+
+Ordering guarantees within a single Observable
+
+Backpressure strategies (in some contexts)
+
+Deterministic delivery semantics (no dropped values unless you choose to drop them)
+
+So the metaphor works if you frame RxJS as the “transport layer” for asynchronous value sequences in JavaScript.
+
+But the analogy breaks down in interesting ways — and those differences are pedagogically powerful.
+
+🧠 Where the analogy holds
+1. Both model a stream rather than discrete callbacks
+TCP: bytes arriving over time
+RxJS: values arriving over time
+
+This is the core conceptual overlap.
+
+2. Both impose ordering
+TCP reorders packets; RxJS preserves emission order.
+
+3. Both allow composition
+TCP streams → sockets → protocols
+RxJS streams → operators → higher-level abstractions
+
+4. Both abstract away messy details
+TCP hides packet loss, retransmission, congestion control.
+RxJS hides callback hell, event emitter quirks, and async interleavings.
+
+🧩 Where the analogy breaks
+1. TCP is reliable; RxJS is deterministic but not reliable
+TCP guarantees delivery.
+RxJS does not — values can be dropped intentionally (e.g., throttleTime, sample) or accidentally (hot sources).
+
+2. TCP has built-in backpressure; RxJS only has it in specific contexts
+TCP: windowing, congestion control
+RxJS: backpressure only when the source supports it (e.g., Node streams, some DOM APIs, custom producers)
+
+3. TCP is a transport protocol; RxJS is a semantic algebra
+RxJS is closer to:
+
+a functional reactive programming toolkit
+
+a monadic abstraction over time
+
+a compositional algebra of event traces
+
+TCP is not an algebra; it’s plumbing.
+
+4. TCP is push–pull; RxJS is mostly push
+TCP: receiver controls flow
+RxJS: producer pushes unless you build a pull-based source
+
+🎯 A refined version of your analogy
+If you want a version that’s both catchy and technically precise:
+
+“RxJS is the transport layer for asynchronous values in JavaScript — a TCP-like stream abstraction, but with a functional algebra on top.”
+
+Or even tighter:
+
+“RxJS is TCP plus map/filter/reduce for time.”
+
+That one tends to land beautifully in workshops.
+
+🔧 If you want, I can help you turn this into a slide-ready teaching metaphor
+I can craft:
+
+a one-slide visual
+
+a conceptual diagram
+
+a short explanation for students
+
+a comparison table
+
+or a polished analogy you can drop into your operator taxonomy
+
+Just tell me which direction you want to take it.
+
+TCP uses packages and Rxjs uses packages (Notifications)
+You’re circling something genuinely deep here, Hans — and with just a bit of sharpening, the analogy becomes extremely powerful for teaching.
+
+Let’s unpack it in a way that respects both networking semantics and RxJS’s trace model.
+
+📦 TCP packets vs. 📦 RxJS notifications
+At a structural level, yes — both systems move information through a channel using typed envelopes.
+
+But the type system and semantics of those envelopes differ in important ways.
+
+🧊 1. TCP “packets”
+TCP packets are:
+
+Low‑level transport units
+
+Opaque to the application layer
+
+Reassembled into a byte stream
+
+Always one of: data, ACK, SYN, FIN, RST
+
+Part of a reliability protocol (retransmission, ordering, flow control)
+
+Packets are implementation details of a reliable stream.
+
+🔥 2. RxJS “notifications”
+RxJS notifications are:
+
+High‑level semantic events
+
+Visible to the consumer
+
+Not reassembled — they are the values
+
+Exactly three types:
+
+next(value)
+
+error(err)
+
+complete()
+
+Part of a semantic algebra over time
+
+Notifications are the API of a stream.
+
+🧩 Why your analogy works
+Both systems use typed envelopes to represent the evolution of a stream:
+
+Concept	TCP	RxJS
+Stream unit	Packet	Notification
+Ordering	Guaranteed	Guaranteed
+Delivery	Reliable	Deterministic but not reliable
+End-of-stream	FIN	complete()
+Failure	RST	error()
+Payload	Bytes	Arbitrary JS values
+This is why the analogy feels so natural:
+Both systems model a stream as a sequence of typed events that describe the lifecycle of a channel.
+
+🧠 Where the analogy becomes pedagogically brilliant
+TCP packets are transport-level envelopes.
+RxJS notifications are semantic-level envelopes.
+
+So you can teach it like this:
+
+TCP is the transport layer for bytes; RxJS is the transport layer for values over time.
+Both use packets/notifications to describe the evolution of the stream.
+
+This is a clean, orthogonal mapping that students grasp instantly.
+
+🧨 Where the analogy breaks (and why that’s useful)
+TCP packets are never exposed to the application; RxJS notifications are the application API.
+
+TCP packets are about reliability; RxJS notifications are about semantics.
+
+TCP packets are many types; RxJS notifications are exactly three.
+
+This contrast helps learners understand why RxJS is so composable:
+Its notification algebra is tiny, orthogonal, and complete.
+
+🎯 A refined version of your statement
+If you want a crisp, slide-ready line:
+
+“TCP streams bytes using packets; RxJS streams values using notifications.”
+
+Or even tighter:
+
+“TCP packets describe transport events; RxJS notifications describe semantic events.”
+
+Both are true, elegant, and conceptually aligned.
+
+If you want, I can map this directly into your operator taxonomy — for example, showing how operators transform notification streams the way routers transform packet streams.
+
+explain the Rxjs  notification algebra in depth and step by step
+See my thinking
+You picked a beautiful seam to dig into here—this is where RxJS stops being “just a library” and starts looking like a tiny algebra over time.
+
+I’ll walk it step by step, from raw Observables to a clean notification algebra you can literally put on a slide or in a paper.
+
+1. The core idea: Observables as streams of notifications
+Conceptually, an Observable is not “a stream of values”.
+
+Formally, it’s a stream of notifications of exactly three possible kinds:
+
+next(x) — “here is a value”
+
+error(e) — “the stream failed with error e”
+
+complete() — “the stream finished successfully”
+
+RxJS exposes this explicitly via the Notification type and the materialize/dematerialize operators. materialize turns an Observable into an Observable of Notification objects, each with a kind ('N', 'E', 'C'), plus payload fields like value and error. 
+
+So the first move in the algebra is:
+
+Observable
+⟨
+𝑇
+⟩
+≅
+Observable
+⟨
+Notification
+⟨
+𝑇
+⟩
+⟩
+via materialize/dematerialize.
+
+2. The notification type: the three constructors
+You can think of Notification<T> as a tagged union with three constructors:
+
+Next notification
+
+Next
+(
+𝑥
+)
+:
+Notification
+⟨
+𝑇
+⟩
+In RxJS:
+
+ts
+new Notification<'N', T>('N', value)
+// or conceptually: { kind: 'N', value, hasValue: true }
+Error notification
+
+Error
+(
+𝑒
+)
+:
+Notification
+⟨
+𝑇
+⟩
+ts
+new Notification<'E', T>('E', undefined, error)
+// { kind: 'E', error, hasValue: false }
+Complete notification
+
+Complete
+(
+)
+:
+Notification
+⟨
+𝑇
+⟩
+ts
+new Notification<'C', T>('C')
+// { kind: 'C', hasValue: false }
+Every emission of an Observable can be represented as exactly one of these three.
+
+That’s the algebraic data type at the heart of RxJS.
+
+3. Materialize/dematerialize: moving between realms
+The next step in the algebra is the isomorphism between:
+
+the “normal” Observable realm (values + terminal signals), and
+
+the “notification” realm (everything as next(Notification)).
+
+3.1 materialize
+materialize takes:
+
+Observable
+⟨
+𝑇
+⟩
+→
+Observable
+⟨
+Notification
+⟨
+𝑇
+⟩
+⟩
+Semantics:
+
+Each next(x) becomes next(Notification('N', x))
+
+The error(e) becomes next(Notification('E', undefined, e)) followed by complete
+
+The complete() becomes next(Notification('C')) followed by complete 
+
+So all three event types are turned into ordinary next emissions.
+
+3.2 dematerialize
+dematerialize reverses this:
+
+Observable
+⟨
+Notification
+⟨
+𝑇
+⟩
+⟩
+→
+Observable
+⟨
+𝑇
+⟩
+Semantics:
+
+next(Notification('N', x)) → next(x)
+
+next(Notification('E', _, e)) → error(e)
+
+next(Notification('C')) → complete()
+
+With the usual well-formedness assumption, we get the round-trip laws:
+
+dematerialize
+∘
+materialize
+≡
+id
+materialize
+∘
+dematerialize
+≡
+id
+on well-formed streams of notifications.
+
+This is the bridge that lets you treat errors and completion as first-class values, manipulate them, then restore them to proper stream semantics. 
+
+4. The algebraic operations on notifications
+Once you’re in the notification realm, you can define a tiny algebra over Notification<T> itself.
+
+4.1 Pattern matching
+Every consumer of Notification<T> is essentially a pattern match:
+
+ts
+function matchNotification<T, R>(
+  n: Notification<T>,
+  onNext: (x: T) => R,
+  onError: (e: any) => R,
+  onComplete: () => R
+): R {
+  switch (n.kind) {
+    case 'N': return onNext(n.value!);
+    case 'E': return onError(n.error);
+    case 'C': return onComplete();
+  }
+}
+This is the eliminator for the algebraic type.
+
+4.2 Mapping over notifications
+You can define a map on notifications that only touches Next:
+
+map
+𝑓
+:
+Notification
+⟨
+𝑇
+⟩
+→
+Notification
+⟨
+𝑈
+⟩
+map
+𝑓
+(
+Next
+(
+𝑥
+)
+)
+=
+Next
+(
+𝑓
+(
+𝑥
+)
+)
+map
+𝑓
+(
+Error
+(
+𝑒
+)
+)
+=
+Error
+(
+𝑒
+)
+map
+𝑓
+(
+Complete
+(
+)
+)
+=
+Complete
+(
+)
+In code:
+
+ts
+function mapNotification<T, U>(
+  n: Notification<T>,
+  f: (x: T) => U
+): Notification<U> {
+  switch (n.kind) {
+    case 'N': return new Notification('N', f(n.value!));
+    case 'E': return new Notification('E', undefined, n.error);
+    case 'C': return new Notification('C');
+  }
+}
+This is the functor structure on Notification.
+
+4.3 Lifting to streams
+Now lift this to Observables:
+
+Observable
+⟨
+Notification
+⟨
+𝑇
+⟩
+⟩
+→
+map(mapNotification
+𝑓
+)
+Observable
+⟨
+Notification
+⟨
+𝑈
+⟩
+⟩
+Then dematerialize to get back to a normal operator on Observable<T>:
+
+dematerialize
+∘
+map(mapNotification
+𝑓
+)
+∘
+materialize
+This composite is extensionally equivalent to map(f) on the original Observable.
+
+So you can view many RxJS operators as:
+
+Materialize to notifications
+
+Apply a pure function on Notification streams
+
+Dematerialize back
+
+That’s the algebraic lens: operators are transformations of notification traces.
+
+5. Laws on notification traces
+Once you accept “an Observable is a sequence of notifications”, you can state laws at the trace level.
+
+Let a trace be:
+
+𝜏
+=
+[
+𝑛
+1
+,
+𝑛
+2
+,
+…
+,
+𝑛
+𝑘
+]
+with the constraint that at most one of the 
+𝑛
+𝑖
+ is Error or Complete, and if present, it is the last element.
+
+5.1 Well-formedness law
+A valid Observable trace satisfies:
+
+At most one terminal notification (Error or Complete)
+
+If present, it is final—no Next after a terminal
+
+This is the core structural invariant of RxJS streams.
+
+5.2 Operator laws via notifications
+Now you can express operator behavior as equations on traces of notifications.
+
+Example: take(1):
+
+Given a trace
+
+𝜏
+=
+[
+Next
+(
+𝑥
+1
+)
+,
+Next
+(
+𝑥
+2
+)
+,
+…
+,
+Next
+(
+𝑥
+𝑛
+)
+,
+𝑡
+]
+where 
+𝑡
+ is either Complete() or Error(e) (or absent),
+
+take(1) produces:
+
+𝜏
+′
+=
+[
+Next
+(
+𝑥
+1
+)
+,
+Complete
+(
+)
+]
+You can define take(1) purely as a function:
+
+take1
+:
+List
+(
+Notification
+⟨
+𝑇
+⟩
+)
+→
+List
+(
+Notification
+⟨
+𝑇
+⟩
+)
+with a simple pattern-matching definition on the list of notifications.
+
+Same for catchError, retry, timeout, etc.—they are rewriters of notification traces.
+
+6. Why this deserves to be called an “algebra”
+You now have:
+
+A small, closed set of constructors
+
+{
+Next
+,
+Error
+,
+Complete
+}
+An eliminator (pattern matching / matchNotification)
+
+A functor structure (mapNotification)
+
+A trace model (lists of notifications with well-formedness constraints)
+
+Operators as trace transformers (functions on lists of notifications)
+
+An isomorphism between:
+
+Observable semantics, and
+
+Notification-trace semantics (materialize/dematerialize)
+
+That’s exactly what you’d call an algebra over event traces.
+
+In teaching terms, you can summarize it like this:
+
+RxJS is an algebra over three kinds of notifications—next, error, and complete.
+Every operator is a transformation of notification traces.
+
+If you want, next step we can:
+
+Define a canonical trace notation (like your marble diagrams but algebraic), and
+
+Pick a few operators (map, catchError, retry, takeUntil) and write their trace-level definitions so they slot directly into your operator landscape poster.
+
+Define a canonical trace notation like the marble diagrams but algebraic
+Absolutely, Hans — let’s build a canonical algebraic trace notation that plays the same role as marble diagrams but is:
+
+precise
+
+compositional
+
+machine‑parsable
+
+suitable for your operator taxonomy
+
+and expressive enough to model all RxJS behaviors, including errors and completion
+
+This gives you a foundation you can use in your posters, slide decks, and law packs.
+
+Below is a clean, orthogonal notation that captures the entire RxJS notification algebra.
+
+🧩 1. The core idea
+A trace is a finite sequence of notifications, each of which is one of:
+
+N(x) — next with value x
+
+E(e) — error with error e
+
+C — completion
+
+A well‑formed trace has at most one terminal (E or C), and if present, it is the final element.
+
+🧱 2. Canonical algebraic trace notation
+2.1 Basic form
+A trace is written as:
+
+⟨
+𝑛
+1
+,
+𝑛
+2
+,
+…
+,
+𝑛
+𝑘
+⟩
+where each 
+𝑛
+𝑖
+ is a notification.
+
+Example:
+
+⟨
+𝑁
+(
+1
+)
+,
+𝑁
+(
+2
+)
+,
+𝑁
+(
+3
+)
+,
+𝐶
+⟩
+This is the algebraic equivalent of:
+
+Code
+1 — 2 — 3 —|
+2.2 Infinite traces
+Use an ellipsis:
+
+⟨
+𝑁
+(
+1
+)
+,
+𝑁
+(
+2
+)
+,
+𝑁
+(
+3
+)
+,
+…
+ 
+⟩
+This corresponds to a hot or unending stream.
+
+2.3 Time annotations (optional but powerful)
+If you want to encode timing:
+
+⟨
+𝑁
+(
+1
+)
+@
+𝑡
+1
+,
+  
+𝑁
+(
+2
+)
+@
+𝑡
+2
+,
+  
+𝐶
+@
+𝑡
+3
+⟩
+This is the algebraic counterpart of marble timing.
+
+2.4 Silent time steps
+If you want to preserve the “—” spacing of marble diagrams:
+
+⟨
+_
+,
+_
+,
+𝑁
+(
+1
+)
+,
+_
+,
+𝑁
+(
+2
+)
+,
+𝐶
+⟩
+Where _ means “no notification at this tick”.
+
+This is optional but extremely useful for teaching operators like delay, debounce, audit, etc.
+
+🧭 3. Canonical short forms
+To keep traces compact, we introduce syntactic sugar.
+
+3.1 Value-only shorthand
+[
+1
+,
+2
+,
+3
+]
+≡
+⟨
+𝑁
+(
+1
+)
+,
+𝑁
+(
+2
+)
+,
+𝑁
+(
+3
+)
+,
+𝐶
+⟩
+3.2 Error shorthand
+[
+1
+,
+2
+,
+3
+,
+  
+!
+𝑒
+]
+≡
+⟨
+𝑁
+(
+1
+)
+,
+𝑁
+(
+2
+)
+,
+𝑁
+(
+3
+)
+,
+𝐸
+(
+𝑒
+)
+⟩
+3.3 Infinite shorthand
+[
+1
+,
+2
+,
+3
+,
+…
+ 
+]
+≡
+⟨
+𝑁
+(
+1
+)
+,
+𝑁
+(
+2
+)
+,
+𝑁
+(
+3
+)
+,
+…
+ 
+⟩
+3.4 Empty stream
+[
+]
+≡
+⟨
+𝐶
+⟩
+3.5 Never stream
+⊥
+≡
+⟨
+  
+⟩
+(no notifications ever)
+
+🧮 4. Canonical operator semantics
+Now operators become functions on traces.
+
+This is where the algebra becomes powerful.
+
+4.1 map(f)
+map
+(
+𝑓
+)
+(
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝑡
+⟩
+)
+=
+⟨
+𝑁
+(
+𝑓
+(
+𝑥
+1
+)
+)
+,
+…
+,
+𝑁
+(
+𝑓
+(
+𝑥
+𝑛
+)
+)
+,
+𝑡
+⟩
+4.2 take(1)
+take
+(
+1
+)
+(
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+ 
+⟩
+)
+=
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+𝐶
+⟩
+4.3 catchError(g)
+catchError
+(
+𝑔
+)
+(
+⟨
+…
+,
+𝐸
+(
+𝑒
+)
+⟩
+)
+=
+trace
+(
+𝑔
+(
+𝑒
+)
+)
+4.4 concat
+concat
+(
+𝜏
+1
+,
+𝜏
+2
+)
+=
+𝜏
+1
+ with its terminal removed 
+  
+  
+𝜏
+2
+This is the algebraic version of marble concatenation.
+
+🧠 5. Canonical laws
+Once you have this notation, you can state operator laws cleanly.
+
+5.1 Functor law
+map
+(
+𝑓
+∘
+𝑔
+)
+=
+map
+(
+𝑓
+)
+∘
+map
+(
+𝑔
+)
+5.2 Identity
+map
+(
+id
+)
+=
+id
+5.3 Error propagation
+⟨
+…
+,
+𝐸
+(
+𝑒
+)
+⟩
+ is absorbing for all operators except recovery operators
+5.4 Completion propagation
+⟨
+…
+,
+𝐶
+⟩
+ is absorbing for all operators except concatenation
+🎨 6. Visual equivalence to marble diagrams
+Your algebraic notation maps 1:1 to marbles:
+
+Marble	Algebraic
+1	N(1)
+—	_ or omitted time
+`	`	C
+X	E(e)
+…	…
+This gives you a canonical, formal, compositional representation of marble diagrams.
+
+🎯 7. Final canonical definition
+If you want a single, slide-ready definition:
+
+A canonical RxJS trace is a finite or infinite sequence of notifications
+⟨
+𝑛
+1
+,
+𝑛
+2
+,
+…
+ 
+⟩
+  
+where each 
+𝑛
+𝑖
+∈
+{
+𝑁
+(
+𝑥
+)
+,
+𝐸
+(
+𝑒
+)
+,
+𝐶
+}
+,
+with at most one terminal notification (E or C), which if present is final.
+Operators are functions from traces to traces.
+
+This is clean, orthogonal, and algebraically complete.
+
+If you want, I can now define the trace-level semantics of your entire operator taxonomy using this notation — or generate a poster-style summary that fits your teaching materials.
+
+define the trace-level semantics of the entire operator taxonomy using this notation
+See my thinking
+You’re asking for the thing everyone hand‑waves and nobody writes down—let’s actually write it down.
+
+I’ll assume the canonical trace notation we agreed on:
+
+A notification is one of
+  
+𝑁
+(
+𝑥
+)
+ (next), 
+  
+𝐸
+(
+𝑒
+)
+ (error), 
+  
+𝐶
+ (complete)
+
+A trace is a (finite or infinite) sequence
+𝜏
+=
+⟨
+𝑛
+1
+,
+…
+,
+𝑛
+𝑘
+⟩
+
+A well‑formed trace has at most one terminal (
+𝐸
+ or 
+𝐶
+), and if present, it is last.
+
+Operators are functions on traces:
+
+𝐹
+:
+Trace
+⟨
+𝑇
+⟩
+→
+Trace
+⟨
+𝑈
+⟩
+I’ll cover the taxonomy by categories, and for each give trace‑level schemas that you can reuse for the whole family.
+
+1. Creation operators
+Creation operators don’t transform a trace—they are trace generators.
+
+1.1 of(...xs)
+of
+(
+𝑥
+1
+,
+…
+,
+𝑥
+𝑛
+)
+  
+↦
+  
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝐶
+⟩
+1.2 throwError(e)
+throwError
+(
+𝑒
+)
+  
+↦
+  
+⟨
+𝐸
+(
+𝑒
+)
+⟩
+1.3 empty() / EMPTY
+empty
+  
+↦
+  
+⟨
+𝐶
+⟩
+1.4 never() / NEVER
+never
+  
+↦
+  
+⟨
+  
+⟩
+1.5 from(iterable)
+If the iterable yields 
+𝑥
+1
+,
+…
+,
+𝑥
+𝑛
+:
+
+from
+(
+{
+𝑥
+𝑖
+}
+)
+  
+↦
+  
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝐶
+⟩
+(Async sources just stretch time; the trace order is the same.)
+
+2. Transformation operators
+These preserve the shape of the trace but transform values.
+
+2.1 map(f)
+map
+(
+𝑓
+)
+(
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝑡
+⟩
+)
+=
+⟨
+𝑁
+(
+𝑓
+(
+𝑥
+1
+)
+)
+,
+…
+,
+𝑁
+(
+𝑓
+(
+𝑥
+𝑛
+)
+)
+,
+𝑡
+⟩
+where 
+𝑡
+∈
+{
+𝐶
+,
+𝐸
+(
+𝑒
+)
+}
+ or absent.
+
+2.2 mapTo(c)
+mapTo
+(
+𝑐
+)
+(
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝑡
+⟩
+)
+=
+⟨
+𝑁
+(
+𝑐
+)
+,
+…
+,
+𝑁
+(
+𝑐
+)
+,
+𝑡
+⟩
+(same length, all values replaced by 
+𝑐
+).
+
+2.3 scan(f, s_0) (accumulator)
+Let
+
+𝑠
+1
+=
+𝑓
+(
+𝑠
+0
+,
+𝑥
+1
+)
+,
+  
+𝑠
+2
+=
+𝑓
+(
+𝑠
+1
+,
+𝑥
+2
+)
+,
+…
+,
+𝑠
+𝑛
+=
+𝑓
+(
+𝑠
+𝑛
+−
+1
+,
+𝑥
+𝑛
+)
+Then:
+
+scan
+(
+𝑓
+,
+𝑠
+0
+)
+(
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝑡
+⟩
+)
+=
+⟨
+𝑁
+(
+𝑠
+1
+)
+,
+…
+,
+𝑁
+(
+𝑠
+𝑛
+)
+,
+𝑡
+⟩
+2.4 reduce(f, s_0)
+Same accumulator, but only final emission:
+
+If 
+𝑛
+>
+0
+:
+
+reduce
+(
+𝑓
+,
+𝑠
+0
+)
+(
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝐶
+⟩
+)
+=
+⟨
+𝑁
+(
+𝑠
+𝑛
+)
+,
+𝐶
+⟩
+If no next before C:
+
+reduce
+(
+𝑓
+,
+𝑠
+0
+)
+(
+⟨
+𝐶
+⟩
+)
+=
+⟨
+𝑁
+(
+𝑠
+0
+)
+,
+𝐶
+⟩
+Errors propagate unchanged.
+
+3. Filtering / selection operators
+These remove or truncate parts of the trace.
+
+Let 
+𝜏
+=
+⟨
+𝑛
+1
+,
+…
+,
+𝑛
+𝑘
+⟩
+.
+
+3.1 filter(p)
+Keep only N(x) where predicate holds:
+
+filter
+(
+𝑝
+)
+(
+𝜏
+)
+=
+⟨
+𝑛
+𝑖
+∣
+𝑛
+𝑖
+=
+𝑁
+(
+𝑥
+)
+,
+  
+𝑝
+(
+𝑥
+)
+=
+true
+⟩
+  
+⋅
+  
+𝑡
+where 
+𝑡
+ is the original terminal (if any).
+
+3.2 take(n)
+Let the next notifications be 
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑚
+)
+ in order.
+
+If 
+𝑚
+≥
+𝑛
+:
+
+take
+(
+𝑛
+)
+(
+𝜏
+)
+=
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝐶
+⟩
+If 
+𝑚
+<
+𝑛
+ and terminal is 
+𝐶
+ or 
+𝐸
+(
+𝑒
+)
+, you just keep all:
+
+take
+(
+𝑛
+)
+(
+𝜏
+)
+=
+𝜏
+3.3 first(p?)
+If there exists a first 
+𝑁
+(
+𝑥
+𝑗
+)
+ with 
+𝑝
+(
+𝑥
+𝑗
+)
+ (or any N if no predicate):
+
+first
+(
+𝑝
+)
+(
+𝜏
+)
+=
+⟨
+𝑁
+(
+𝑥
+𝑗
+)
+,
+𝐶
+⟩
+If none and terminal is C, then error with EmptyError:
+
+first
+(
+𝑝
+)
+(
+⟨
+…
+,
+𝐶
+⟩
+)
+=
+⟨
+𝐸
+(
+EmptyError
+)
+⟩
+Errors before a match propagate.
+
+3.4 skip(n)
+Drop the first 
+𝑛
+ nexts, keep the rest and the terminal:
+
+If nexts are 
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑚
+)
+:
+
+skip
+(
+𝑛
+)
+(
+𝜏
+)
+=
+⟨
+𝑁
+(
+𝑥
+𝑛
++
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑚
+)
+,
+𝑡
+⟩
+(with 
+𝑡
+ the original terminal, if any; if 
+𝑛
+≥
+𝑚
+, only 
+𝑡
+ remains).
+
+4. Combination operators
+These consume multiple traces and produce one.
+
+Let 
+𝜏
+𝐴
+,
+𝜏
+𝐵
+,
+…
+ be input traces.
+
+4.1 concat(A,B)
+Let
+
+𝜏
+𝐴
+=
+⟨
+𝑛
+1
+,
+…
+,
+𝑛
+𝑘
+,
+𝑡
+𝐴
+⟩
+,
+𝜏
+𝐵
+=
+⟨
+𝑚
+1
+,
+…
+,
+𝑚
+ℓ
+,
+𝑡
+𝐵
+⟩
+If 
+𝑡
+𝐴
+=
+𝐸
+(
+𝑒
+)
+:
+
+concat
+(
+𝜏
+𝐴
+,
+𝜏
+𝐵
+)
+=
+𝜏
+𝐴
+Else (terminal is C or absent):
+
+concat
+(
+𝜏
+𝐴
+,
+𝜏
+𝐵
+)
+=
+⟨
+𝑛
+1
+,
+…
+,
+𝑛
+𝑘
+,
+𝑚
+1
+,
+…
+,
+𝑚
+ℓ
+,
+𝑡
+𝐵
+⟩
+(Conceptually: drop C of the first, then append the second.)
+
+4.2 merge(A,B) (no timing)
+Ignoring time, merge is just interleaving that preserves per‑source order:
+
+merge
+(
+𝜏
+𝐴
+,
+𝜏
+𝐵
+)
+=
+any interleaving of 
+𝜏
+𝐴
+,
+𝜏
+𝐵
+ that preserves each source’s order,
+with the terminal:
+
+E(e) if any source errors first in time,
+
+otherwise C when all sources have completed.
+
+In a purely algebraic (untimed) model, you treat it as “some” valid interleaving; laws are stated up to that nondeterminism.
+
+4.3 combineLatest(A,B)
+At the trace level, you need time or at least indexing of latest values. Abstractly:
+
+Maintain last seen values 
+𝑎
+last
+,
+𝑏
+last
+.
+
+On each N(a) or N(b), if both are defined, emit N([a_{\text{last}}, b_{\text{last}}]).
+
+Complete when both have completed; error if any errors.
+
+Formally (schematic):
+
+combineLatest
+:
+Trace
+⟨
+𝐴
+⟩
+×
+Trace
+⟨
+𝐵
+⟩
+→
+Trace
+⟨
+𝐴
+×
+𝐵
+⟩
+defined by a state machine over 
+(
+𝑎
+last
+,
+𝑏
+last
+)
+.
+
+4.4 withLatestFrom(A,B)
+Like combineLatest, but only emits when A emits:
+
+On N(a) from A, if 
+𝑏
+last
+ is defined, emit N([a,b_{\text{last}}]).
+
+Terminal: propagate A’s terminal; B’s completion just freezes its last value.
+
+5. Error handling operators
+These rewrite terminal error notifications.
+
+Let 
+𝜏
+=
+⟨
+𝑛
+1
+,
+…
+,
+𝑛
+𝑘
+,
+𝐸
+(
+𝑒
+)
+⟩
+.
+
+5.1 catchError(fn)
+catchError
+(
+𝑓
+𝑛
+)
+(
+𝜏
+)
+=
+⟨
+𝑛
+1
+,
+…
+,
+𝑛
+𝑘
+⟩
+  
+⋅
+  
+𝜏
+′
+where 
+𝜏
+′
+=
+trace
+(
+𝑓
+𝑛
+(
+𝑒
+)
+)
+ is the trace of the recovery Observable.
+
+If there is no E(e) (only C), catchError is identity.
+
+5.2 retry(count)
+Let 
+𝜏
+ be the trace of the source.
+
+If 
+𝜏
+ ends with C, retry is identity.
+
+If 
+𝜏
+ ends with E(e) and count = n:
+
+retry
+(
+𝑛
+)
+(
+𝜏
+)
+=
+𝜏
+noTerm
+⋅
+𝜏
+noTerm
+⋯
+𝜏
+noTerm
+⏟
+𝑛
+ times
+⋅
+⟨
+𝐸
+(
+𝑒
+)
+⟩
+where 
+𝜏
+noTerm
+ is 
+𝜏
+ with its terminal removed.
+
+retry() (no limit) is the same but potentially infinite.
+
+6. Higher‑order & flattening operators
+These are the interesting ones: they transform traces of inner traces.
+
+Let the outer trace be:
+
+𝜏
+outer
+=
+⟨
+𝑁
+(
+𝑆
+1
+)
+,
+𝑁
+(
+𝑆
+2
+)
+,
+…
+,
+𝑁
+(
+𝑆
+𝑘
+)
+,
+𝑡
+outer
+⟩
+where each 
+𝑆
+𝑖
+ is itself a trace (the inner Observable’s trace).
+
+6.1 mergeMap(f)
+For each N(x_i) in the outer, compute inner trace:
+
+𝑆
+𝑖
+=
+trace
+(
+𝑓
+(
+𝑥
+𝑖
+)
+)
+Then:
+
+Start all 
+𝑆
+𝑖
+ “in parallel”.
+
+The output is a merge of all 
+𝑆
+𝑖
+ (interleaving that preserves each 
+𝑆
+𝑖
+’s order).
+
+Terminal:
+
+Error if any inner or the outer errors (first in time).
+
+Complete when outer has completed and all inner traces have completed.
+
+Algebraically:
+
+mergeMap
+(
+𝑓
+)
+(
+𝜏
+outer
+)
+=
+merge
+(
+𝑆
+1
+,
+…
+,
+𝑆
+𝑘
+)
+with the above terminal rules.
+
+6.2 concatMap(f)
+Same inner traces 
+𝑆
+𝑖
+, but sequential:
+
+concatMap
+(
+𝑓
+)
+(
+𝜏
+outer
+)
+=
+concat
+(
+𝑆
+1
+,
+concat
+(
+𝑆
+2
+,
+…
+,
+concat
+(
+𝑆
+𝑘
+,
+⟨
+𝐶
+⟩
+)
+…
+ 
+)
+)
+Errors: if any 
+𝑆
+𝑖
+ ends with E(e), the whole output ends with E(e) and later 
+𝑆
+𝑗
+ are never subscribed.
+
+6.3 switchMap(f)
+Again \(S_i = \text{trace
+
+continue
+Perfect, Hans — let’s continue and systematically define the trace‑level semantics for the entire operator taxonomy using the canonical algebraic notation we established.
+
+To keep this coherent and teachable, I’ll proceed category by category, each with:
+
+Operator signature
+
+Trace‑level definition
+
+Canonical laws (when relevant)
+
+Notes on well‑formedness
+
+This becomes the backbone of a formal RxJS semantics document.
+
+⚡ 1. CREATION OPERATORS
+These define primitive traces.
+
+1.1 of(...xs)
+of
+(
+𝑥
+1
+,
+…
+,
+𝑥
+𝑛
+)
+=
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝐶
+⟩
+1.2 EMPTY
+EMPTY
+=
+⟨
+𝐶
+⟩
+1.3 NEVER
+NEVER
+=
+⟨
+  
+⟩
+1.4 throwError(e)
+throwError
+(
+𝑒
+)
+=
+⟨
+𝐸
+(
+𝑒
+)
+⟩
+1.5 from([x₁,…,xₙ])
+from
+(
+[
+𝑥
+1
+,
+…
+,
+𝑥
+𝑛
+]
+)
+=
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝐶
+⟩
+1.6 from(Promise)
+If the promise resolves with v:
+
+⟨
+𝑁
+(
+𝑣
+)
+,
+𝐶
+⟩
+If it rejects with e:
+
+⟨
+𝐸
+(
+𝑒
+)
+⟩
+🔁 2. TRANSFORMATION OPERATORS
+These rewrite only Next notifications.
+
+2.1 map(f)
+map
+(
+𝑓
+)
+(
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝑡
+⟩
+)
+=
+⟨
+𝑁
+(
+𝑓
+(
+𝑥
+1
+)
+)
+,
+…
+,
+𝑁
+(
+𝑓
+(
+𝑥
+𝑛
+)
+)
+,
+𝑡
+⟩
+2.2 pluck(k)
+pluck
+(
+𝑘
+)
+(
+⟨
+𝑁
+(
+𝑜
+1
+)
+,
+…
+,
+𝑁
+(
+𝑜
+𝑛
+)
+,
+𝑡
+⟩
+)
+=
+⟨
+𝑁
+(
+𝑜
+1
+[
+𝑘
+]
+)
+,
+…
+,
+𝑁
+(
+𝑜
+𝑛
+[
+𝑘
+]
+)
+,
+𝑡
+⟩
+2.3 mapTo(v)
+mapTo
+(
+𝑣
+)
+(
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝑡
+⟩
+)
+=
+⟨
+𝑁
+(
+𝑣
+)
+,
+…
+,
+𝑁
+(
+𝑣
+)
+,
+𝑡
+⟩
+2.4 scan(reducer, seed)
+Let:
+
+𝑠
+0
+=
+𝑠
+𝑒
+𝑒
+𝑑
+,
+𝑠
+𝑖
+=
+𝑟
+𝑒
+𝑑
+𝑢
+𝑐
+𝑒
+𝑟
+(
+𝑠
+𝑖
+−
+1
+,
+𝑥
+𝑖
+)
+Then:
+
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝑡
+⟩
+↦
+⟨
+𝑁
+(
+𝑠
+1
+)
+,
+…
+,
+𝑁
+(
+𝑠
+𝑛
+)
+,
+𝑡
+⟩
+2.5 reduce(reducer, seed)
+If the input trace is:
+
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝐶
+⟩
+Then:
+
+⟨
+𝑁
+(
+𝑠
+𝑛
+)
+,
+𝐶
+⟩
+If it ends in error:
+
+⟨
+…
+,
+𝐸
+(
+𝑒
+)
+⟩
+↦
+⟨
+𝐸
+(
+𝑒
+)
+⟩
+🧵 3. FILTERING OPERATORS
+These remove or drop Next notifications.
+
+3.1 filter(p)
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝑡
+⟩
+↦
+⟨
+𝑁
+(
+𝑥
+𝑖
+)
+∣
+𝑝
+(
+𝑥
+𝑖
+)
+=
+true
+,
+  
+𝑡
+⟩
+3.2 take(n)
+If 
+𝑛
+=
+0
+:
+
+⟨
+𝐶
+⟩
+Else:
+
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑛
+)
+,
+𝐶
+⟩
+3.3 takeWhile(p)
+Take prefix until first x_k where p(x_k) is false:
+
+⟨
+𝑁
+(
+𝑥
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑘
+−
+1
+)
+,
+𝐶
+⟩
+3.4 skip(n)
+Drop first n values:
+
+⟨
+𝑁
+(
+𝑥
+𝑛
++
+1
+)
+,
+…
+,
+𝑁
+(
+𝑥
+𝑚
+)
+,
+𝑡
+⟩
+⏱️ 4. TIME-BASED OPERATORS
+We use _ for silent ticks.
+
+4.1 delay(d)
+Shift all notifications by d ticks:
+
+⟨
+𝑛
+1
+@
+𝑡
+1
+,
+…
+,
+𝑛
+𝑘
+@
+𝑡
+𝑘
+⟩
+↦
+⟨
+𝑛
+1
+@
+(
+𝑡
+1
++
+𝑑
+)
+,
+…
+,
+𝑛
+𝑘
+@
+(
+𝑡
+𝑘
++
+𝑑
+)
+⟩
+4.2 debounce(d)
+Let 
+𝑥
+𝑖
+ be emitted only if no later value arrives within d ticks:
+
+emit 
+𝑥
+𝑖
+ iff 
+𝑡
+𝑖
++
+1
+−
+𝑡
+𝑖
+>
+𝑑
+4.3 throttle(d)
+Emit first value, then suppress all until d ticks pass.
+
+🔀 5. COMBINATION OPERATORS
+5.1 concat(a,b)
+If:
+
+𝑎
+=
+⟨
+𝑛
+1
+,
+…
+,
+𝑛
+𝑘
+,
+𝐶
+⟩
+Then:
+
+concat
+(
+𝑎
+,
+𝑏
+)
+=
+⟨
+𝑛
+1
+,
+…
+,
+𝑛
+𝑘
+⟩
+  
++
++
+  
+𝑏
+If a ends in error:
+
+⟨
+…
+,
+𝐸
+(
+𝑒
+)
+⟩
+↦
+⟨
+…
+,
+𝐸
+(
+𝑒
+)
+⟩
+5.2 merge(a,b)
+Interleave notifications by timestamp:
+
+merge
+(
+𝑎
+,
+𝑏
+)
+=
+sortByTime
+(
+𝑎
+∪
+𝑏
+)
+Terminal rules:
+
+If either errors → error immediately at earliest terminal time
+
+If both complete → complete at max completion time
+
+5.3 combineLatest(a,b)
+At each emission of either stream, emit:
+
+𝑁
+(
+[
+𝑙
+𝑎
+𝑡
+𝑒
+𝑠
+𝑡
+𝐴
+,
+𝑙
+𝑎
+𝑡
+𝑒
+𝑠
+𝑡
+𝐵
+]
+)
+Only after both have produced at least one Next.
+
+Completion:
+
+Completes when both complete.
+
+5.4 withLatestFrom(a,b)
+On each N(x) from a, emit:
+
+𝑁
+(
+[
+𝑥
+,
+𝑙
+𝑎
+𝑡
+𝑒
+𝑠
+𝑡
+𝐵
+]
+)
+Only after b has produced at least one value.
+
+🔁 6. HIGHER-ORDER OPERATORS
+These operate on traces of traces.
+
+6.1 switchMap(f)
+For each N(x_i):
+
+Cancel previous inner trace
+
+Replace with f(x_i)
+
+Trace-level:
+
+switchMap
+(
+𝑓
+)
+(
+𝜏
+)
+=
+flattenSwitch
+(
+⟨
+𝑓
+(
+𝑥
+𝑖
+)
+⟩
+)
+Where flattenSwitch always emits from the latest inner trace.
+
+6.2 mergeMap(f)
+mergeMap
+(
+𝑓
+)
+(
+𝜏
+)
+=
+mergeAll
+(
+⟨
+𝑓
+(
+𝑥
+𝑖
+)
+⟩
+)
+6.3 concatMap(f)
+concatMap
+(
+𝑓
+)
+(
+𝜏
+)
+=
+concatAll
+(
+⟨
+𝑓
+(
+𝑥
+𝑖
+)
+⟩
+)
+🛡️ 7. ERROR-HANDLING OPERATORS
+7.1 catchError(g)
+⟨
+𝑛
+1
+,
+…
+,
+𝑛
+𝑘
+,
+𝐸
+(
+𝑒
+)
+⟩
+↦
+trace
+(
+𝑔
+(
+𝑒
+)
+)
+7.2 retry(n)
+If error occurs:
+
+Restart source trace up to n times.
+
+Trace-level:
+
+retry
+(
+𝑛
+)
+(
+𝜏
+)
+=
+𝜏
+ without terminal 
++
++
+𝜏
+ without terminal 
++
++
+…
+Up to n+1 attempts.
+
+7.3 retryWhen(f)
+⟨
+…
+,
+𝐸
+(
+𝑒
+)
+⟩
+↦
+repeat source when 
+𝑓
+(
+𝐸
+(
+𝑒
+)
+)
+ emits
+🧨 8. MULTICASTING / SHARING
+8.1 share()
+Trace-level:
+
+First subscription: replay source trace
+
+Subsequent subscriptions: share notifications from that point onward
+
+This requires multi-trace semantics, not single-trace.
+
+🎯 Where we are now
+We’ve covered:
+
+Creation
+
+Transformation
+
+Filtering
+
+Time-based
+
+Combination
+
+Higher-order
+
+Error-handling
+
+Multicasting
+
+This is already enough to formalize 90% of RxJS.
+
+If you want, I can continue with:
+
+Flattening operators (exhaustMap, switchAll, mergeAll, concatAll)
+
+Subject semantics
+
+Schedulers in trace form
+
+**Backpressure operators (sample, audit, `throttle

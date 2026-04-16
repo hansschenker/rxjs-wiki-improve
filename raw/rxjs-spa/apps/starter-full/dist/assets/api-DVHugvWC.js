@@ -1,0 +1,1 @@
+import{c as e}from"./public-DdHrndiV.js";const o={request:t=>t},s=e({baseUrl:"https://jsonplaceholder.typicode.com",interceptors:[o]}),r=e({baseUrl:"https://dummyjson.com",interceptors:[o]}),n={users:{list:()=>s.get("/users"),get:t=>s.get(`/users/${t}`)},posts:{byUser:t=>s.get(`/posts?userId=${t}`)},auth:{login:t=>r.post("/auth/login",t)}};export{n as a};

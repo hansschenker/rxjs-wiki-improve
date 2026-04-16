@@ -1,0 +1,240 @@
+what happens 
+- to values, 
+- over time, 
+- to graph/subscription graph
+
+value contract
+time policy
+execution topology
+
+1. Value Algebra
+
+This is about:
+
+what values flow
+how values are transformed
+whether values are filtered, combined, accumulated, buffered, or replayed
+whether the operator remembers state
+
+This answers:
+
+What happens to the packages moving through the stream?
+
+2. Time Algebra
+
+This is about:
+
+when things happen
+what a new value does to old work
+whether work overlaps, queues, cancels, or is ignored
+whether timing comes from the source, peers, scheduler, or subscription
+how completion and error affect the flow
+
+This answers:
+
+What is the operator’s policy over time?
+
+3. Topology Algebra
+
+This is about:
+
+how many subscriptions exist
+whether execution is private or shared
+how inner and outer streams are wired
+whether there is replay
+what happens on subscribe / unsubscribe / reset / refCount zero
+
+
+
+Input / Output value contract
+does one input value produce zero, one, or many output values?
+does the operator preserve type shape or change it?
+does it lift values into inner streams?
+does it combine multiple sources?
+does it remember prior values?
+
+This is important because:
+map = 1 input -> 1 output
+filter = 1 input -> 0 or 1 output
+scan = 1 input + memory -> 1 accumulated output
+switchMap = 1 outer input -> inner stream -> many possible outputs
+bufferTime = many inputs over time -> array output
+
+Value shape and memory behavior
+Questions:
+What is the input shape?
+What is the output shape?
+Does the operator keep memory/state?
+Does one input emit zero, one, or many outputs
+
+Concurrency / cancellation / ordering policy as a dedicated section
+switchMap
+mergeMap
+concatMap
+exhaustMap
+debounceTime
+throttleTime
+auditTime
+sample
+race
+
+
+Time policy
+What does a new value do to current work?
+Allow overlap?
+Cancel old work?
+Queue?
+Ignore while busy?
+Wait for completion?
+Emit immediately, later, periodically, or on another trigger?
+Completion / error / cancellation lifecycle as its own section
+what happens when everyone unsubscribes
+default behavior
+surprises
+
+Because many operators are defined as much by lifecycle as by value behavior:
+concatMap depends on inner completion
+forkJoin depends on source completion
+takeUntil cancels on notifier emission
+repeat reacts to completion
+retry reacts to error
+share resets on complete/error/refCount zero
+finalize lives at teardown time
+
+Completion, error, and cancellation behavior
+When does output complete?
+What errors pass through?
+What cancels upstream or inner work?
+Does unsubscribe tear down current work immediately
+
+
+share
+shareReplay
+combineLatest
+withLatestFrom
+merge
+race
+switchMap
+groupBy
+window
+partition
+
+Execution topology
+Is the source cold or shared?
+Does each subscriber get a private execution?
+Is there one upstream subscription or many?
+Does the operator subscribe to peers eagerly or lazily?
+Does it create inner subscriptions?
+Is there replay?
+Is there a connector (Subject, ReplaySubject)?
+When does topology reset?
+
+Who owns the clock / trigger
+Some operators are driven by:
+the source stream
+peer streams
+a scheduler
+subscription time
+inner stream timing
+
+Examples:
+
+map is source-driven
+withLatestFrom is source-triggered but peer-read
+combineLatest is peer-coordinated
+sample is sampler-triggered
+debounceTime is scheduler/time-window driven
+switchMap is outer-triggered but inner-timed
+share is subscriber-topology driven
+
+
+What drives emission timing
+What actually triggers output emission?
+The source?
+Another stream?
+Time windows?
+Scheduler?
+Inner completion?
+
+
+
+1. Value shape and memory behavior
+
+Covers:
+
+input/output contract
+cardinality
+state/memory/replay/buffer
+2. Time policy
+
+Covers:
+
+overlap / latest / queue / ignore
+timing semantics
+ordering policy
+3. What drives emission timing
+
+Covers:
+
+source-triggered
+peer-triggered
+scheduler-driven
+subscription-driven
+inner-driven
+
+4. Completion, error, and cancellation behavior
+
+Covers:
+
+lifecycle semantics
+teardown rules
+completion dependencies
+
+5. Execution topology
+
+Covers:
+
+hot/cold
+sharing
+subscription graph
+inner/outer wiring
+replay/reset/connector ownership
+How your current sections map after this correction
+
+Then your template becomes:
+
+Value Algebra
+------------------------------------------------------------------
+What OPERATOR() changes
+What happens when a new value arrives
+Value shape and memory behavior
+OPERATOR() vs nearby operators
+Good teaching examples
+
+Time Algebra
+------------------------------------------------------------------
+What flows over time
+Time policy
+What drives emission timing
+Completion, error, and cancellation behavior
+Default behavior that matters
+
+Topology Algebra
+------------------------------------------------------------------
+What happens when a new subscriber arrives
+What happens when everyone unsubscribes
+Execution topology
+When not to use it
+Why OPERATOR() can surprise people
+
+And the rest remain strong teaching/support sections:
+------------------------------------------------------------------
+The practical mental model
+Why use OPERATOR()
+The most important rule
+A better way to think about it
+Where learners usually get confused
+One-sentence definition
+Compact summary
+Final teaching phrase
+

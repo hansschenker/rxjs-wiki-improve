@@ -1,0 +1,162 @@
+01 (00:15) 
+The talk is a high-level primer on Functional Reactive Programming (FRP)
+
+02 (00:57) 
+“Functional” is framed around referential transparency
+
+03 (02:21) 
+“Reactive” originally meant programs whose “speed” is driven by an external environment (e.g., real-time/embedded systems, video games), 
+but the term later got diluted into buzzword territory (often associated with dataflow/event propagation).
+
+04 (03:39) Core FRP idea (mid-90s): 
+model a program/module as something with internal state evolving over time,
+and treat the entire lifetime output as a time-varying value—making composition feel like combining values rather than wiring imperative state updates.
+
+05 (05:10) Classic FRP splits time-varying things into Behaviors (continuous availability: think Time -> A) 
+and Events (discrete occurrences: think “timestamped stream of values”); examples: microphone as a behavior of floats, keyboard as events of keycodes.
+
+06 (06:33) 
+Example 1 (teleport ball on click): use snapshot to sample a behavior (mouse position) at event times (mouse clicks), 
+producing an event of positions; then hold converts that event into a behavior that always yields the last clicked position.
+
+07 (09:14) Example 2 (ball follows mouse via spring): define acceleration from the displacement vector (spring physics), 
+then compute position by integrating twice; this yields a recursive definition that looks like a feedback loop 
+in the dataflow diagram (often requiring an explicit delay to be well-defined).
+
+08 (11:10) Motivated benefits: FRP provides lightweight state without manual variable/field plumbing, 
+improves complex event handling (reducing callback fragmentation), makes timing/delays explicit, and supports transactional propagation so intermediate inconsistent states aren’t observable.
+
+09 (16:00) Additional FRP benefits emphasized: dependencies become fully explicit (no hidden mutation via external interfaces), and because time-varying quantities are “values,” the system becomes highly testable, including property testing (e.g., QuickCheck-style invariants over time).
+
+10 (16:46–33:24) FRP design space:
+
+01
+-----------------------------------------------------------------------------------------------------------
+
+Item 1 (00:15) — “This is a high-level primer meant to provide conceptual context”
+Step 1 — He sets the scope of the meetup immediately
+
+At (00:15) he states the meetup’s theme: Functional Reactive Programming (FRP).
+This is important because it tells you:
+the talk is not about a single library or tool
+the talk is about a concepual programming paradigm
+the audience may have mixed backgrounds (FP vs non-FP)
+So the event is positioned as a topic meetup, not a product demo.
+
+Step 2 — He gauges the audience background to calibrate depth
+Right after announcing the topic, he asks the audience something like:
+Who is familiar with FRP already
+Who does not come from a functional programming background?
+This is a classic “audience calibration” move.
+He’s trying to avoid two failure modes:
+Too advanced → newcomers get lost early
+Too basic → experienced people tune out
+When he says “you are actually in the minority,” he’s observing that most attendees already have some exposure.
+
+Step 3 — He explicitly labels his own talk as “fluffy” and “high-level”
+He then describes his presentation as:
+“really fluffy”
+a high-level introduction
+This is not self-deprecation — it’s setting expectations about what kind of value he intends to deliver:
+vocabulary
+mental models
+conceptual framing
+design-space overview
+…and not detailed implementation guidance.
+
+Step 4 — He positions the talk as “context” for the demos that follow
+He makes a key structural point:
+the other speakers will give more practical demos, and he wants to provide context for what they’ll say
+So his role is lie the “opening chapter” of a book:
+you don’t learn to build things yet
+you learn the conceptual map so later examples make sense
+This matters because FRP demos often look like “magic” unless you already know the conceptual primitives (event streams, behaviors, combinators, dataflow composition, etc.).
+
+Step 5 — He frames his goal as building a shared vocabulary
+Because FRP is “many buzzwords,” his implicit goal is to align the room on:
+What “functional” really means in this context
+What “reactive” originally meant
+What FRP historically meant (behaviors + events)
+How FRP differs from modern “reactive programming” branding
+In other words, he wants the audience to walk away with a clean mental dictionary before seeing implementations.
+
+Step 6 — He defines success as “understanding the shape of the idea”
+When a talk is deliberately “high-level,” the success criteria shift.
+He is not aiming for:
+“You can implement FRP tonight”
+“You now know library X’s API”
+He is timing for:
+“You can follow the rest of the meetup”
+“You understand why behaviors/events are a thing”
+“You see the design space (static/dynamic, value/transformer oriented)”
+“You can reason about what tradeoffs are being made”
+So the talk is an orientation layer, not a training session.
+
+Step 7 — Why this framing is strategically smart for FRP talks
+FRP (especially classic FRP) is notorious for confusion because it sits at the intersection of:
+programming language theory (denotational semantics, time-varying values)
+systems thinking (dataflow, dependency graphs)
+practical engineering (event handling, GUI/game systems, concurrency)
+If you jump directly into demos, people tend to misunderstand what they are seeing:
+they confuse FRP with Rx
+they confuse “event streams” with “callbacks”
+they miss the meaning of “transactional propagation”
+they don’t understand “behaviors vs events” as time structure types
+So he correctly chooses to start with a conceptual preflight checklist.
+The practical takeaway of Item 1
+When you listen to the rest of the talk (and the later demos), treat this presentation as:
+a map
+a glossary
+a framework for interpretation
+
+
+02 
+-----------------------------------------------------------------------------------------------------------
+
+
+
+03 
+-----------------------------------------------------------------------------------------------------------
+
+
+
+
+04 
+-----------------------------------------------------------------------------------------------------------
+
+
+
+
+05 
+-----------------------------------------------------------------------------------------------------------
+
+
+
+
+06 
+-----------------------------------------------------------------------------------------------------------
+
+
+
+
+
+07 
+-----------------------------------------------------------------------------------------------------------
+
+
+
+
+
+08 
+-----------------------------------------------------------------------------------------------------------
+
+
+
+
+
+09 
+-----------------------------------------------------------------------------------------------------------
+
+
+
+10 

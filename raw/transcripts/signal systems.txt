@@ -1,0 +1,21 @@
+Signals & Systems
+
+Signal : 
+Any time Varying physical phenomenon That is intended to Convey Information
+is Called as Signal. (voice signal, audio signal, video signal)
+
+Signal is a function of time: f(t)
+
+input signal                 output signal
+signal input --> System ---> response of system
+(exitation$
+exited by a signal) 
+
+System: System is a device which operates on signals according to its characteristics
+
+
+Communication System  (network of devices to transport signals)
+
+
+
+

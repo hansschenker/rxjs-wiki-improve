@@ -1,0 +1,968 @@
+Functional Programming
+https://frontendmasters.com/courses/hardcore-js-v2/introduction/
+
+Brian Lonsdorf,some slides Joe Nelson
+@drboolean
+
+http://drboolean.gitbooks.io/mostly-adequate-guide/
+https://bit.ly/2QiJOXG
+
+const _ = R; // Ramda import
+const split = _. cury((delimiter, string) => string.split(delimiter))
+
+
+const words = function(str) {
+return split(' ', str);
+
+const words = (str) => split(' ', str)
+
+const words = split(' ')
+
+
+
+// YouTube videos composition
+const url = t => 'http://gdata.youtube.com/feeds/api/videos?q=${t}&alt=json'
+
+const src = .compose ( _. prop ('url'), _. head, .prop ('media$thumbnail'), _. prop ('media$group'))
+
+const srcs = .compose ( _. map (src), _. prop ('entry'), _. prop ('feed'))
+
+const images = .compose ( _. map (imageTag), srcs)
+
+const widget = .compose ( _. map (images), getJSON, url)
+
+widget ('cats') .fork(log, setHtml (document.querySelector('#youtube')))
+
+---------
+// Setup
+//==============
+const _ = R;
+const {formatMoney} = accounting;
+
+// Example Data
+const CARS = [
+    {name: "Ferrari FF", horsepower: 660, dollar_value: 700000, in_stock: true},
+    {name: "Spyker C12 Zagato", horsepower: 650, dollar_value: 648000, in_stock: false},
+    {name: "Jaguar XKR-S", horsepower: 550, dollar_value: 132000, in_stock: false},
+    {name: "Audi R8", horsepower: 525, dollar_value: 114200, in_stock: false},
+    {name: "Aston Martin One-77", horsepower: 750, dollar_value: 1850000, in_stock: true},
+    {name: "Pagani Huayra", horsepower: 700, dollar_value: 1300000, in_stock: false}
+  ];
+
+// Exercise 1:
+// ============
+// use _.compose() to rewrite the function below. Hint: _.prop() is curried.
+
+const isLastInStock = cars => {
+  var reversed_cars = _.last(cars)
+  return _.prop('in_stock', reversed_cars)
+}
+
+QUnit.test("Ex1: isLastInStock", assert => {
+  assert.deepEqual(isLastInStock(CARS), false);
+})
+
+''
+
+
+// Exercise 2:
+// ============
+// use _.compose(), _.prop() and _.head() to retrieve the name of the first car
+
+const nameOfFirstCar = undefined
+
+QUnit.test("Ex2: nameOfFirstCar", assert => {
+  assert.equal(nameOfFirstCar(CARS), "Ferrari FF");
+})
+
+// Exercise 3:
+// ============
+// Use the helper function _average to refactor averageDollarValue as a composition
+
+const _average = function(xs) { return _.reduce(_.add, 0, xs) / xs.length; }; // <- leave be
+
+const averageDollarValue_ = function(cars) {
+  const dollar_values = _.map(_.prop('dollar_value'), cars);
+  return _average(dollar_values);
+};
+
+var averageDollarValue = function(cars) {
+  var dollar_values = _.map(function(c) { return c.dollar_value; }, cars);
+  return _average(dollar_values);
+};
+
+QUnit.test("Ex3: averageDollarValue", assert => {
+  assert.equal(averageDollarValue(CARS), 790700);
+})
+
+
+// Exercise 4:
+// ============
+// Write a function: sanitizeNames() using compose that returns a list of lowercase and underscored names: e.g: sanitizeNames(["Hello World"]) //=> ["hello_world"].
+
+const _underscore = _.replace(/\W+/g, '_'); //<-- leave this alone and use to sanitize
+
+const sanitizeNames = undefined
+
+QUnit.test("Ex4: sanitizeNames", assert => {
+  assert.deepEqual(sanitizeNames(CARS), ['ferrari_ff', 'spyker_c12_zagato', 'jaguar_xkr_s', 'audi_r8', 'aston_martin_one_77', 'pagani_huayra']);
+})
+
+
+
+// Bonus 1:
+// ============
+// Refactor availablePrices with compose.
+
+const availablePrices = function(cars) {
+  const available_cars = _.filter(_.prop('in_stock'), cars);
+  return available_cars.map(x => formatMoney(x.dollar_value)).join(', ');
+}
+
+QUnit.test("Bonus 1: availablePrices", assert => {
+  assert.deepEqual(availablePrices(CARS), '$700,000.00, $1,850,000.00');
+})
+
+// Bonus 2:
+// ============
+// Refactor to pointfree.
+
+const fastestCar = function(cars) {
+  const sorted = _.sortBy(car => car.horsepower, cars);
+  const fastest = _.last(sorted);
+  return fastest.name + ' is the fastest';
+}
+
+QUnit.test("Bonus 2: fastestCar", assert => {
+  assert.equal(fastestCar(CARS), 'Aston Martin One-77 is the fastest');
+})
+
+------------------- curry
+// Setup
+//==============
+const _ = R;
+const split = _.curry((delimiter, string) => string.split(delimiter))
+
+
+// Exercise 1
+//==============
+
+const words = function(str) {
+  return split(' ', str);
+}
+
+QUnit.test("Ex1: split", assert => {
+  assert.deepEqual(words("Jingle bells Batman smells"), ['Jingle', 'bells', 'Batman', 'smells'])
+})
+
+
+// Exercise 1a
+//==============
+//use map to make a new words fn that not only works on 1 string, but on an array of strings.
+
+const sentences = xs => _.map(words, xs);
+
+QUnit.test("Ex1a: map/split", assert => {
+  assert.deepEqual(sentences(["Jingle bells Batman smells", "Robin laid an egg"]), [['Jingle', 'bells', 'Batman', 'smells'], ['Robin', 'laid', 'an', 'egg']]);
+})
+
+
+// Exercise 2
+//==============
+const filterQs = function(xs) {
+  return _.filter(function(x){ return _.test(/q/ig, x);  }, xs);
+}
+
+QUnit.test("Ex2: filter", assert => {
+  assert.deepEqual(filterQs(['quick', 'camels', 'quarry', 'over', 'quails']), ['quick', 'quarry', 'quails']);
+})
+
+
+// Exercise 3
+//==============
+// Use the helper function _keepHighest to refactor max
+
+const _keepHighest = (x,y) => x >= y ? x : y // <- leave be
+
+// TODO: rewrite max in its "simplest" form
+const max = function(xs) {
+  return _.reduce(function(acc, x){
+    return _keepHighest(acc, x);
+  }, 0, xs);
+}
+
+QUnit.test("Ex3: max", assert => {
+  assert.equal(max([323,523,554,123,5234]), 5234);
+})
+
+
+// Bonus 1:
+// ============
+// wrap array's built in slice to be functional and curried like ramda fn's.
+// //[1,2,3].slice(0, 2)
+
+const slice = undefined
+
+QUnit.test("Bonus 1", assert => {
+  assert.deepEqual(slice(1)(3)(['a', 'b', 'c']), ['b', 'c']);
+})
+
+// Bonus 2:
+// ============
+// use slice to define a function take() that takes n elements from an array. make it curried
+const take = undefined
+
+QUnit.test("Bonus 2", assert => {
+  assert.deepEqual(take(2)(['a', 'b', 'c']), ['a', 'b']);
+})
+
+--------------- functor modelling
+// Definitions
+const Endo = run =>
+({
+    run,
+    concat: other => Endo(x => other.run(run(x)))
+})
+
+Endo.empty = () => Endo(x => x)
+
+
+// Ex1: 
+// =========================
+
+const classToClassName = html =>
+    html.replace(/class\=/ig, 'className=')
+
+const updateStyleTag = html =>
+    html.replace(/style="(.*)"/ig, 'style={{$1}}')
+
+const htmlFor = html =>
+    html.replace(/for=/ig, 'htmlFor=')
+
+
+
+const ex1 = html =>
+	htmlFor(updateStyleTag(classToClassName(html))) //rewrite using Endo
+
+QUnit.test("Ex1", assert => {
+	const template = `
+		<div class="awesome" style="border: 1px solid red">
+			<label for="name">Enter your name: </label>
+			<input type="text" id="name" />
+		</div>
+	`
+	const expected = `
+		<div className="awesome" style={{border: 1px solid red}}>
+			<label htmlFor="name">Enter your name: </label>
+			<input type="text" id="name" />
+		</div>
+	`
+
+	assert.deepEqual(expected, ex1(template))
+})
+
+
+
+// Ex2: model a predicate function :: a -> Bool and give it contramap() and concat(). i.e. make the test work
+// =========================
+const Pred = undefined; // todo
+
+QUnit.test("Ex2: pred", assert => {
+	const p = Pred(x => x > 4).contramap(x => x.length).concat(Pred(x => x.startsWith('s')))
+	const result = ['scary', 'sally', 'sipped', 'the', 'soup'].filter(p.run)
+	assert.deepEqual(result, ["scary", "sally", 'sipped'])
+})
+
+
+// Ex3: 
+// =========================
+const extension = file => file.name.split('.')[1]
+
+const matchesAny = regex => str =>
+    str.match(new RegExp(regex, 'ig'))
+
+const matchesAnyP = pattern => Pred(matchesAny(pattern)) // Pred(str => Bool)
+
+// TODO: rewrite using matchesAnyP. Take advantage of contramap and concat
+const ex3 = file =>
+	matchesAny('txt|md')(extension(file)) && matchesAny('functional')(file.contents)
+
+
+QUnit.test("Ex3", assert => {
+	const files = [
+		{name: 'blah.dll', contents: '2|38lx8d7ap1,3rjasd8uwenDzvlxcvkc'},
+		{name: 'intro.txt', contents: 'Welcome to the functional programming class'},
+		{name: 'lesson.md', contents: 'We will learn about monoids!'},
+		{name: 'outro.txt', contents: 'Functional programming is a passing fad which you can safely ignore'}
+	]
+
+	assert.deepEqual([files[1], files[3]], files.filter(ex3))
+})
+
+¨----------- monad transformers
+// setup
+
+const Fn = g =>
+({
+  map: f =>
+    Fn(x => f(g(x))),
+  chain: f =>
+    Fn(x => f(g(x)).run(x)),
+  run: g
+})
+Fn.ask = Fn(x => x)
+Fn.of = x => Fn(() => x)
+
+const FnT = M => {
+  const Fn = g =>
+	({
+	  map: f =>
+		Fn(x => g(x).map(f)),
+	  chain: f =>
+		Fn(x => g(x).chain(y => f(y).run(x))),
+	  run: g
+	})
+  Fn.ask = Fn(x => M.of(x))
+  Fn.of = x => Fn(() => M.of(x))
+  Fn.lift = x => Fn(() => x)
+  return Fn
+}
+
+const Either = (() => {
+	const Right = x =>
+	({
+	  chain: f => f(x),
+	  ap: other => other.map(x),
+	  alt: other => Right(x),
+	  extend: f => f(Right(x)),
+	  concat: other =>
+		other.fold(x => other,
+				   y => Right(x.concat(y))),
+	  traverse: (of, f) => f(x).map(Right),
+	  map: f => Right(f(x)),
+	  fold: (_, g) => g(x),
+	  toString: () => `Right(${x})`
+	})
+
+	const Left = x =>
+	({
+	  chain: _ => Left(x),
+	  ap: _ => Left(x),
+	  extend: _ => Left(x),
+	  alt: other => other,
+	  concat: _ => Left(x),
+	  traverse: (of, _) => of(Left(x)),
+	  map: _ => Left(x),
+	  fold: (f, _) => f(x),
+	  toString: () => `Left(${x})`
+	})
+
+	const of = Right;
+	const tryCatch = f => {
+		try {
+			return Right(f())
+		} catch(e) {
+			return Left(e)
+		}
+	}
+	
+	const fromNullable = x =>
+		x != null ? Right(x) : Left(x)
+	
+	return {Right, Left, of, tryCatch, fromNullable }
+})()
+
+
+const EitherT = M => {
+    const Right = mx =>
+        ({
+            extract: () => mx,
+            chain: f => Right(mx.chain(x => f(x).extract())),   
+            map: f => Right(mx.map(f)),
+            fold: (_, g) => g(mx)
+        })
+
+    const Left = mx =>
+        ({
+            chain: _ => Left(mx),
+            map: _ => Left(mx),
+            fold: (h, _) => h(mx)
+        })
+
+    const of = x => Right(M.of(x))
+    const tryCatch = f => {
+        try {
+            return Right(M.of(f()))
+        } catch(e) {
+            return Left(e)
+        }
+    }
+
+    const lift = Right
+
+    return {of, tryCatch, lift, Right, Left }
+}
+
+const Task = fork =>
+({
+	fork,
+	map: f =>
+	  Task((rej, res) => fork(rej, x => res(f(x)))),
+    chain: f =>
+	  Task((rej, res) => fork(rej, x => f(x).fork(rej, res)))
+})
+Task.of = x => Task((rej, res) => res(x))
+Task.rejected = x => Task((rej, res) => rej(x))
+
+const TaskT = M => {
+	const Task = fork =>
+	({
+		fork,
+		map: f =>
+		  Task((rej, res) => fork(rej, mx => res(mx.map(f)))),
+		chain: f =>
+		  Task((rej, res) =>
+			   fork(rej, mx =>
+					mx.chain(x => f(x).fork(rej, res))))
+	})
+	Task.lift = x => Task((rej, res) => res(x))
+	Task.of = x => Task((rej, res) => res(M.of(x)))
+	Task.rejected = x => Task((rej, res) => rej(x))
+
+	return Task
+}
+
+
+// Ex1: 
+// =========================
+const FnEither = FnT(Either)
+const {Right, Left} = Either
+
+// TODO: Use FnEither.ask to get the cfg and return the port
+const ex1 = () =>{}
+
+QUnit.test("Ex1", assert => {
+	const result = ex1(1).run({port: 8080}).fold(x => x, x => x)
+	assert.deepEqual(8080, result)
+})
+
+// Ex1a: 
+// =========================
+const fakeDb = xs => ({find: (id) => Either.fromNullable(xs[id])})
+
+const connectDb = port =>
+    port === 8080 ? Right(fakeDb(['red', 'green', 'blue'])) : Left('failed to connect')
+
+// TODO: Use ex1 to get the port, connect to the db, and find the id
+const ex1a = id =>{}
+
+QUnit.test("Ex1a", assert => {
+	assert.deepEqual('green', ex1a(1).run({port: 8080}).fold(x => x, x => x))
+	assert.deepEqual('failed to connect', ex1a(1).run({port: 8081}).fold(x => x, x => x))
+})
+
+
+
+// Ex2: 
+// =========================
+const posts = [{id: 1, title: 'Get some Fp'}, {id: 2, title: 'Learn to architect it'}, {id: 3}]
+
+const postUrl = (server, id) => [server, id].join('/')
+
+const fetch = url => url.match(/serverA/ig) ? Task.of({data: JSON.stringify(posts)}) : Task.rejected(`Unknown server ${url}`)
+
+const ReaderTask = FnT(Task)
+
+// Use ReaderTask.ask to get the server for the postUrl
+const ex2 = id =>
+	fetch(postUrl(server, id)).map(x => x.data).map(JSON.parse) // <--- get the server variable from ReaderTask
+
+QUnit.test("Ex2", assert => {
+	ex2(30)
+	.run('http://serverA.com')
+	.fork(
+		e => console.error(e),
+		posts => assert.deepEqual('Get some Fp', posts[0].title)
+	)
+})
+
+
+// Ex3: 
+// =========================
+const TaskEither = TaskT(Either)
+
+const Api1 = ({
+  getFavoriteId: user_id =>
+	    Task((rej, res) =>
+    	  res(user_id === 1 ? Right(2) : Left(null))
+		),
+	getPost: post_id =>
+	    Task((rej, res) =>
+    	  res(Either.fromNullable(posts[post_id-1]))
+		)
+})
+
+const Api2 = ({
+  getFavoriteId: user_id =>
+	    TaskEither((rej, res) =>
+    	  res(user_id === 1 ? Right(2) : Left(null))
+		),
+	getPost: post_id =>
+	    TaskEither((rej, res) =>
+    	  res(Either.fromNullable(posts[post_id-1]))
+		)
+})
+
+// TODO: Rewrite ex3 using Api2
+const ex3 = (user_id) =>
+	Api1.getFavoriteId(user_id)
+	.chain(epost_id =>
+		epost_id
+		.fold(
+			() => Task.of(Left()),
+			(post_id) => Api1.getPost(post_id)
+		)
+	)
+	.map(epost =>
+		 epost.map(post => post.title)
+	)
+
+QUnit.test("Ex3", assert => {
+	ex3(1)
+	.fork(
+		e => console.error(e),
+		ename =>
+			ename.fold(
+				error => assert.deepEqual('fail', error),
+				name => assert.deepEqual('Learn to architect it', name)
+			)
+	)
+})
+
+
+// Bonus: write IdT
+// =========================
+--------- concat
+const concat = (acc, x) => acc.concat(x)
+
+const mapper = (f,cnct) =>
+  (acc, x) => cnct(acc, f(x))
+
+const filterer = (f, cnct) =>
+  (acc, x) => f(x) ? cnct(acc, x) : acc
+
+const uniq = cnct =>
+  (acc, x) => acc.includes(x) ? acc : cnct(acc, x)
+
+const increment = x => x + 1
+const isEven = x => x % 2 === 0
+const triple = x => x * 3
+
+const r = [1,1,2,2,3,3,4,4,5,5].reduce(mapper(increment, mapper(triple, filterer(isEven, uniq(concat)))), [])
+
+console.log("RESULT", r)
+
+--------- type
+
+// Types
+//==================
+const constant = x => () => x
+const id = x => x
+
+const IO = run =>
+({
+  runWithLog: x => console.log(run(x)), // just for codepen
+  run,
+  map: f => IO(x => f(run(x))),
+  chain: f => IO(x => f(run(x)).run())
+})
+IO.of = x => IO(constant(x))
+
+const IOError = run =>
+({
+  run,
+  map: f => IOError(run), // don't f
+  chain: f => IOError(run)
+})
+IOError.of = x => IOError(() => x)
+
+const Just = x =>
+({
+  x,
+  map: f => Just(f(x)),
+  chain: f => f(x),
+  fold: (f, g) => g(x),
+  traverse: (of, f) => f(x).map(Just)
+})
+Just.of = Just
+
+const Nothing = {
+  map: f => Nothing,
+  chain: f => Nothing,
+  fold: (f, g) => f(),
+  traverse: (of, f) => of(Nothing)
+}
+Nothing.of = Nothing
+
+// fromNullable :: Nullable -> Maybe a
+const fromNullable = x =>
+  x != undefined ? Just(x) : Nothing
+
+// maybeToIO :: Maybe a -> IO a
+const maybeToIO = m =>
+  m.fold(IOError.of, IO.of)
+
+// ioToStream :: IO a -> STream a
+const ioToStream = i =>
+  Kefir.stream(({emit}) => emit(i.run()))
+
+// maybeToStream :: Maybe a -> Stream a
+const maybeToStream = m =>
+  Kefir.stream(({emit, error}) => m.fold(error, emit))
+
+
+// Pure DOM Functions
+//==================
+
+// $ :: String -> IO (Maybe HTMLElement)
+const $ = sel =>
+  IO(() => fromNullable(document.querySelector(sel)))
+
+// getAttribute :: String -> HTMLElement -> Maybe String
+const getAttr = attr => elem =>
+  fromNullable(elem.getAttribute(attr))
+
+// setAttribute :: String -> String -> HTMLElement -> IO HTMLElement
+const setAttr = (attr, val) => elem =>
+  IO(() => (elem.setAttribute(attr, val), elem))
+
+
+// QUESTION: How do we do OO mutatey things?
+
+// Pure Observable. Stream does nothing until onValue() so we're good as long as that's called elsewhere.
+
+// observe :: Config -> HTMLElement -> Stream Mutation
+const observe = config => el =>
+  Kefir.stream(({emit}) =>
+    (new MutationObserver(ms => ms.forEach(emit)))
+    .observe(el, config)
+  )
+
+
+
+// Version 1: just dealing with nesting. Yuck!
+$('#myDiv') // :: IO (Maybe HTMLElement)
+.map(me =>
+  me.map(observe({ attributes: true })) // :: Maybe (Stream HTMLElement)
+ ) // :: IO (Maybe (Stream HTMLElement))
+.map(ms =>
+  ms.map(stream =>
+    stream.map(m =>
+      `Changed ${m.type}: ${m.attributeName}`
+    ) // :: Stream String
+  ) // :: Maybe Stream String
+) // :: IO (Maybe (Stream String))
+.run()  // :: Stream String
+.fold(e => console.error('couldnt find element'),
+      stream => stream.onValue(console.log)
+)
+// These last two lines (run/onValue) are impure, should be out of app in the calling code
+
+
+// Version 2: Natural Transformations. Nice!
+ioToStream($('#myDiv')) // Stream (Maybe HtmlElement)
+.flatMap(maybeToStream) // Stream HtmlElement
+.flatMap(observe({ attributes: true })) // Stream Mutation
+.map(m => `Changed ${m.type}: ${m.attributeName}`) // Stream String
+.onValue(console.log)
+// Only the last line is impure and we can build a whole app and call onValue once outside
+
+
+// Getting/Setting with Nested Types: IO (Maybe a)
+//==================
+console.log('OPTION 1:')
+
+// Option 1: just map/chain two diff instances
+$('#myDiv') // IO (Maybe HTMLElement)
+.map(me => me.chain(getAttr('id'))) // IO (Maybe String)
+.map(me => me.fold(constant(''), id)) // IO String
+.runWithLog()
+
+// For setting, You have to traverse to keep the IO on the outside here:
+$('#myDiv') // :: IO (Maybe HTMLElement)
+.chain(me =>
+  me.traverse(IO.of, setAttr('class', 'ice cream')) // :: IO (Maybe HTMLElement)
+)
+.map(me => me.fold(constant(), id)) // IO HTMLElement
+.runWithLog()
+
+console.log('OPTION 2:')
+
+// Option 2: natural transformation from Maybe to IO
+$('#myDiv') // :: IO (Maybe HTMLElement)
+.chain(maybeToIO) // :: IO HTMLElement
+.map(getAttr('id')) // :: IO (Maybe String)
+.chain(maybeToIO) // :: IO String
+.runWithLog()  //=> myDiv
+
+// No traverse necessary if we just make it an IO
+$('#myDiv') // :: IO (Maybe HTMLElement)
+.chain(maybeToIO) // :: IO HTMLElement
+.chain(setAttr('class', 'cake')) // :: IO HTMLElement
+.runWithLog() // => "<div id='cake'>cookies</div>"
+
+// Option 3: We can use Free Monads, but it is too much work for this pen :)
+
+
+------------- monoids
+const List = Immutable.List
+const Map = Immutable.Map
+
+const Sum = x =>
+({
+  x: x,
+  concat: o => Sum(x + o.x),
+  toString: () => `Sum(${x})`
+})
+Sum.empty = () => Sum(0)
+
+const Product = x =>
+({
+  x: x,
+  concat: o => Product(x * o.x),
+  toString: () => `Product(${x})`
+})
+Product.empty = () => Product(1)
+
+const Any = x =>
+({
+  x: x,
+  concat: o => Any(x || o.x),
+  toString: () => `Any(${x})`
+})
+Any.empty = () => Any(false)
+
+
+
+
+// Ex1: reimplement sum using foldMap and the Sum Monoid
+// =========================
+
+var sum = xs => List(xs).reduce((acc, x) => acc + x, 0)
+
+
+QUnit.test("Ex1: sum", assert => {
+  assert.equal(String(sum([1,2,3])), "Sum(6)")
+})
+
+
+// Ex2: reimplement lessThanZero using foldMap and the Any Monoid
+// =========================
+
+var anyLessThanZero = xs =>
+  List(xs).reduce((acc, x) => acc < 0 ? true : false, false)
+
+
+QUnit.test("Ex2: anyLessThanZero", assert => {
+  assert.equal(String(anyLessThanZero([-2, 0, 4])), "Any(true)")
+   assert.equal(String(anyLessThanZero([2, 0, 4])), "Any(false)")
+})
+
+
+// Ex3: Rewrite the reduce with a Max monoid (see Sum/Product/Any templates above)
+// =========================
+
+var max = xs =>
+  List(xs).reduce((acc, x) => acc > x ? acc : x, -Infinity)
+
+
+QUnit.test("Ex3: max", assert => {
+  assert.equal(String(max([-2, 0, 4])), "Max(4)")
+  assert.equal(String(max([12, 0, 4])), "Max(12)")
+})
+
+// Ex4 (Bonus): Write concat for Tuple
+// =========================
+
+const Tuple = (_1, _2) =>
+({
+  _1,
+  _2,
+  concat: o => undefined // write me
+})
+
+QUnit.test("Ex4: tuple", assert => {
+  const t1 = Tuple(Sum(1), Product(2))
+  const t2 = Tuple(Sum(5), Product(2))
+  const t3 = t1.concat(t2)
+  assert.equal(String(t3._1), "Sum(6)")
+  assert.equal(String(t3._2), "Product(4)")
+})
+------------  box
+
+const Box = x =>
+({
+  map: f => Box(f(x)),
+  fold: f => f(x),
+  toString: () => `Box(${x})`
+})
+
+// Exercise: Box
+// Goal: Refactor each example using Box
+// Keep these tests passing!
+// Bonus points: no curly braces
+
+
+
+
+// Ex1: Using Box, refactor moneyToFloat to be unnested.
+// =========================
+const moneyToFloat = str =>
+  parseFloat(str.replace(/\$/, ''))
+
+
+QUnit.test("Ex1: moneyToFloat", assert => {
+  assert.equal(String(moneyToFloat('$5.00')), 5)
+})
+
+
+
+
+
+// Ex2: Using Box, refactor percentToFloat to remove assignment
+// =========================
+const percentToFloat = str => {
+  const float = parseFloat(str.replace(/\%/, ''))
+  return float * 0.0100
+}
+
+
+QUnit.test("Ex2: percentToFloat", assert => {
+  assert.equal(String(percentToFloat('20%')), 0.2)
+})
+
+
+
+
+
+// Ex3: Using Box, refactor applyDiscount (hint: each variable introduces a new Box)
+// =========================
+const applyDiscount = (price, discount) => {
+  const cents = moneyToFloat(price)
+  const savings = percentToFloat(discount)
+  return cents - (cents * savings)
+}
+
+
+QUnit.test("Ex3: Apply discount", assert => {
+  assert.equal(String(applyDiscount('$5.00', '20%')), 4)
+})
+
+---------- fp style box array
+
+
+const nextCharForNumberString = str {
+
+const nextCharForNumberString = str
+String.fromCharCode(parseInt(str.trimO) +1)
+const result = nextCharForNumberString(' 64 ')
+console. log(result)
+
+const trimmed = str.trimO
+const number = parseInt(trimmed)
+const nextNumber = number + 1
+return String. fromCharCode(nextNumber)
+
+--
+const nextCharForNumberString = str
+[str]
+.map(s > s.trimO)
+.map(s parseInt(s))
+.map(i >i +1)
+.map(i > String.fromCharCode(iD)
+
+const result = nextCharForNumberString(' 64 ')
+
+--- put in a box
+
+const Box = x
+({
+  map: f Box(f(x))
+  fold: f => f(x)
+  inspect: () => `Box({x})`
+
+})
+
+const_nextCharForNumberString = str
+Box(str)
+.map(s > s.trimO)
+.map(r parseInt(r))
+.map(i i +1)
+.map(i String. fromCharCode(i))
+.fold( c => c.toLowerCase()  // 'a'
+
+const result = nextCharForNumberString(' 64')
+
+
+----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

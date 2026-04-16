@@ -1,0 +1,2323 @@
+// component.ts
+import type { TemplateResult } from './template';
+/**
+ * Lifecycle hooks available inside a component's setup function.
+ */
+export interface Lifecycle {
+    /**
+     * Register a callback to run after the component's fragment is inserted
+     * into the DOM (scheduled via `queueMicrotask`).
+     *
+     * Return a cleanup function that will be called on destroy.
+     */
+    onMount(fn: () => void | (() => void)): void;
+    /**
+     * Register a cleanup callback to run when the component is destroyed
+     * (i.e. when its Subscription is unsubscribed).
+     */
+    onDestroy(fn: () => void): void;
+}
+/**
+ * A component definition is a function that accepts props and returns
+ * a TemplateResult (fragment + subscription).
+ */
+export type ComponentDef<P> = (props: P) => TemplateResult;
+/**
+ * defineComponent(setup)
+ *
+ * Creates a reusable, composable component definition. The setup function
+ * runs once per component instance and receives props + lifecycle hooks.
+ *
+ * Components return a `TemplateResult` and integrate directly with the
+ * `html` tagged template — embed them as `${MyComponent({ prop$: obs$ })}`.
+ *
+ * @example
+ *   const UserCard = defineComponent<{ user$: Observable<User> }>(
+ *     (props, { onMount, onDestroy }) => {
+ *       onMount(() => console.log('mounted'))
+ *       onDestroy(() => console.log('destroyed'))
+ *
+ *       return html`
+ *         <div class="user-card">
+ *           <h3>${props.user$.pipe(map(u => u.name))}</h3>
+ *           <p>${props.user$.pipe(map(u => u.email))}</p>
+ *         </div>
+ *       `
+ *     },
+ *   )
+ *
+ *   // Use in a template:
+ *   html`<div>${UserCard({ user$: selectedUser$ })}</div>`
+ *
+ *   // Use in a list:
+ *   list(users$, u => u.id, (user$, key) => UserCard({ user$ }))
+ */
+export declare function defineComponent<P>(setup: (props: P, lifecycle: Lifecycle) => TemplateResult): ComponentDef<P>;
+
+
+// observe.ts
+import { Observable } from 'rxjs'
+
+/**
+ * textChanges(el)
+ * Emits el.textContent whenever it changes (MutationObserver).
+ * Cold: no observer until subscribed. Unsubscribe disconnects observer.
+ */
+export function textChanges(el: Element): Observable<string> {
+  return new Observable<string>((subscriber) => {
+    const emit = () => subscriber.next(el.textContent ?? '')
+    emit()
+
+    const mo = new MutationObserver(() => emit())
+    mo.observe(el, { characterData: true, childList: true, subtree: true })
+
+    return () => mo.disconnect()
+  })
+}
+
+/**
+ * attrChanges(el, name)
+ * Emits el.getAttribute(name) whenever that attribute changes.
+ */
+export function attrChanges(el: Element, name: string): Observable<string | null> {
+  return new Observable<string | null>((subscriber) => {
+    const emit = () => subscriber.next(el.getAttribute(name))
+    emit()
+
+    const mo = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === name) {
+          emit()
+          break
+        }
+      }
+    })
+    mo.observe(el, { attributes: true, attributeFilter: [name] })
+
+    return () => mo.disconnect()
+  })
+}
+
+/**
+ * classChanges(el)
+ * Emits the className string whenever the element's class attribute changes.
+ */
+export function classChanges(el: Element): Observable<string> {
+  return attrChanges(el, 'class').pipe((source) =>
+    new Observable<string>((subscriber) => {
+      const sub = source.subscribe({
+        next: (v) => subscriber.next(v ?? ''),
+        error: (e) => subscriber.error(e),
+        complete: () => subscriber.complete(),
+      })
+      return () => sub.unsubscribe()
+    }),
+  )
+}
+
+/**
+ * hasClass(el, className)
+ * Emits a boolean whenever the element's classList changes.
+ */
+export function hasClass(el: Element, className: string): Observable<boolean> {
+  return classChanges(el).pipe((source) =>
+    new Observable<boolean>((subscriber) => {
+      const sub = source.subscribe({
+        next: () => subscriber.next(el.classList.contains(className)),
+        error: (e) => subscriber.error(e),
+        complete: () => subscriber.complete(),
+      })
+      return () => sub.unsubscribe()
+    }),
+  )
+}
+
+/**
+ * valueChanges(input)
+ * Emits input.value on each input/change event.
+ * Cold: listener is installed on subscribe, removed on unsubscribe.
+ */
+export function valueChanges(
+  input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  options?: { events?: readonly string[]; emitInitial?: boolean },
+): Observable<string> {
+  const evs = options?.events ?? ['input', 'change']
+  const emitInitial = options?.emitInitial ?? true
+
+  return new Observable<string>((subscriber) => {
+    const emit = () => subscriber.next(String(input.value))
+    if (emitInitial) emit()
+
+    const handler = () => emit()
+    for (const t of evs) input.addEventListener(t, handler)
+
+    return () => {
+      for (const t of evs) input.removeEventListener(t, handler)
+    }
+  })
+}
+
+/**
+ * checkedChanges(input[type=checkbox|radio])
+ * Emits input.checked on each change event.
+ */
+export function checkedChanges(
+  input: HTMLInputElement,
+  options?: { emitInitial?: boolean },
+): Observable<boolean> {
+  const emitInitial = options?.emitInitial ?? true
+
+  return new Observable<boolean>((subscriber) => {
+    const emit = () => subscriber.next(!!input.checked)
+    if (emitInitial) emit()
+
+    const handler = () => emit()
+    input.addEventListener('change', handler)
+
+    return () => input.removeEventListener('change', handler)
+  })
+}
+
+// events.ts
+import { Observable } from 'rxjs'
+
+/**
+ * events(target, type) -> a cold Observable of DOM events.
+ *
+ * Nothing is listened to until you subscribe.
+ * Unsubscribe removes the event listener.
+ */
+export function events<E extends Event>(
+  target: EventTarget,
+  type: string,
+  options?: AddEventListenerOptions | boolean,
+): Observable<E> {
+  return new Observable<E>((subscriber) => {
+    const handler = (e: Event) => subscriber.next(e as E)
+
+    target.addEventListener(type, handler, options)
+
+    return () => target.removeEventListener(type, handler, options)
+  })
+}
+
+// sinks.ts
+import type { Observable } from 'rxjs'
+import { BehaviorSubject, Subscription } from 'rxjs'
+import { distinctUntilChanged } from 'rxjs/operators'
+import { createLiveValue } from './template'
+import type { LiveValue } from './template'
+import { handleDomError } from './error-handler'
+
+type Unsub = () => void
+
+function isNil(v: unknown): v is null | undefined {
+  return v === null || v === undefined
+}
+
+/**
+ * text(el)(value$)
+ * Writes each incoming value to el.textContent.
+ */
+export function text(el: Element) {
+  return (value$: Observable<string | number>): Subscription =>
+    value$.pipe(distinctUntilChanged()).subscribe({
+      next: (v) => { el.textContent = String(v) },
+      error: (e) => handleDomError(e, 'text'),
+    })
+}
+
+/**
+ * innerHtml(el)(value$)
+ * Writes each incoming value to el.innerHTML.
+ *
+ * **Warning:** This writes raw HTML — never pipe user-controlled data through
+ * it. Use `safeHtml()` or `text()` for untrusted content.
+ */
+export function innerHtml(el: Element) {
+  return (value$: Observable<string>): Subscription =>
+    value$.subscribe({
+      next: (v) => { (el as HTMLElement).innerHTML = v },
+      error: (e) => handleDomError(e, 'innerHtml'),
+    })
+}
+
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * safeHtml(el)(value$)
+ * Escapes HTML entities before writing to el.innerHTML.
+ * Safe for rendering user-controlled content that may contain markup.
+ */
+export function safeHtml(el: Element) {
+  return (value$: Observable<string>): Subscription =>
+    value$.subscribe({
+      next: (v) => { (el as HTMLElement).innerHTML = escapeHtml(v) },
+      error: (e) => handleDomError(e, 'safeHtml'),
+    })
+}
+
+/**
+ * attr(el, name)(value$)
+ * - string/number -> setAttribute(name, String(value))
+ * - null/undefined -> removeAttribute(name)
+ */
+export function attr(el: Element, name: string) {
+  return (value$: Observable<string | number | null | undefined>): Subscription =>
+    value$.pipe(distinctUntilChanged()).subscribe({
+      next: (v) => {
+        if (isNil(v)) el.removeAttribute(name)
+        else el.setAttribute(name, String(v))
+      },
+      error: (e) => handleDomError(e, 'attr'),
+    })
+}
+
+/**
+ * prop(el, key)(value$)
+ * Writes each incoming value to (el as any)[key].
+ * Useful for `value`, `checked`, etc.
+ */
+export function prop<T extends object, K extends keyof T>(el: T, key: K) {
+  return (value$: Observable<T[K]>): Subscription =>
+    value$.pipe(distinctUntilChanged()).subscribe({
+      next: (v) => { (el as any)[key] = v },
+      error: (e) => handleDomError(e, 'prop'),
+    })
+}
+
+/**
+ * style(el, name)(value$)
+ * - string/number -> set style
+ * - null/undefined -> remove style
+ */
+export function style(el: HTMLElement, name: keyof CSSStyleDeclaration) {
+  return (value$: Observable<string | number | null | undefined>): Subscription =>
+    value$.pipe(distinctUntilChanged()).subscribe({
+      next: (v) => {
+        if (isNil(v)) (el.style as any)[name] = ''
+        else (el.style as any)[name] = String(v)
+      },
+      error: (e) => handleDomError(e, 'style'),
+    })
+}
+
+/**
+ * classToggle(el, className)(on$)
+ * Adds/removes a class on each boolean.
+ */
+export function classToggle(el: Element, className: string) {
+  return (on$: Observable<boolean>): Subscription =>
+    on$.pipe(distinctUntilChanged()).subscribe({
+      next: (on) => { el.classList.toggle(className, !!on) },
+      error: (e) => handleDomError(e, 'classToggle'),
+    })
+}
+
+/**
+ * dispatch(target)(value$)
+ *
+ * Turns an Observable into a sink that forwards values into a target with `next(...)`
+ * (typically a Subject). Business rules live in upstream `map(...)` functions.
+ */
+export function dispatch<T>(target: { next: (value: T) => void }) {
+  return (value$: Observable<T>): Subscription =>
+    value$.subscribe({
+      next: (v) => target.next(v),
+      error: (e) => handleDomError(e, 'dispatch'),
+    })
+}
+
+/**
+ * effect(...subs)
+ * Combine multiple subscriptions/teardowns into one Subscription.
+ */
+export function effect(...items: Array<Subscription | Unsub>): Subscription {
+  const s = new Subscription()
+  for (const it of items) {
+    s.add(typeof it === 'function' ? new Subscription(it) : it)
+  }
+  return s
+}
+
+/**
+ * mount(root, setup)
+ *
+ * Run setup once, return one Subscription representing the whole view lifecycle.
+ */
+export function mount(
+  root: Element,
+  setup: (root: Element) => Subscription | Array<Subscription | Unsub>,
+): Subscription {
+  const s = new Subscription()
+  const out = setup(root)
+  if (Array.isArray(out)) {
+    for (const it of out) s.add(typeof it === 'function' ? new Subscription(it) : it)
+  } else {
+    s.add(out)
+  }
+  return s
+}
+
+/**
+ * documentTitle(suffix?)(value$)
+ * Sets `document.title` on each emission. If `suffix` is provided,
+ * the title is formatted as `"value | suffix"`.
+ */
+export function documentTitle(suffix?: string) {
+  return (value$: Observable<string>): Subscription =>
+    value$.pipe(distinctUntilChanged()).subscribe({
+      next: (title) => { document.title = suffix ? `${title} | ${suffix}` : title },
+      error: (e) => handleDomError(e, 'documentTitle'),
+    })
+}
+
+/**
+ * metaContent(name)(value$)
+ * Upserts a `<meta name="...">` tag in `<head>` with the given content.
+ * Creates the element if it doesn't exist.
+ */
+export function metaContent(name: string) {
+  return (value$: Observable<string>): Subscription =>
+    value$.subscribe({
+      next: (content) => {
+        let el = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`)
+        if (!el) {
+          el = document.createElement('meta')
+          el.setAttribute('name', name)
+          document.head.appendChild(el)
+        }
+        el.setAttribute('content', content)
+      },
+      error: (e) => handleDomError(e, 'metaContent'),
+    })
+}
+
+export type KeyFn<T> = (item: T, index: number) => string
+export type CreateFn<T> = (item: T, index: number) => Node
+export type UpdateFn<T> = (node: Node, item: T, index: number) => void
+
+/**
+ * renderList(container, keyFn, createNode, updateNode?)(items$)
+ *
+ * Emits arrays. The DOM is kept in sync by key.
+ */
+export function renderList<T>(
+  container: Element,
+  keyFn: KeyFn<T>,
+  createNode: CreateFn<T>,
+  updateNode?: UpdateFn<T>,
+) {
+  const nodes = new Map<string, Node>()
+
+  return (items$: Observable<readonly T[]>): Subscription =>
+    items$.subscribe({
+      next: (items) => {
+        const nextKeys = new Set<string>()
+        const nextNodes: Node[] = []
+
+        items.forEach((item, i) => {
+          const key = keyFn(item, i)
+          nextKeys.add(key)
+
+          let node = nodes.get(key)
+          if (!node) {
+            node = createNode(item, i)
+            nodes.set(key, node)
+          } else if (updateNode) {
+            updateNode(node, item, i)
+          }
+
+          nextNodes.push(node)
+        })
+
+        for (const [key, node] of nodes) {
+          if (!nextKeys.has(key)) {
+            nodes.delete(key)
+            if (node.parentNode === container) container.removeChild(node)
+          }
+        }
+
+        const frag = document.createDocumentFragment()
+        for (const node of nextNodes) frag.appendChild(node)
+        container.replaceChildren(frag)
+      },
+      error: (e) => handleDomError(e, 'renderList'),
+    })
+}
+
+export type KeyedView = { node: Node; sub: Subscription }
+export type CreateViewFn<T> = (item: T, index: number) => { node: Node; sub?: Subscription | Unsub }
+export type UpdateViewFn<T> = (view: KeyedView, item: T, index: number) => void
+
+function toSubscription(x?: Subscription | Unsub): Subscription {
+  if (!x) return new Subscription()
+  return typeof x === 'function' ? new Subscription(x) : x
+}
+
+/**
+ * renderKeyedList(container, keyFn, createView, updateView?)(items$)
+ *
+ * Like renderList, but each item can have its own Subscription lifecycle.
+ * When an item disappears (by key), its subscription is unsubscribed.
+ */
+export function renderKeyedList<T>(
+  container: Element,
+  keyFn: KeyFn<T>,
+  createView: CreateViewFn<T>,
+  updateView?: UpdateViewFn<T>,
+) {
+  const views = new Map<string, KeyedView>()
+
+  return (items$: Observable<readonly T[]>): Subscription =>
+    items$.subscribe({
+      next: (items) => {
+        const nextKeys = new Set<string>()
+        const nextNodes: Node[] = []
+
+        items.forEach((item, i) => {
+          const key = keyFn(item, i)
+          nextKeys.add(key)
+
+          let view = views.get(key)
+          if (!view) {
+            const created = createView(item, i)
+            view = { node: created.node, sub: toSubscription(created.sub) }
+            views.set(key, view)
+          } else if (updateView) {
+            updateView(view, item, i)
+          }
+
+          nextNodes.push(view.node)
+        })
+
+        for (const [key, view] of views) {
+          if (!nextKeys.has(key)) {
+            views.delete(key)
+            view.sub.unsubscribe()
+            if (view.node.parentNode === container) container.removeChild(view.node)
+          }
+        }
+
+        const frag = document.createDocumentFragment()
+        for (const node of nextNodes) frag.appendChild(node)
+        container.replaceChildren(frag)
+      },
+      error: (e) => handleDomError(e, 'renderKeyedList'),
+    })
+}
+
+export type ComponentCtx<A> = {
+  /** Send actions upstream (usually into a Subject<Action>) */
+  dispatch: (action: A) => void
+}
+
+export type ComponentFactory<T, A> = (
+  item$: LiveValue<T>,
+  ctx: ComponentCtx<A>,
+  key: string,
+) => { node: Node; sub?: Subscription | Unsub }
+
+type ComponentView<T> = {
+  node: Node
+  sub: Subscription
+  input: BehaviorSubject<T>
+}
+
+/**
+ * renderKeyedComponents(container, keyFn, factory, actions)(items$)
+ *
+ * Each keyed item becomes a mini component:
+ * - it gets its own `item$` stream (BehaviorSubject) that updates over time
+ * - it can create internal event streams once, and keep them alive across updates
+ * - it can dispatch multiple action types upstream
+ * - when removed, its subscription is unsubscribed and its `item$` completes
+ */
+export function renderKeyedComponents<T, A>(
+  container: Element,
+  keyFn: KeyFn<T>,
+  factory: ComponentFactory<T, A>,
+  actions: { next: (action: A) => void },
+) {
+  const views = new Map<string, ComponentView<T>>()
+
+  const ctx: ComponentCtx<A> = {
+    dispatch: (a) => actions.next(a),
+  }
+
+  return (items$: Observable<readonly T[]>): Subscription =>
+    items$.subscribe({
+      next: (items) => {
+        const nextKeys = new Set<string>()
+        const nextNodes: Node[] = []
+
+        items.forEach((item, i) => {
+          const key = keyFn(item, i)
+          nextKeys.add(key)
+
+          let view = views.get(key)
+          if (!view) {
+            const input = new BehaviorSubject<T>(item)
+            const created = factory(createLiveValue(input), ctx, key)
+            view = { node: created.node, sub: toSubscription(created.sub), input }
+            views.set(key, view)
+          } else {
+            // push updated item into the per-item stream, without recreating subscriptions
+            view.input.next(item)
+          }
+
+          nextNodes.push(view.node)
+        })
+
+        // remove disappeared
+        for (const [key, view] of views) {
+          if (!nextKeys.has(key)) {
+            views.delete(key)
+            view.sub.unsubscribe()
+            view.input.complete()
+            if (view.node.parentNode === container) container.removeChild(view.node)
+          }
+        }
+
+        // order nodes
+        const frag = document.createDocumentFragment()
+        for (const node of nextNodes) frag.appendChild(node)
+        container.replaceChildren(frag)
+      },
+      error: (e) => handleDomError(e, 'renderKeyedComponents'),
+    })
+}
+
+
+// template.ts
+import { BehaviorSubject, isObservable, Observable, Subscription } from 'rxjs'
+import { distinctUntilChanged } from 'rxjs/operators'
+import { escapeHtml } from './sinks'
+import { handleDomError } from './error-handler'
+import type { AnimateFn, AnimationConfig } from './animation'
+import { findFirstElement } from './animation'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/**
+ * An Observable backed by a BehaviorSubject — exposes a `snapshot()` method
+ * for synchronous access to the current value.
+ *
+ * Passed as `item$` inside `list()` and `renderKeyedComponents()` callbacks.
+ * Use `snapshot()` in event handlers where you need the latest value:
+ *
+ * ```ts
+ * list(items$, i => i.id, (item$) => html`
+ *   <button @click=${() => dispatch(item$.snapshot().id)}>Go</button>
+ * `)
+ * ```
+ */
+export interface LiveValue<T> extends Observable<T> {
+  /** Read the current value synchronously. */
+  snapshot(): T
+}
+
+/** Wrap a BehaviorSubject as a LiveValue (Observable + snapshot). */
+export function createLiveValue<T>(subject: BehaviorSubject<T>): LiveValue<T> {
+  const obs = subject.asObservable() as LiveValue<T>
+  obs.snapshot = () => subject.value
+  return obs
+}
+
+/** Result of a tagged template literal call. */
+export interface TemplateResult {
+  /** The DOM fragment ready to insert into the document. */
+  fragment: DocumentFragment
+  /** Subscription managing all internal bindings. Unsubscribe to tear down. */
+  sub: Subscription
+  /** Original strings (for SSR). */
+  strings: TemplateStringsArray
+  /** Original values (for SSR). */
+  values: unknown[]
+}
+
+/** Marks a value as raw HTML (no escaping). */
+export interface UnsafeHtmlValue {
+  __unsafeHtml: true
+  value: Observable<string> | string
+}
+
+/** Conditional binding created by `when()`. */
+export interface ConditionalBinding {
+  __conditional: true
+  condition$: Observable<boolean>
+  thenFn: () => TemplateResult
+  elseFn?: () => TemplateResult
+  enter?: AnimateFn
+  leave?: AnimateFn
+}
+
+/** List binding created by `list()`. */
+export interface ListBinding<T = unknown> {
+  __list: true
+  items$: Observable<readonly T[]>
+  keyFn: (item: T, index: number) => string
+  templateFn: (item$: LiveValue<T>, key: string) => TemplateResult
+  enter?: AnimateFn
+  leave?: AnimateFn
+}
+
+// ---------------------------------------------------------------------------
+// Type guards
+// ---------------------------------------------------------------------------
+
+function isTemplateResult(v: unknown): v is TemplateResult {
+  return (
+    v !== null &&
+    typeof v === 'object' &&
+    'fragment' in v &&
+    'sub' in v &&
+    'fragment' in v &&
+    'sub' in v &&
+    ((v as TemplateResult).fragment instanceof DocumentFragment || (v as TemplateResult).fragment === null)
+  )
+}
+
+function isUnsafeHtml(v: unknown): v is UnsafeHtmlValue {
+  return v !== null && typeof v === 'object' && (v as UnsafeHtmlValue).__unsafeHtml === true
+}
+
+function isConditional(v: unknown): v is ConditionalBinding {
+  return v !== null && typeof v === 'object' && (v as ConditionalBinding).__conditional === true
+}
+
+function isListBinding(v: unknown): v is ListBinding {
+  return v !== null && typeof v === 'object' && (v as ListBinding).__list === true
+}
+
+// ---------------------------------------------------------------------------
+// Slot detection
+// ---------------------------------------------------------------------------
+
+const MARKER_PREFIX = '__RX_'
+const COMMENT_PREFIX = '<!--__RX_'
+
+// Fallback for Node constants if running in SSR without full DOM mock
+const NodeType = {
+  ELEMENT_NODE: 1,
+  TEXT_NODE: 3,
+  COMMENT_NODE: 8,
+}
+
+type SlotKind = 'text' | 'attribute' | 'event' | 'property' | 'boolean-attr'
+
+interface SlotInfo {
+  kind: SlotKind
+  index: number
+  /** For attribute/event/property/boolean-attr — the cleaned attribute name. */
+  attrName?: string
+}
+
+// ---------------------------------------------------------------------------
+// Template cache
+// ---------------------------------------------------------------------------
+
+export interface PreparedTemplate {
+  /** The <template> element whose content can be cloned. */
+  templateEl: HTMLTemplateElement
+  /** Slot metadata collected during preparation. */
+  slots: SlotInfo[]
+  /** Walker path to each slot's node (as child-index chain from root). */
+  paths: number[][]
+  /** Raw markup (used for SSR). */
+  markup?: string
+}
+
+const cache = new WeakMap<TemplateStringsArray, PreparedTemplate>()
+
+// ---------------------------------------------------------------------------
+// Preparation: parse template string once, cache for reuse
+// ---------------------------------------------------------------------------
+
+export function prepareTemplate(strings: TemplateStringsArray): PreparedTemplate {
+  const hit = cache.get(strings)
+  if (hit) return hit
+
+  // Build the combined HTML with markers.
+  // For text slots: use <!--__RX_N--> comment markers.
+  // We need to detect attribute context to use __RX_N instead.
+  let markup = ''
+  const slotContexts: Array<'text' | 'attr'> = []
+
+  for (let i = 0; i < strings.length; i++) {
+    markup += strings[i]
+    if (i < strings.length - 1) {
+      // Determine if we're inside an attribute value by checking if the last
+      // static chunk ends with `attr="...` or `attr='...` without closing.
+      const context = detectContext(markup)
+      slotContexts.push(context)
+      if (context === 'attr') {
+        markup += `${MARKER_PREFIX}${i}__`
+      } else {
+        markup += `${COMMENT_PREFIX}${i}__-->`
+      }
+    }
+  }
+
+  // Pre-process special attribute prefixes (@event, .prop, ?bool) into data attributes
+  // so the HTML parser doesn't mangle them.
+  markup = markup.replace(
+    /\s@([a-zA-Z]+)=/g,
+    (_, name) => ` data-rx-event-${name}=`,
+  )
+  markup = markup.replace(
+    /\s\.([a-zA-Z]+)=/g,
+    (_, name) => ` data-rx-prop-${name}=`,
+  )
+  markup = markup.replace(
+    /\s\?([a-zA-Z]+)=/g,
+    (_, name) => ` data-rx-boolattr-${name}=`,
+  )
+
+  // SSR Support: If no document or explicit SSR flag, return a virtual representation
+  if (typeof document === 'undefined' || (globalThis as any).IS_SSR) {
+    const prepared: PreparedTemplate = {
+      templateEl: null as any, // Not used in SSR
+      slots: [], // Not needed for string concatenation
+      paths: [], // Not needed for string concatenation
+      markup,    // [NEW] Raw markup for SSR
+    }
+    cache.set(strings, prepared)
+    return prepared
+  }
+
+  const templateEl = document.createElement('template')
+  templateEl.innerHTML = markup
+
+  // Walk the DOM to find slots and record their paths
+  const slots: SlotInfo[] = []
+  const paths: number[][] = []
+
+  walkAndCollect(templateEl.content, [], slotContexts, slots, paths)
+
+  const prepared: PreparedTemplate = { templateEl, slots, paths }
+  cache.set(strings, prepared)
+  return prepared
+}
+
+/**
+ * Detect whether we're currently inside an HTML attribute value.
+ * Simple heuristic: count unescaped quotes after the last `<` tag opening.
+ */
+function detectContext(markup: string): 'text' | 'attr' {
+  // Find the last opening tag that hasn't been closed
+  const lastOpenBracket = markup.lastIndexOf('<')
+  if (lastOpenBracket === -1) return 'text'
+
+  const afterOpen = markup.slice(lastOpenBracket)
+
+  // If we find a closing '>' after the last '<', we're in text context
+  if (afterOpen.includes('>')) return 'text'
+
+  // We're inside a tag. Check if we're in an attribute value by
+  // looking for an '=' followed by an odd number of quotes
+  const eqIndex = afterOpen.lastIndexOf('=')
+  if (eqIndex === -1) return 'text'
+
+  const afterEq = afterOpen.slice(eqIndex + 1).trimStart()
+  if (afterEq.startsWith('"') || afterEq.startsWith("'")) {
+    const quote = afterEq[0]
+    // Count occurrences of the quote after the opening one
+    const rest = afterEq.slice(1)
+    const count = (rest.match(new RegExp(quote === '"' ? '"' : "'", 'g')) || []).length
+    // Odd count means the attribute is closed, even means we're still inside
+    return count % 2 === 0 ? 'attr' : 'text'
+  }
+
+  // Unquoted attribute value
+  return 'attr'
+}
+
+function walkAndCollect(
+  node: Node,
+  path: number[],
+  slotContexts: Array<'text' | 'attr'>,
+  slots: SlotInfo[],
+  paths: number[][],
+): void {
+  if (node.nodeType === (typeof Node !== 'undefined' ? Node.COMMENT_NODE : NodeType.COMMENT_NODE)) {
+    const text = node.textContent || ''
+    const match = text.match(/^__RX_(\d+)__$/)
+    if (match) {
+      const index = parseInt(match[1], 10)
+      slots.push({ kind: 'text', index })
+      paths.push([...path])
+    }
+    return
+  }
+
+  if (node.nodeType === (typeof Node !== 'undefined' ? Node.ELEMENT_NODE : NodeType.ELEMENT_NODE)) {
+    const el = node as Element
+    // Check attributes for markers
+    const attrsToRemove: string[] = []
+    for (let i = 0; i < el.attributes.length; i++) {
+      const attr = el.attributes[i]
+      const name = attr.name
+      const value = attr.value
+
+      // Check if value contains a marker
+      const markerMatch = value.match(new RegExp(`${MARKER_PREFIX}(\\d+)__`))
+      if (!markerMatch) continue
+
+      const index = parseInt(markerMatch[1], 10)
+
+      if (name.startsWith('data-rx-event-')) {
+        const eventName = name.slice('data-rx-event-'.length)
+        slots.push({ kind: 'event', index, attrName: eventName })
+        paths.push([...path])
+        attrsToRemove.push(name)
+      } else if (name.startsWith('data-rx-prop-')) {
+        const propName = name.slice('data-rx-prop-'.length)
+        slots.push({ kind: 'property', index, attrName: propName })
+        paths.push([...path])
+        attrsToRemove.push(name)
+      } else if (name.startsWith('data-rx-boolattr-')) {
+        const boolName = name.slice('data-rx-boolattr-'.length)
+        slots.push({ kind: 'boolean-attr', index, attrName: boolName })
+        paths.push([...path])
+        attrsToRemove.push(name)
+      } else {
+        slots.push({ kind: 'attribute', index, attrName: name })
+        paths.push([...path])
+        attrsToRemove.push(name)
+      }
+    }
+
+    for (const a of attrsToRemove) {
+      el.removeAttribute(a)
+    }
+  }
+
+  // Recurse into children
+  const children = node.childNodes
+  for (let i = 0; i < children.length; i++) {
+    walkAndCollect(children[i], [...path, i], slotContexts, slots, paths)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Clone and bind: create a live fragment from a prepared template
+// ---------------------------------------------------------------------------
+
+export function hydrate(root: Node, template: TemplateResult): TemplateResult {
+  const prepared = prepareTemplate(template.strings)
+  const fragment = root as DocumentFragment // Treat root as fragment for path resolution
+  // Note: hydration assumes the root structure matches the template structure.
+
+  const sub = bindSlots(fragment, prepared, template.values, true)
+  return { fragment, sub, strings: template.strings, values: template.values }
+}
+
+function resolveNode(root: DocumentFragment, path: number[]): Node | undefined {
+  let node: Node = root
+  for (const idx of path) {
+    const child = node.childNodes[idx]
+    if (!child) return undefined
+    node = child
+  }
+  return node
+}
+
+function bindSlots(
+  fragment: DocumentFragment,
+  prepared: PreparedTemplate,
+  values: unknown[],
+  hydrate = false,
+): Subscription {
+  const sub = new Subscription()
+
+  // Resolve all node paths up front before any subscription is created.
+  // Synchronous BehaviorSubject-derived streams can fire immediately inside
+  // bindConditional/bindList, inserting nodes into the fragment and shifting
+  // sibling indices — causing later resolveNode calls to miss their targets.
+  const nodes: (Node | undefined)[] = prepared.slots.map((_, i) =>
+    resolveNode(fragment, prepared.paths[i]),
+  )
+
+  for (let i = 0; i < prepared.slots.length; i++) {
+    const slot = prepared.slots[i]
+    const path = prepared.paths[i]
+    const value = values[slot.index]
+    const node = nodes[i]
+    if (!node) {
+      console.warn(`[rxjs-spa/dom] Slot ${slot.kind}[${slot.index}] path [${path}] could not be resolved — skipping.`, { prepared, fragment, slotIndex: i })
+      continue
+    }
+
+    switch (slot.kind) {
+      case 'text':
+        bindTextSlot(node, value, sub, hydrate ? slot.index : undefined)
+        break
+      case 'attribute':
+        // Attributes don't need hydration cleanup (we just update them)
+        bindAttributeSlot(node as Element, slot.attrName!, value, sub)
+        break
+      case 'event':
+        bindEventSlot(node as Element, slot.attrName!, value, sub)
+        break
+      case 'property':
+        bindPropertySlot(node as Element, slot.attrName!, value, sub)
+        break
+      case 'boolean-attr':
+        bindBooleanAttrSlot(node as Element, slot.attrName!, value, sub)
+        break
+    }
+  }
+
+  return sub
+}
+
+function bindTextSlot(commentNode: Node, value: unknown, sub: Subscription, hydrateIndex?: number): void {
+  const parent = commentNode.parentNode
+  if (!parent) return
+
+  // Helper: Find and remove SSR nodes
+  const cleanSSR = () => {
+    if (hydrateIndex === undefined) return
+    const endMarkerRegex = new RegExp(`^__RX_${hydrateIndex}__END$`)
+    let next = commentNode.nextSibling
+    const nodesToRemove: Node[] = []
+
+    while (next) {
+      if (next.nodeType === (typeof Node !== 'undefined' ? Node.COMMENT_NODE : NodeType.COMMENT_NODE)) {
+        if (endMarkerRegex.test(next.textContent || '')) {
+          nodesToRemove.push(next)
+          break
+        }
+      }
+      nodesToRemove.push(next)
+      next = next.nextSibling
+    }
+    nodesToRemove.forEach(n => parent.removeChild(n))
+  }
+
+  // 1. Conditional
+  if (isConditional(value)) {
+    if (hydrateIndex !== undefined) cleanSSR()
+    bindConditional(commentNode, value, sub)
+  }
+  // 2. List
+  else if (isListBinding(value)) {
+    if (hydrateIndex !== undefined) cleanSSR()
+    bindList(commentNode, value, sub)
+  }
+  // 3. Nested TemplateResult (Static)
+  else if (isTemplateResult(value)) {
+    if (hydrateIndex !== undefined) cleanSSR()
+    parent.replaceChild(value.fragment, commentNode)
+    sub.add(value.sub)
+  }
+  // 4. Unsafe HTML
+  else if (isUnsafeHtml(value)) {
+    if (hydrateIndex !== undefined) cleanSSR()
+    const wrapper = document.createElement('span')
+    parent.replaceChild(wrapper, commentNode)
+    if (isObservable(value.value)) {
+      sub.add((value.value as Observable<string>).subscribe({
+        next: (v) => { wrapper.innerHTML = v },
+        error: (e) => handleDomError(e, 'bindTextSlot/unsafeHtml'),
+      }))
+    } else {
+      wrapper.innerHTML = value.value as string
+    }
+  }
+  // 5. Observable (Dynamic Content)
+  else if (isObservable(value)) {
+    // Robust Strategy: Keep the comment node as a stable anchor
+    // Insert new content AFTER the anchor.
+    // Defer SSR cleanup until first emission.
+
+    const anchor = commentNode
+    let hasHydrated = false
+    let childSub: Subscription | null = null
+    let childNodes: Node[] = []
+
+    sub.add((value as Observable<unknown>).subscribe({
+      next: (v) => {
+        // 1. Snapshot valid parent
+        const p = anchor.parentNode
+        if (!p) return
+
+        // 2. SSR Cleanup (Once)
+        if (!hasHydrated && hydrateIndex !== undefined) {
+          cleanSSR()
+          hasHydrated = true
+        }
+
+        // 3. Teardown previous content
+        if (childSub) {
+          childSub.unsubscribe()
+          childSub = null
+        }
+        if (childNodes.length > 0) {
+          childNodes.forEach(n => n.parentNode?.removeChild(n))
+          childNodes = []
+        }
+
+        // 4. Render New Content
+        const nextSibling = anchor.nextSibling
+
+        if (isTemplateResult(v)) {
+          // Nested Template
+          childSub = v.sub
+          // Fragment empties on insert
+          childNodes = Array.from(v.fragment.childNodes)
+          p.insertBefore(v.fragment, nextSibling)
+        } else {
+          // Primitive
+          const text = document.createTextNode(String(v ?? ''))
+          childNodes = [text]
+          p.insertBefore(text, nextSibling)
+        }
+      },
+      error: (e) => handleDomError(e, 'bindTextSlot'),
+    }))
+  }
+  // 6. Static Primitive
+  else {
+    if (hydrateIndex !== undefined) cleanSSR()
+    const textNode = document.createTextNode(String(value ?? ''))
+    parent.replaceChild(textNode, commentNode)
+  }
+}
+
+function bindConditional(anchor: Node, binding: ConditionalBinding, sub: Subscription): void {
+  const parent = anchor.parentNode!
+  let currentNodes: Node[] = []
+  let currentSub: Subscription | null = null
+  let leaveController: AbortController | null = null
+
+  function teardownCurrent() {
+    if (currentSub) {
+      currentSub.unsubscribe()
+      currentSub = null
+    }
+    for (const n of currentNodes) {
+      if (n.parentNode) n.parentNode.removeChild(n)
+    }
+    currentNodes = []
+  }
+
+  function insertAndEnter(fn: () => TemplateResult) {
+    const result = fn()
+    currentSub = result.sub
+    sub.add(currentSub)
+    const nodes = Array.from(result.fragment.childNodes)
+    const ref = anchor.nextSibling
+    for (const n of nodes) {
+      parent.insertBefore(n, ref)
+    }
+    currentNodes = nodes
+
+    // Run enter animation (fire-and-forget)
+    if (binding.enter) {
+      const el = findFirstElement(nodes)
+      if (el) binding.enter(el)
+    }
+  }
+
+  sub.add(
+    binding.condition$.pipe(distinctUntilChanged()).subscribe({
+      next: (show) => {
+        // Cancel any in-progress leave animation
+        if (leaveController) {
+          leaveController.abort()
+          leaveController = null
+        }
+
+        if (!show && binding.leave && currentNodes.length > 0) {
+          // Run leave animation, then tear down
+          const nodesToRemove = currentNodes
+          const subToClean = currentSub
+          const controller = new AbortController()
+          leaveController = controller
+
+          // Clear references so next show=true starts fresh
+          currentNodes = []
+          currentSub = null
+
+          const el = findFirstElement(nodesToRemove)
+          if (el) {
+            binding.leave(el).then(() => {
+              if (controller.signal.aborted) return
+              leaveController = null
+              if (subToClean) subToClean.unsubscribe()
+              for (const n of nodesToRemove) {
+                if (n.parentNode) n.parentNode.removeChild(n)
+              }
+            })
+          } else {
+            // No element to animate — tear down immediately
+            if (subToClean) subToClean.unsubscribe()
+            for (const n of nodesToRemove) {
+              if (n.parentNode) n.parentNode.removeChild(n)
+            }
+            leaveController = null
+          }
+
+          // Mount the else branch if present
+          if (binding.elseFn) {
+            insertAndEnter(binding.elseFn)
+          }
+        } else {
+          // No leave animation needed — tear down immediately
+          teardownCurrent()
+
+          const fn = show ? binding.thenFn : binding.elseFn
+          if (fn) {
+            insertAndEnter(fn)
+          }
+        }
+      },
+      error: (e) => handleDomError(e, 'bindConditional'),
+    }),
+  )
+
+  // Teardown removes nodes
+  sub.add(() => {
+    if (leaveController) leaveController.abort()
+    for (const n of currentNodes) {
+      if (n.parentNode) n.parentNode.removeChild(n)
+    }
+  })
+}
+
+function bindList(anchor: Node, binding: ListBinding, sub: Subscription): void {
+  const parent = anchor.parentNode!
+  const containerEl = document.createElement('div')
+  containerEl.style.display = 'contents'
+  parent.replaceChild(containerEl, anchor)
+
+  interface ItemView {
+    nodes: Node[]
+    sub: Subscription
+    input: BehaviorSubject<unknown>
+  }
+
+  const views = new Map<string, ItemView>()
+  // Views currently animating out — can be restored if the key re-appears
+  const leavingViews = new Map<string, { view: ItemView; controller: AbortController }>()
+
+  sub.add(
+    binding.items$.subscribe({
+      next: (items) => {
+      const nextKeys = new Set<string>()
+      const newKeys: string[] = []
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        const key = binding.keyFn(item as never, i)
+        nextKeys.add(key)
+
+        // Cancel pending leave and restore view if item re-appears
+        const leaving = leavingViews.get(key)
+        if (leaving) {
+          leaving.controller.abort()
+          leavingViews.delete(key)
+          // Restore the view back into the active map
+          views.set(key, leaving.view)
+          leaving.view.input.next(item)
+          continue
+        }
+
+        let view = views.get(key)
+        if (!view) {
+          const input = new BehaviorSubject<unknown>(item)
+          const result = binding.templateFn(createLiveValue(input) as LiveValue<never>, key)
+          const nodes = Array.from(result.fragment.childNodes)
+          view = { nodes, sub: result.sub, input }
+          views.set(key, view)
+          sub.add(result.sub)
+          newKeys.push(key)
+        } else {
+          view.input.next(item)
+        }
+      }
+
+      // Remove disappeared items
+      for (const [key, view] of views) {
+        if (!nextKeys.has(key)) {
+          views.delete(key)
+
+          if (binding.leave) {
+            // Animate leave, then remove
+            const controller = new AbortController()
+            leavingViews.set(key, { view, controller })
+
+            const el = findFirstElement(view.nodes)
+            if (el) {
+              binding.leave(el).then(() => {
+                if (controller.signal.aborted) return
+                leavingViews.delete(key)
+                view.sub.unsubscribe()
+                view.input.complete()
+                for (const n of view.nodes) {
+                  if (n.parentNode) n.parentNode.removeChild(n)
+                }
+              })
+            } else {
+              leavingViews.delete(key)
+              view.sub.unsubscribe()
+              view.input.complete()
+              for (const n of view.nodes) {
+                if (n.parentNode) n.parentNode.removeChild(n)
+              }
+            }
+          } else {
+            view.sub.unsubscribe()
+            view.input.complete()
+            for (const n of view.nodes) {
+              if (n.parentNode) n.parentNode.removeChild(n)
+            }
+          }
+        }
+      }
+
+      // Reorder into container
+      for (let i = 0; i < items.length; i++) {
+        const key = binding.keyFn(items[i] as never, i)
+        const view = views.get(key)!
+        for (const n of view.nodes) {
+          containerEl.appendChild(n)
+        }
+      }
+
+      // Run enter animations on newly created items (fire-and-forget)
+      if (binding.enter) {
+        for (const key of newKeys) {
+          const view = views.get(key)
+          if (view) {
+            const el = findFirstElement(view.nodes)
+            if (el) binding.enter(el)
+          }
+        }
+      }
+      },
+      error: (e) => handleDomError(e, 'bindList'),
+    }),
+  )
+}
+
+function bindAttributeSlot(el: Element, name: string, value: unknown, sub: Subscription): void {
+  if (isObservable(value)) {
+    sub.add((value as Observable<unknown>).subscribe({
+      next: (v) => {
+        if (v === null || v === undefined) {
+          el.removeAttribute(name)
+        } else {
+          el.setAttribute(name, String(v))
+        }
+      },
+      error: (e) => handleDomError(e, 'bindAttributeSlot'),
+    }))
+  } else {
+    if (value === null || value === undefined) {
+      el.removeAttribute(name)
+    } else {
+      el.setAttribute(name, String(value))
+    }
+  }
+}
+
+function bindEventSlot(el: Element, eventName: string, value: unknown, sub: Subscription): void {
+  if (typeof value === 'function') {
+    const handler = value as EventListener
+    el.addEventListener(eventName, handler)
+    sub.add(() => el.removeEventListener(eventName, handler))
+  }
+}
+
+function bindPropertySlot(el: Element, propName: string, value: unknown, sub: Subscription): void {
+  if (isObservable(value)) {
+    sub.add((value as Observable<unknown>).subscribe({
+      next: (v) => { (el as any)[propName] = v },
+      error: (e) => handleDomError(e, 'bindPropertySlot'),
+    }))
+  } else {
+    ; (el as any)[propName] = value
+  }
+}
+
+function bindBooleanAttrSlot(el: Element, name: string, value: unknown, sub: Subscription): void {
+  if (isObservable(value)) {
+    sub.add((value as Observable<unknown>).subscribe({
+      next: (v) => {
+        if (v) el.setAttribute(name, '')
+        else el.removeAttribute(name)
+      },
+      error: (e) => handleDomError(e, 'bindBooleanAttrSlot'),
+    }))
+  } else {
+    if (value) el.setAttribute(name, '')
+    else el.removeAttribute(name)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * html`...`
+ *
+ * Tagged template literal for reactive DOM construction.
+ *
+ * **Text interpolation** — auto-escaped, auto-subscribed if Observable:
+ * ```ts
+ * html`<p>${name$}</p>`
+ * ```
+ *
+ * **Attribute binding** — static or reactive:
+ * ```ts
+ * html`<a href=${url$}>link</a>`
+ * ```
+ *
+ * **Event binding** — `@eventname`:
+ * ```ts
+ * html`<button @click=${() => dispatch({ type: 'SAVE' })}>Save</button>`
+ * ```
+ *
+ * **Property binding** — `.propname`:
+ * ```ts
+ * html`<input .value=${value$} />`
+ * ```
+ *
+ * **Boolean attribute** — `?attrname`:
+ * ```ts
+ * html`<div ?hidden=${isHidden$}>Secret</div>`
+ * ```
+ *
+ * **Conditional rendering**:
+ * ```ts
+ * html`${when(show$, () => html`<p>Visible</p>`)}`
+ * ```
+ *
+ * **List rendering**:
+ * ```ts
+ * html`${list(items$, i => i.id, (item$, key) => html`<li>${item$}</li>`)}`
+ * ```
+ */
+export function html(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+): TemplateResult {
+  const prepared = prepareTemplate(strings)
+
+  if (typeof document === 'undefined' || (globalThis as any).IS_SSR) {
+    // fast path for SSR - no DOM creation
+    return {
+      fragment: null as any,
+      sub: new Subscription(),
+      strings,
+      values
+    }
+  }
+
+  const fragment = prepared.templateEl.content.cloneNode(true) as DocumentFragment
+  const sub = bindSlots(fragment, prepared, values)
+  return { fragment, sub, strings, values }
+}
+
+/**
+ * unsafeHtml(value)
+ *
+ * Mark a string or Observable<string> as raw HTML that should NOT be escaped.
+ * Use only for trusted content.
+ *
+ * @example
+ *   html`<div>${unsafeHtml(richContent$)}</div>`
+ */
+export function unsafeHtml(value: Observable<string> | string): UnsafeHtmlValue {
+  return { __unsafeHtml: true, value }
+}
+
+/**
+ * when(condition$, thenFn, elseFn?)
+ *
+ * Conditional rendering. Mounts/unmounts a template based on a boolean Observable.
+ * The inner template is created lazily and torn down when the condition flips.
+ *
+ * @example
+ *   html`
+ *     ${when(
+ *       isLoggedIn$,
+ *       () => html`<p>Welcome back!</p>`,
+ *       () => html`<p>Please log in.</p>`,
+ *     )}
+ *   `
+ */
+export function when(
+  condition$: Observable<boolean>,
+  thenFn: () => TemplateResult,
+  elseFn?: () => TemplateResult,
+  animation?: AnimationConfig,
+): ConditionalBinding {
+  return {
+    __conditional: true,
+    condition$,
+    thenFn,
+    elseFn,
+    enter: animation?.enter,
+    leave: animation?.leave,
+  }
+}
+
+/**
+ * list(items$, keyFn, templateFn)
+ *
+ * Keyed list rendering. Each item gets its own `BehaviorSubject<T>` that
+ * updates without recreating the template. Templates are created once per key
+ * and destroyed when the item disappears.
+ *
+ * @example
+ *   html`
+ *     <ul>
+ *       ${list(
+ *         users$,
+ *         u => String(u.id),
+ *         (user$, key) => html`<li>${user$.pipe(map(u => u.name))}</li>`,
+ *       )}
+ *     </ul>
+ *   `
+ */
+export function list<T>(
+  items$: Observable<readonly T[]>,
+  keyFn: (item: T, index: number) => string,
+  templateFn: (item$: LiveValue<T>, key: string) => TemplateResult,
+  animation?: AnimationConfig,
+): ListBinding<T> {
+  return {
+    __list: true,
+    items$,
+    keyFn,
+    templateFn,
+    enter: animation?.enter,
+    leave: animation?.leave,
+  }
+}
+
+// error-handler.ts
+// ---------------------------------------------------------------------------
+// Configurable error handler for DOM bindings
+// ---------------------------------------------------------------------------
+
+/**
+ * Signature for custom error handlers set via `setDomErrorHandler`.
+ * @param error  The error thrown or emitted by an Observable
+ * @param context  A string identifying the binding that produced the error
+ *                 (e.g. `'text'`, `'bindAttributeSlot'`, `'defineComponent/onMount'`)
+ */
+export type DomErrorHandler = (error: unknown, context: string) => void
+
+let handler: DomErrorHandler = (error, context) => {
+  console.warn(`[@rxjs-spa/dom] Error in ${context}:`, error)
+}
+
+/**
+ * Replace the default error handler for all DOM sinks, template bindings,
+ * and component lifecycle hooks.
+ *
+ * The default handler logs to `console.warn`. Set a custom handler to
+ * integrate with `@rxjs-spa/errors` or any other error reporting system.
+ *
+ * @example
+ * ```ts
+ * setDomErrorHandler((error, context) => {
+ *   errorHandler.reportError(error, 'dom', context)
+ * })
+ * ```
+ */
+export function setDomErrorHandler(fn: DomErrorHandler): void {
+  handler = fn
+}
+
+/**
+ * Internal: call the configured error handler, swallowing any exception
+ * thrown by the handler itself so it never crashes a DOM pipeline.
+ */
+export function handleDomError(error: unknown, context: string): void {
+  try {
+    handler(error, context)
+  } catch {
+    // Never let a broken handler crash the pipeline
+  }
+}
+
+
+// animation.ts
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/** Core animation primitive. Takes an element, animates it, resolves when done. */
+export type AnimateFn = (el: Element) => Promise<void>
+
+/** Animation config for enter/leave transitions. */
+export interface AnimationConfig {
+  enter?: AnimateFn
+  leave?: AnimateFn
+}
+
+// ---------------------------------------------------------------------------
+// Low-level helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * waitForTransition(el, timeout?)
+ *
+ * Returns a Promise that resolves when the next `transitionend` event fires
+ * on `el`. If no event fires within `timeout` ms (default 5000), resolves
+ * anyway to prevent hangs.
+ */
+export function waitForTransition(el: Element, timeout = 5000): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let resolved = false
+    const done = () => {
+      if (!resolved) {
+        resolved = true
+        resolve()
+      }
+    }
+    el.addEventListener(
+      'transitionend',
+      function handler(e: Event) {
+        if ((e as TransitionEvent).target !== el) return
+        el.removeEventListener('transitionend', handler)
+        done()
+      },
+    )
+    setTimeout(done, timeout)
+  })
+}
+
+/**
+ * waitForAnimation(el, timeout?)
+ *
+ * Returns a Promise that resolves when the next `animationend` event fires
+ * on `el`. If no event fires within `timeout` ms (default 5000), resolves
+ * anyway to prevent hangs.
+ */
+export function waitForAnimation(el: Element, timeout = 5000): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let resolved = false
+    const done = () => {
+      if (!resolved) {
+        resolved = true
+        resolve()
+      }
+    }
+    el.addEventListener(
+      'animationend',
+      function handler(e: Event) {
+        if ((e as AnimationEvent).target !== el) return
+        el.removeEventListener('animationend', handler)
+        done()
+      },
+    )
+    setTimeout(done, timeout)
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Factories
+// ---------------------------------------------------------------------------
+
+/**
+ * cssTransition({ from, active, to?, duration? })
+ *
+ * CSS class-based transition animation:
+ * 1. Add `from` class (initial state, e.g. `opacity: 0`)
+ * 2. Force reflow
+ * 3. Remove `from`, add `active` (target state + `transition` property)
+ * 4. Wait for `transitionend`
+ * 5. Remove `active`, optionally add `to` class
+ *
+ * @example
+ *   cssTransition({
+ *     from: 'fade-enter-from',   // opacity: 0
+ *     active: 'fade-enter-active', // opacity: 1; transition: opacity 300ms
+ *   })
+ */
+export function cssTransition(config: {
+  from: string
+  active: string
+  to?: string
+  duration?: number
+}): AnimateFn {
+  return (el: Element) => {
+    el.classList.add(config.from)
+    // Force reflow so the browser registers the initial state
+    void (el as HTMLElement).offsetHeight
+    el.classList.remove(config.from)
+    el.classList.add(config.active)
+
+    return waitForTransition(el, config.duration ?? 5000).then(() => {
+      el.classList.remove(config.active)
+      if (config.to) el.classList.add(config.to)
+    })
+  }
+}
+
+/**
+ * cssKeyframes(className, duration?)
+ *
+ * CSS @keyframes animation: add a class that triggers a CSS animation,
+ * wait for `animationend`, then remove the class.
+ *
+ * @example
+ *   // CSS: .bounce-in { animation: bounceIn 500ms ease; }
+ *   cssKeyframes('bounce-in', 600)
+ */
+export function cssKeyframes(className: string, duration?: number): AnimateFn {
+  return (el: Element) => {
+    el.classList.add(className)
+    return waitForAnimation(el, duration ?? 5000).then(() => {
+      el.classList.remove(className)
+    })
+  }
+}
+
+/**
+ * webAnimate(keyframes, options?)
+ *
+ * Web Animations API wrapper. Calls `el.animate(keyframes, options)` and
+ * resolves when the animation finishes.
+ *
+ * @example
+ *   webAnimate(
+ *     [{ opacity: 0 }, { opacity: 1 }],
+ *     { duration: 300, easing: 'ease-out' },
+ *   )
+ */
+export function webAnimate(
+  keyframes: Keyframe[],
+  options?: KeyframeAnimationOptions,
+): AnimateFn {
+  return (el: Element) =>
+    new Promise<void>((resolve) => {
+      const anim = el.animate(keyframes, options)
+      anim.onfinish = () => resolve()
+      anim.oncancel = () => resolve()
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Built-in Presets (Web Animations API — zero CSS needed)
+// ---------------------------------------------------------------------------
+
+/**
+ * fadeIn(duration?)
+ *
+ * Fades element from opacity 0 to 1. Default 300ms.
+ */
+export function fadeIn(duration = 300): AnimateFn {
+  return webAnimate(
+    [{ opacity: 0 }, { opacity: 1 }],
+    { duration, easing: 'ease-out', fill: 'forwards' },
+  )
+}
+
+/**
+ * fadeOut(duration?)
+ *
+ * Fades element from opacity 1 to 0. Default 300ms.
+ */
+export function fadeOut(duration = 300): AnimateFn {
+  return webAnimate(
+    [{ opacity: 1 }, { opacity: 0 }],
+    { duration, easing: 'ease-out', fill: 'forwards' },
+  )
+}
+
+const slideOffsets: Record<string, { x: string; y: string }> = {
+  left: { x: '-20px', y: '0' },
+  right: { x: '20px', y: '0' },
+  up: { x: '0', y: '-20px' },
+  down: { x: '0', y: '20px' },
+}
+
+/**
+ * slideIn(direction?, duration?)
+ *
+ * Slides element in from the given direction. Default 'left', 300ms.
+ */
+export function slideIn(
+  direction: 'left' | 'right' | 'up' | 'down' = 'left',
+  duration = 300,
+): AnimateFn {
+  const { x, y } = slideOffsets[direction]
+  return webAnimate(
+    [
+      { opacity: 0, transform: `translate(${x}, ${y})` },
+      { opacity: 1, transform: 'translate(0, 0)' },
+    ],
+    { duration, easing: 'ease-out', fill: 'forwards' },
+  )
+}
+
+/**
+ * slideOut(direction?, duration?)
+ *
+ * Slides element out toward the given direction. Default 'left', 300ms.
+ */
+export function slideOut(
+  direction: 'left' | 'right' | 'up' | 'down' = 'left',
+  duration = 300,
+): AnimateFn {
+  const { x, y } = slideOffsets[direction]
+  return webAnimate(
+    [
+      { opacity: 1, transform: 'translate(0, 0)' },
+      { opacity: 0, transform: `translate(${x}, ${y})` },
+    ],
+    { duration, easing: 'ease-in', fill: 'forwards' },
+  )
+}
+
+/**
+ * scaleIn(duration?)
+ *
+ * Scales element from 0.8 to 1 with fade. Default 300ms.
+ */
+export function scaleIn(duration = 300): AnimateFn {
+  return webAnimate(
+    [
+      { opacity: 0, transform: 'scale(0.8)' },
+      { opacity: 1, transform: 'scale(1)' },
+    ],
+    { duration, easing: 'ease-out', fill: 'forwards' },
+  )
+}
+
+/**
+ * scaleOut(duration?)
+ *
+ * Scales element from 1 to 0.8 with fade. Default 300ms.
+ */
+export function scaleOut(duration = 300): AnimateFn {
+  return webAnimate(
+    [
+      { opacity: 1, transform: 'scale(1)' },
+      { opacity: 0, transform: 'scale(0.8)' },
+    ],
+    { duration, easing: 'ease-in', fill: 'forwards' },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Internal helper: find first Element child
+// ---------------------------------------------------------------------------
+
+/** Find the first Element node in an array of nodes. */
+export function findFirstElement(nodes: Node[]): Element | null {
+  for (const n of nodes) {
+    if (n.nodeType === Node.ELEMENT_NODE) return n as Element
+  }
+  return null
+}
+
+
+// Architecture.md
+# Architectural Evaluation of `@rxjs-spa/dom`
+
+**Verdict: Strong, focused design with clear strengths and a few structural tension points.**
+
+---
+
+## Strengths
+
+### 1. The Source/Sink Duality is a Genuine Insight
+
+The entire package is organized around one idea: **DOM reads are Observables (sources), DOM writes are subscriptions (sinks)**. This isn't just naming — it produces real compositional benefits:
+
+- Sources compose with `pipe()` like any Observable.
+- Sinks compose via `mount()` and `effect()` into a single `Subscription`.
+- Teardown is a single `.unsubscribe()` call, regardless of how many bindings exist.
+
+This is architecturally cleaner than what React, Vue, or Lit achieve. There's no reconciliation heuristic, no effect cleanup footgun, no stale closure problem. The subscription model makes lifecycle explicit and predictable.
+
+### 2. Template Engine: Clever Caching Strategy
+
+The `WeakMap<TemplateStringsArray, PreparedTemplate>` cache is well-chosen:
+
+- Template strings arrays have **identity equality** per call site in JavaScript — if you call `` html`...` `` inside a function, every call returns the same strings reference.
+- Parsing (context detection, marker insertion, DOM walking) happens once.
+- Each render is just a `cloneNode(true)` + bind slots.
+
+This is essentially the same optimization Lit uses, and it's the correct choice for a tagged template system. Parsing is O(n) on first use, then O(1) amortized.
+
+### 3. Three-Tier List Rendering is Correctly Layered
+
+The progression `renderList` -> `renderKeyedList` -> `renderKeyedComponents` / `list()` gives users the right level of abstraction for each use case:
+
+| Tier | Use Case | Overhead |
+|------|----------|----------|
+| `renderList` | Static nodes, no internal state | Minimal — just a `Map<string, Node>` |
+| `renderKeyedList` | Nodes with cleanup (timers, listeners) | One `Subscription` per item |
+| `renderKeyedComponents` / `list()` | Items with reactive internal state | One `BehaviorSubject<T>` per item |
+
+The shop app correctly uses `list()` everywhere because cart items and product cards have internal reactive state. The lower tiers exist for simpler cases and aren't dead code — they're genuinely useful for things like static lists.
+
+### 4. Animation as a Composable Primitive
+
+The `AnimateFn = (el: Element) => Promise<void>` type is minimalist and correct. It means:
+
+- Any animation strategy (CSS transition, CSS keyframes, Web Animations API, or a custom library) plugs in identically.
+- `when()` and `list()` accept `{ enter?, leave? }` — the template engine orchestrates, the user provides the effect.
+- The `AbortController` pattern in `bindConditional` and `bindList` correctly handles rapid toggling.
+
+### 5. XSS Safety by Default
+
+Text interpolation in `` html`...` `` uses `document.createTextNode()` — inherently safe. The `unsafeHtml()` escape hatch requires an explicit opt-in. The `safeHtml()` sink escapes entities. This is the right default posture. The test suite specifically validates XSS resistance.
+
+### 6. Zero Dependencies Beyond RxJS
+
+The package has a single `peerDependency: rxjs`. No DOM abstraction library, no virtual DOM, no scheduler. This means:
+
+- No version conflicts.
+- Tiny bundle size (the entire package is ~860 lines of source).
+- Full tree-shaking — import only what you use.
+
+---
+
+## Weaknesses and Tension Points
+
+### 1. The `currentItem` Pattern is an Architectural Smell
+
+Every list handler in the shop app does this:
+
+```typescript
+list(items$, i => String(i.product.id), (item$) => {
+  let currentItem: CartItem | null = null
+  item$.subscribe(i => { currentItem = i })
+  // ...
+  @click=${() => { if (currentItem) cartStore.dispatch(...) }}
+})
+```
+
+This mutable `let` + manual subscribe is a **workaround** for a gap in the template engine: `@event` bindings accept plain functions, not Observables. The event handler has no way to close over the "latest value" from `item$` without this escape hatch.
+
+**Why this matters:**
+
+- It's an unmanaged subscription (the `item$.subscribe(...)` is never added to the returned subscription, so it leaks if the item's own teardown doesn't complete `item$`).
+- It introduces imperative mutable state into an otherwise declarative system.
+- Every developer using `list()` with actions has to rediscover this pattern.
+
+**What would fix it:** Either:
+
+- A `withLatestFrom`-style event binding: `@click=${(e) => item$.pipe(take(1))}` that merges the event with the latest value.
+- A first-class `ctx.dispatch` or `actions` channel in the `list()` templateFn, similar to what `renderKeyedComponents` already provides via `ComponentCtx<A>`.
+- A `getLatest()` helper on the `item$` that reads the BehaviorSubject synchronously.
+
+### 2. Two Competing Paradigms: Template vs. Imperative Sinks
+
+The package ships both:
+
+- **Declarative**: `html`, `when`, `list`, `defineComponent` (template.ts + component.ts)
+- **Imperative**: `text()`, `attr()`, `classToggle()`, `mount()`, `renderList()`, `renderKeyedList()`, `renderKeyedComponents()` (sinks.ts)
+
+The shop demonstrates both: most views use the template system, but `checkout.view.ts` uses the imperative `mount`/`classToggle`/`bindInput` pattern with `querySelector`.
+
+This dual-mode exists because the forms package (`@rxjs-spa/forms`) uses `bindInput`/`bindError` which target existing DOM elements by reference. But it creates a **cognitive split**:
+
+- When should you use `html` with `@event` vs. `events()` + `dispatch()`?
+- When should you use `list()` (template) vs. `renderKeyedComponents()` (sinks)?
+- The imperative sinks in `sinks.ts` and the list functions in `sinks.ts` overlap with `list()` and attribute bindings in `template.ts`.
+
+The template system is strictly more expressive for new code. The imperative sinks are legacy/escape-hatch for cases where you have pre-existing DOM (like forms). This isn't documented anywhere.
+
+**Suggestion:** The imperative sinks (`text`, `attr`, `classToggle`, `renderList`, `renderKeyedList`, `renderKeyedComponents`) could be moved to a separate entrypoint (e.g., `@rxjs-spa/dom/sinks`) to signal they're a lower-level API, or the docs should explicitly position them as the "imperative escape hatch" for integrating with pre-rendered HTML.
+
+### 3. Context Detection Heuristic is Fragile
+
+The `detectContext()` function in `template.ts:191-218` determines whether an interpolation is inside an attribute or in text context. It uses string analysis:
+
+```typescript
+function detectContext(markup: string): 'text' | 'attr' {
+  const lastOpenBracket = markup.lastIndexOf('<')
+  // ...count quotes after last '='...
+}
+```
+
+This is a regex-based heuristic, not a true HTML parser. It will produce incorrect results for:
+
+- Attributes with `>` characters in their values (e.g., `title="a > b"`).
+- Nested templates or comments containing `<`.
+- Multi-valued attribute interpolations (e.g., `class="foo ${a} bar ${b}"`).
+
+Lit solved this with a more robust state machine in their template parser. The current implementation works for the common case but has edge cases that would silently produce broken DOM.
+
+**Observed mitigations:** The shop app avoids these edge cases entirely — all attribute bindings are single-value. But a framework package should be robust against uncommon-but-valid HTML.
+
+### 4. `list()` Uses `display: contents` Wrapper
+
+In `bindList()` (template.ts:561-563):
+
+```typescript
+const containerEl = document.createElement('div')
+containerEl.style.display = 'contents'
+parent.replaceChild(containerEl, anchor)
+```
+
+This wrapper div is necessary because `list()` needs a stable container to `appendChild` into. `display: contents` makes it layout-invisible, but:
+
+- It breaks CSS `:nth-child` selectors (the wrapper is a child even though it's visually transparent).
+- Screen readers may handle it inconsistently across browsers.
+- It shows up in DevTools as an extra element.
+
+By contrast, `when()` uses the anchor-comment pattern without a wrapper. `list()` could do the same (tracking node ranges per key), but it would be significantly more complex.
+
+**Verdict:** Pragmatic trade-off. Acceptable for now, worth revisiting if CSS selector issues arise.
+
+### 5. No Error Boundaries in the Template Engine
+
+If an Observable inside `` html`...` `` throws, the subscription errors out and the binding dies silently. There's no equivalent of React's error boundaries or a way to catch and recover per-slot.
+
+The shop app works around this at the effects level (using `catchAndReport` from `@rxjs-spa/errors`), but if a `map()` inside a template throws synchronously, the entire view's subscription could die:
+
+```typescript
+// If product is null, this throws — killing the text binding permanently
+html`<p>${product$.pipe(map(p => p.title))}</p>`
+```
+
+**Suggestion:** The `bindTextSlot` Observable subscription could use a `catchError` that emits an empty string (or a configurable fallback) and reports to the error handler, keeping the binding alive.
+
+### 6. No `distinctUntilChanged` on Sink Writes
+
+Every sink writes to the DOM on every emission, even if the value hasn't changed:
+
+```typescript
+// text() writes to el.textContent on EVERY emission
+value$.subscribe((v) => { el.textContent = String(v) })
+```
+
+For text content, `textContent` assignment is cheap. But for `setAttribute`, `style`, and especially `innerHTML`, redundant writes trigger unnecessary browser layout/paint. The template engine also doesn't deduplicate — every `item$.pipe(map(i => i.title))` emission writes to the DOM even if the title hasn't changed.
+
+**Suggestion:** Consider adding `distinctUntilChanged()` inside sinks by default (at least for `attr`, `style`, and `innerHtml`), or document that consumers should add it themselves. The `when()` binding already uses `distinctUntilChanged` on `condition$` — the same principle should apply to value sinks.
+
+### 7. SSR Story is Incomplete
+
+The code has SSR scaffolding:
+
+- `prepareTemplate` returns `markup` for SSR environments.
+- `html()` returns a null fragment when `document` is undefined.
+- `hydrate()` exists with SSR cleanup logic.
+
+But the `hydrate()` function is never used anywhere in the codebase, and the SSR path in `prepareTemplate` stores raw markup but doesn't substitute slot values into it. This is a half-implemented feature.
+
+**Verdict:** Not a bug — the framework is client-only in practice. But the SSR stubs add code surface area without delivering value yet. Either complete the SSR story or remove the dead branches.
+
+### 8. Template Whitespace Sensitivity
+
+The shop's `products.view.ts` has all its HTML on a single long line (lines 219-237). The `ProductCard` component explains why:
+
+```typescript
+// Minify HTML to avoid whitespace text nodes messing up slot resolution
+```
+
+This means the template parser's slot path resolution (`number[][]` child indices) can break when whitespace text nodes shift child indices. This is a usability problem — developers shouldn't have to minify their templates to get correct behavior.
+
+**Root cause:** The walker counts all child nodes (including text nodes) when building paths. If the template HTML has whitespace between tags, those whitespace text nodes occupy child indices, and the paths become fragile.
+
+**This is probably the most impactful issue.** It forces an unnatural coding style and will surprise new users.
+
+---
+
+## Test Coverage Assessment
+
+| Module | Tests | Quality |
+|--------|-------|---------|
+| `observe.ts` | 6 tests | Good — covers initial emission + updates for all 6 functions |
+| `sinks.ts` (`public.test.ts`) | 13 tests | Good — covers all sinks, XSS, list tiers, mount, head sinks |
+| `template.ts` | 47+ tests | Excellent — static, reactive, XSS, every binding type, when/list, nesting, teardown, caching |
+| `component.ts` | 13 tests | Excellent — lifecycle hooks, nesting, list integration, early-destroy edge case |
+| `animation.ts` | 30+ tests | Excellent — all primitives, presets, integration with when/list, cancellation |
+| `events.ts` | 0 tests | **Missing** — trivial function but no test for the core event source |
+
+Overall test quality is high. The tests are synchronous where possible, use proper cleanup, and test edge cases (rapid toggle cancellation, early destroy, XSS). The `events.ts` gap is minor.
+
+---
+
+## Summary Scorecard
+
+| Dimension | Rating | Notes |
+|-----------|--------|-------|
+| **Conceptual clarity** | Excellent | Source/sink duality, subscription-as-lifecycle |
+| **Composability** | Excellent | Everything composes via Observable and Subscription |
+| **API surface** | Good | Clean, but dual imperative/declarative modes add cognitive load |
+| **Robustness** | Fair | Context detection heuristic, whitespace sensitivity, no error boundaries |
+| **Performance** | Good | Template caching, keyed reconciliation; missing `distinctUntilChanged` on writes |
+| **Test coverage** | Very Good | 100+ tests, good edge case coverage, one gap |
+| **Bundle size** | Excellent | ~860 lines source, zero deps beyond RxJS |
+| **Completeness** | Good | SSR half-implemented; `currentItem` pattern needs first-class support |
+
+---
+
+## Top 3 Actionable Improvements
+
+1. **Fix whitespace sensitivity** — normalize the template walker to skip whitespace-only text nodes.
+2. **Provide a first-class "latest value in event handler" pattern** — either a `getSnapshot()` on list items or an Observable-aware event binding.
+3. **Add `distinctUntilChanged` to sinks** — avoid redundant DOM writes.
+
+// Analysis.md
+# @rxjs-spa/dom — Package Analysis
+
+## Overview
+
+`@rxjs-spa/dom` is a reactive DOM binding library built entirely on RxJS with zero additional dependencies. It provides a complete toolkit for building UIs declaratively — from low-level event streams and DOM sinks to a full tagged-template engine with conditional rendering, keyed lists, animations, and a lightweight component model.
+
+- **Version:** 0.1.0
+- **Peer Dependency:** RxJS 7.8.2
+- **Build:** Vite library mode (ES + CJS), `rxjs` kept external
+- **Tests:** jsdom via Vitest — 100+ tests across 5 test files
+- **Source Size:** ~1,700 lines across 7 source modules
+
+---
+
+## Architecture: Source / Sink Duality
+
+The package is organized around two complementary concepts:
+
+| Concept | Direction | Abstraction | Example |
+|---------|-----------|-------------|---------|
+| **Sources** | DOM → App | `Observable<T>` | `events(btn, 'click')`, `valueChanges(input)` |
+| **Sinks** | App → DOM | `Subscription` | `text(el)(value$)`, `attr(el, 'href')(url$)` |
+
+**Sources** produce cold Observables from DOM reads (events, mutations, input values).
+**Sinks** consume Observables and write to the DOM, returning a `Subscription` for teardown.
+
+This separation produces clean, composable pipelines where all lifecycle management is explicit via RxJS subscriptions.
+
+---
+
+## Module Breakdown
+
+### 1. `events.ts` — DOM Event Source
+
+Single export that converts any DOM event into a cold Observable:
+
+```typescript
+events<MouseEvent>(button, 'click').subscribe(e => ...)
+events<KeyboardEvent>(input, 'keydown', { passive: true }).subscribe(e => ...)
+```
+
+- Listener added on subscribe, removed on unsubscribe
+- Accepts standard `AddEventListenerOptions`
+- Generic type parameter for typed event access
+
+### 2. `observe.ts` — DOM Observation Sources
+
+Six observable factories using `MutationObserver` and event listeners:
+
+| Function | Emits | Mechanism |
+|----------|-------|-----------|
+| `textChanges(el)` | `string` | MutationObserver (characterData + childList) |
+| `attrChanges(el, name)` | `string \| null` | MutationObserver (attributeFilter) |
+| `classChanges(el)` | `string` | Built on `attrChanges` for `class` |
+| `hasClass(el, className)` | `boolean` | Built on `classChanges` |
+| `valueChanges(input, opts?)` | `string` | `input` + `change` events |
+| `checkedChanges(input, opts?)` | `boolean` | `change` event |
+
+All emit an initial value on subscribe and clean up observers/listeners on unsubscribe.
+
+### 3. `sinks.ts` — DOM Write Operations
+
+Curried sink functions that subscribe to an Observable and write each emission to the DOM:
+
+**Text / HTML:**
+- `text(el)` — writes to `textContent` (XSS-safe)
+- `innerHtml(el)` — writes to `innerHTML` (raw)
+- `safeHtml(el)` — escapes `& < > " '` before `innerHTML`
+
+**Attributes / Properties / Styles:**
+- `attr(el, name)` — `setAttribute` / `removeAttribute` on null
+- `prop(el, key)` — direct property assignment
+- `style(el, name)` — inline style set/remove
+- `classToggle(el, className)` — `classList.toggle`
+
+**Actions:**
+- `dispatch(target)` — forwards values to a Subject (action dispatching)
+
+**Document-Level:**
+- `documentTitle(suffix?)` — sets `document.title` with optional suffix
+- `metaContent(name)` — upserts `<meta>` tags
+
+**Lifecycle Utilities:**
+- `mount(root, setup)` — runs setup once, returns unified `Subscription`
+- `effect(...items)` — combines multiple subscriptions into one
+
+**List Rendering (3-Tier System):**
+
+| Tier | Function | Per-Item Overhead | Use Case |
+|------|----------|-------------------|----------|
+| 1 | `renderList` | None | Static nodes, no internal state |
+| 2 | `renderKeyedList` | One `Subscription` | Nodes with timers/listeners |
+| 3 | `renderKeyedComponents` | `BehaviorSubject` + `Subscription` | Nodes with reactive internal state |
+
+All three use keyed reconciliation — items are tracked by key, new items created, stale items removed, existing items reordered.
+
+### 4. `template.ts` — Declarative Template Engine (~887 lines)
+
+The largest module. Provides a tagged template literal system with reactive bindings:
+
+```typescript
+html`
+  <p>${text$}</p>                         // text slot (auto-escaped)
+  <a href=${url$}>link</a>                // attribute slot (reactive)
+  <button @click=${handler}>Go</button>   // event slot
+  <input .value=${value$} />              // property slot
+  <div ?hidden=${isHidden$}>...</div>     // boolean attribute
+  ${when(show$, thenFn, elseFn)}          // conditional rendering
+  ${list(items$, keyFn, templateFn)}      // list rendering
+  ${unsafeHtml(richContent$)}             // raw HTML (opt-in)
+`
+```
+
+**Key features:**
+
+- **Template caching:** Uses `WeakMap<TemplateStringsArray, PreparedTemplate>` — templates are parsed once per call site, then cloned on reuse
+- **DOM walker paths:** Slot positions stored as `number[][]` (child indices from root) for fast binding
+- **`LiveValue<T>`:** An `Observable<T>` with a `.snapshot()` method for synchronous access in event handlers
+- **`when(condition$, thenFn, elseFn?, animation?)`:** Conditional rendering with optional enter/leave animations; uses AbortController for cancellation on rapid toggles
+- **`list(items$, keyFn, templateFn, animation?)`:** Keyed list rendering where each item gets its own `BehaviorSubject<T>` — updates push new values without recreating subscriptions
+- **`unsafeHtml(value)`:** Explicit opt-in for raw HTML content
+
+### 5. `component.ts` — Component Definitions
+
+Lightweight function-based component model:
+
+```typescript
+const Card = defineComponent<{ user$: Observable<User> }>((props, { onMount, onDestroy }) => {
+  onMount(() => {
+    console.log('mounted')
+    return () => console.log('cleanup')  // optional cleanup
+  })
+  onDestroy(() => console.log('destroyed'))
+  return html`<div>...</div>`
+})
+
+// Usage in template:
+html`<div>${Card({ user$ })}</div>`
+```
+
+- `onMount` fires via `queueMicrotask` (after DOM insertion)
+- `onDestroy` fires on subscription teardown
+- No class hierarchy, no decorators — plain functions
+
+### 6. `animation.ts` — Animation Primitives
+
+Strategy-agnostic animation system built around a single interface:
+
+```typescript
+type AnimateFn = (el: Element) => Promise<void>
+```
+
+**Low-level helpers:**
+- `waitForTransition(el, timeout?)` — resolves on `transitionend`
+- `waitForAnimation(el, timeout?)` — resolves on `animationend`
+
+**Factories:**
+- `cssTransition({ from, active, to })` — CSS class orchestration (add from → force reflow → swap to active → wait → cleanup)
+- `cssKeyframes(className, duration?)` — CSS @keyframes trigger
+- `webAnimate(keyframes, options?)` — Web Animations API wrapper
+
+**Built-in presets (zero CSS required):**
+- `fadeIn` / `fadeOut`
+- `slideIn(direction)` / `slideOut(direction)`
+- `scaleIn` / `scaleOut`
+
+Animations integrate with `when()` and `list()` for enter/leave transitions. Rapid toggling is handled via `AbortController` cancellation.
+
+---
+
+## Key Design Decisions
+
+### 1. No Virtual DOM
+Reactive bindings write directly to the DOM via subscriptions. There is no diffing or reconciliation algorithm — the subscription model handles updates predictably.
+
+### 2. Explicit Subscription Lifecycle
+Every binding returns a `Subscription`. Teardown is manual and composable via `mount()` and `effect()`. This aligns with RxJS idioms and prevents hidden memory leaks.
+
+### 3. Template Caching via WeakMap
+Tagged template strings have identity equality per call site in JavaScript. The engine exploits this to parse HTML once and clone the cached `<template>` element on subsequent calls — O(1) re-renders.
+
+### 4. XSS-Safe by Default
+Text interpolation uses `textContent` (no parsing). Raw HTML requires explicit `unsafeHtml()` opt-in. `safeHtml()` sink escapes entities before writing to `innerHTML`.
+
+### 5. Three-Tier List Rendering
+Developers choose the appropriate tier based on per-item complexity:
+- **Tier 1:** No overhead — static nodes
+- **Tier 2:** Per-item `Subscription` — nodes with side effects
+- **Tier 3:** Per-item `BehaviorSubject` — fully reactive items
+
+---
+
+## Test Coverage
+
+| Test File | Tests | Covers |
+|-----------|-------|--------|
+| `observe.test.ts` | 6 | All 6 observation sources |
+| `public.test.ts` | 13+ | All sinks, list rendering (3 tiers), XSS prevention |
+| `template.test.ts` | 47+ | All slot types, conditionals, lists, nesting, caching, teardown |
+| `component.test.ts` | 13+ | Props, lifecycle hooks, nesting in lists |
+| `animation.test.ts` | 30+ | All factories, presets, cancellation, integration with when/list |
+
+**Total: 100+ tests** covering the full API surface including edge cases.
+
+---
+
+## Known Limitations
+
+1. **Context detection heuristic:** Attribute vs. text slot detection uses string scanning rather than a proper state-machine parser — fragile for edge cases (attributes containing `>`, nested templates)
+2. **Whitespace sensitivity:** The DOM walker counts all child nodes including whitespace text nodes, which can shift slot paths — forces single-line HTML in some cases
+3. **`display: contents` wrapper:** List bindings use a wrapper `<div style="display:contents">` which can break CSS `:nth-child` selectors
+4. **No error boundaries:** An Observable error in a template slot kills the entire template subscription with no per-slot recovery
+5. **No `distinctUntilChanged` on sinks:** Every emission writes to the DOM even if the value hasn't changed
+6. **SSR partially scaffolded:** `prepareTemplate` returns markup and `hydrate()` exists but is unused — the framework is client-only in practice
+
+---
+
+## File Map
+
+```
+packages/dom/
+  package.json              Package metadata, peer deps, conditional exports
+  vite.config.ts            Vite library build (ES + CJS)
+  vitest.config.ts          jsdom test environment
+  tsconfig.json             Type-checking config
+  tsconfig.build.json       Declaration emission config
+  src/
+    index.ts                Entry point (re-exports public.ts)
+    public.ts               Public API aggregator
+    events.ts               DOM event → Observable factory
+    observe.ts              MutationObserver-based sources (6 functions)
+    sinks.ts                DOM write sinks + list rendering (363 lines)
+    template.ts             Tagged template engine (~887 lines)
+    component.ts            defineComponent factory (116 lines)
+    animation.ts            Animation primitives & presets (271 lines)
+    observe.test.ts         Source tests
+    public.test.ts          Sink tests
+    template.test.ts        Template tests
+    component.test.ts       Component tests
+    animation.test.ts       Animation tests
+```
+
+---
+
+## Summary
+
+`@rxjs-spa/dom` is a well-structured, focused DOM binding library that achieves reactive UI rendering without a Virtual DOM, framework runtime, or external dependencies beyond RxJS. Its source/sink duality produces clean, composable APIs where every binding is an explicit subscription with predictable teardown. The template engine adds a declarative layer with caching, conditional/list primitives, and pluggable animations — all while keeping the core small (~1,700 lines of source).

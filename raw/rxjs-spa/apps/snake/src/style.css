@@ -1,0 +1,284 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0f0f1a;
+  --surface:   #1a1a2e;
+  --border:    #2a2a45;
+  --accent:    #4ecdc4;
+  --accent2:   #ff4757;
+  --text:      #e0e0e0;
+  --muted:     #666;
+  --head:      #4ecdc4;
+  --body:      #44bd32;
+  --food:      #ff4757;
+  --cell-size: 24px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px 16px;
+}
+
+#app { width: 100%; display: flex; justify-content: center; }
+
+/* ── App shell ── */
+.snake-app {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+/* ── Header ── */
+.snake-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.snake-header h1 {
+  font-size: 1.5rem;
+  color: var(--accent);
+  letter-spacing: 3px;
+}
+
+.header-right { display: flex; gap: 24px; }
+
+.stat { font-size: 0.85rem; color: var(--muted); }
+.stat-val { color: #fff; font-weight: 700; font-size: 1rem; margin-left: 6px; }
+
+/* ── Main layout ── */
+.main-area {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* ── Side panels ── */
+.side-panel {
+  flex: 0 0 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.panel-section h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+/* ── Level buttons ── */
+.level-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.level-btn {
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-align: left;
+}
+
+.level-btn:hover { background: var(--border); }
+.level-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+  font-weight: 700;
+}
+
+/* ── Controls list ── */
+.controls-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  background: var(--bg);
+}
+
+/* ── Grid wrapper ── */
+.grid-wrapper {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* ── DOM Grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--cell-size));
+  grid-template-rows:    repeat(var(--rows), var(--cell-size));
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 0 32px rgba(78,205,196,0.15);
+  background: var(--surface);
+}
+
+.cell {
+  width:  var(--cell-size);
+  height: var(--cell-size);
+  transition: background 0.05s;
+}
+
+.cell.empty      { background: var(--surface); }
+.cell.food       { background: var(--food);    border-radius: 50%; transform: scale(0.7); }
+.cell.snake-head { background: var(--head);    border-radius: 4px; }
+.cell.snake-body { background: var(--body);    border-radius: 3px; transform: scale(0.85); }
+
+/* ── Overlays ── */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 20, 0.82);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 4px;
+  backdrop-filter: blur(2px);
+}
+
+.overlay-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 4px;
+}
+
+.overlay-sub {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.overlay .level-btns { flex-direction: row; margin-top: 8px; }
+.overlay .level-btn  { padding: 6px 14px; }
+
+/* ── Save score form ── */
+.save-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.name-input {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  width: 200px;
+  outline: none;
+}
+
+.name-input:focus { border-color: var(--accent); }
+
+.save-actions { display: flex; gap: 8px; }
+
+.btn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.85; }
+.btn-primary { background: var(--accent); color: #000; }
+.btn-ghost   { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+/* ── Leaderboard ── */
+.leaderboard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.leaderboard h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.leaderboard table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.leaderboard th {
+  text-align: left;
+  color: var(--muted);
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.leaderboard td {
+  padding: 5px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--text);
+}
+
+.leaderboard tr.row-gold   td:first-child { color: #ffd700; font-weight: 700; }
+.leaderboard tr.row-silver td:first-child { color: #c0c0c0; font-weight: 700; }
+.leaderboard tr.row-bronze td:first-child { color: #cd7f32; font-weight: 700; }
+
+.no-scores {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 800px) {
+  .main-area { flex-direction: column; align-items: center; }
+  .side-panel { flex: none; width: 100%; max-width: 480px; }
+  .level-btns { flex-direction: row; }
+}

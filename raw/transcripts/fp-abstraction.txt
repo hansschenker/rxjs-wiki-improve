@@ -1,0 +1,29 @@
+same structures in different things
+abstraction , ab strahere
+what structure, what rules
+math is about a pattern shared by many objects
+functions that can be chained
+ignore unrelevant details
+
+from specific people to the abstract idea of person
+from specific fractions to the abstract idea of rational number
+from specific functions between sets to the abstract idea of composition
+from composition to the abstract structure called a category
+
+reusable structures from concrete samples, what structure they share
+
+item 2
+
+giving different things the same name -> abstraction (selective selection)
+the shared structure
+abstraction above individual samples to all cases with this structure
+abstraction removes the noise
+
+what can change without changes what it is , it stays the same structure
+you can reason about the abstract form (the whole class)
+
+reason at the structure level
+
+
+item 4
+

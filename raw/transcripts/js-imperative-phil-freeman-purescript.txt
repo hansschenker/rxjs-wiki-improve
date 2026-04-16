@@ -1,0 +1,25 @@
+https://www.youtube.com/watch?v=dbM72ap30TE&list=PLyQH1IYa_68ze5RTuT-dEAmLvF8rS5zyg&index=1&t=1s
+
+function getContents(source, cb) {
+fs.readDir(source, (error, files) => {
+if (error) {
+return cb(error)
+
+var stop = false
+var count = files. length
+var contents = []
+files. forEach(filename => {
+fs.readFile(filename, (error, content) => {
+if (stop) return
+if (error) {
+stop = true
+return cb(error)
+
+count --
+contents.push(content)
+if (count === 0) {
+cb(null, contents)
+
+}
+
+45 /100

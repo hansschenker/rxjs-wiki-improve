@@ -1,0 +1,20 @@
+Categories:
+· Groups
+
+. Monoids
+
+· Magmas
+
+. Smooth manifolds
+
+. R-Modules
+
+· Rings
+
+· Sets
+
+· Topological spaces
+
+· Vector spaces
+
+· Functional programming

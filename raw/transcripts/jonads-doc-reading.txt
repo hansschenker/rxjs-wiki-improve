@@ -1,0 +1,111 @@
+type M<T> = T | M<T> | M<any>;
+
+type Event = 
+  | { type: 'ReturnFrom'; value: M<any> }
+  | { type: 'Bind' }
+  | { type: 'Combine' }
+  | { type: 'Return' };
+
+import { fromEvent, timer, concat, Observable } from 'rxjs';
+import { switchMap, mapTo } from 'rxjs/operators';
+
+function counter(n: number, btn: HTMLElement): Observable<number> {
+  return fromEvent(btn, 'click').pipe(
+    switchMap(() =>
+      concat(
+        new Observable<number>(subscriber => {
+          subscriber.next(n);
+          subscriber.complete();
+        }),
+        counter(n + 1, btn)
+      )
+    )
+  );
+}
+
+import { fromEvent, merge, timer } from 'rxjs';
+import { filter, switchMap, map, takeUntil } from 'rxjs/operators';
+
+function counter(n: number, btn: HTMLElement, win: Window) {
+  const click$ = fromEvent(btn, 'click');
+  const keydown$ = fromEvent<KeyboardEvent>(win, 'keydown');
+
+  return merge(
+    click$.pipe(
+      switchMap(() =>
+        timer(1000).pipe(
+          map(() => n + 1),
+          switchMap(newN => counter(newN, btn, win))
+        )
+      )
+    ),
+    keydown$.pipe(
+      filter(event => event.key === 'Escape'),
+      switchMap(() => counter(0, btn, win))
+    )
+  );
+}
+
+import { Channel } from 'some-channel-library'; // Replace with actual channel library import
+
+const put = new Channel<number>();
+const get = new Channel<(value: number) => void>();
+
+async function buffer() {
+  while (true) {
+    const [num, chnl] = await Promise.all([put.receive(), get.receive()]);
+    chnl(num);
+  }
+}
+
+buffer();
+
+-------
+import { Subject } from 'rxjs';
+
+const put = new Subject<number>();
+const get = new Subject<{ reply: (value: number) => void }>();
+
+put.subscribe(num => {
+  get.subscribe(chnl => {
+    chnl.reply(num);
+  });
+});
+
+-------
+type ('T -> 'R) -> M<'T> -> M<'R>.
+
+val choose : list<M<M<'T>>> -> M<'T>
+
+The choose operation takes a list of computations. Each of the computations in  the list carries (or produces) other computations. These wrapped computations represent 
+the body of the clause that should be called when the clause is selected. 
+
+ choose  should  be  a  generalization  of  join. 
+
+------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

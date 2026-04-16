@@ -1,0 +1,320 @@
+Not sure what to ask? Choose something:
+
+Recommend related content
+Why animation frames scheduler failed?
+What are scheduler's building blocks?
+How to manage overlapping animations?
+Summarize the video
+This video discusses RxJS schedulers, their secrets, and their advantages (0:14). It covers how to use them in basic and advanced scenarios to master smooth animations, solve complex timing errors, and control execution context (0:14-0:43).
+
+Key takeaways from the video:
+
+Execution Context: Schedulers control the execution context, which dictates when and where code is executed (1:12).
+Execution Policy: This controls the order in which events are executed (6:01).
+Clock: Schedulers help perform tasks at specific times, which is essential for animations and time-based operations (6:38).
+Scheduler Types: The video categorizes schedulers into different types, including queue (synchronous execution), async (like setTimeout or setInterval), asap (for immediate execution like Promises), and animationFrame (for scheduling before the browser's next repaint) (8:17).
+Working with Animations: The speaker demonstrates common pitfalls when using animationFrame schedulers for animations and explains how to properly handle them to ensure smooth transitions (11:48).
+RxJS Building Blocks: The video breaks down the internal workings of schedulers into four core building blocks: Work, Action, Subscription, and Scheduler (16:02).
+Virtual Time: The speaker also introduces virtual time schedulers, which are useful for testing and simulating time-based operations without actual delays (25:31).
+The presenter, Michael Hladky, is a Google Developer Expert, trainer, and consultant in Angular and Ionic, actively involved in the Angular community in Austria (3:14).
+
+
+
+What are the core scheduler responsibilities?
+How does virtual time benefit testing?
+How are actions handled internally?
+what is the execution context of an observable
+The video explains that the execution context defines where and when code is executed (1:12). In the case of an observable, the speaker demonstrates that a console.log within an observable's subscription (what he refers to as "this observer bnp fse crêpes") is executed immediately upon subscription, making its execution context the console (2:19 - 2:36). The speaker further notes that schedulers help to control this execution context (4:37, 5:01).
+
+
+
+Why 'execution context' confuses?
+How does 'clock' aid scheduling?
+What does "delay: zero" mean?
+what are javascript execution context
+The video primarily discusses the execution context within the realm of RxJS and schedulers. While it mentions controlling the execution context in "vanilla JS" (vanilla JavaScript) by putting code into a function to control when it runs (5:30), it does not provide a general definition or explanation of what JavaScript execution contexts are outside of the context of RxJS observables and schedulers.
+
+
+
+How to control event order?
+How are schedulers instantiated?
+How does `subscription.at` work?
+what are the responsibilities of an rxjs scheduler
+The video states that an RxJS scheduler is a piece of code that helps you to paradise where and when your code is executed (4:37).
+
+Its responsibilities are divided into three main aspects:
+
+Execution Context: Schedulers control where the code is executed (4:55, 5:01).
+Execution Policy: Schedulers control the order in which events are executed (4:55, 6:01).
+Clock: Schedulers help to schedule tasks at specific points in time (4:55, 6:38).
+
+
+What are scheduler's responsibilities?
+What is an action?
+What is the `flush` method?
+what is the execution context of javascript setTimeout
+In RxJS, the async scheduler (8:35) behaves similarly to JavaScript's setTimeout or setInterval (8:42), executing code asynchronously after a specified delay. This means the observable is not executed synchronously (2:10).
+
+When using JavaScript's setTimeout, the callback function is executed in a separate execution context, typically the global context, not the context where setTimeout was called. This can cause this to behave differently:
+
+In strict mode, this will be undefined.
+In non-strict mode (in browsers or Node.js), this will default to the global object (e.g., window in browsers).
+This behavior occurs because setTimeout is a Web API function that places its callback in the event queue to be run later when the main call stack is clear, creating a new, isolated environment.
+
+To maintain the original context within a setTimeout callback, you can use:
+
+Arrow Functions: They lexically bind this from their surrounding scope.
+bind() Method: Explicitly binds the function to a specific this value.
+Closures: Store this in a variable before the setTimeout call.
+
+Does setTimeout() really execute in parallel?
+
+Software Engineering Stack Exchange
+
+SetTimeout object method - JavaScript - The freeCodeCamp Forum
+The freeCodeCamp Forum
+Execution context of setTimeout (JavaScript)
+Stack Overflow
+Window: setTimeout() method - Web APIs | MDN
+MDN Web Docs
+⏰ Trust issues with setTimeout()🤯 **Learn with examples**
+DEV Community
+
+
+
+Why use `subscribeOn`?
+What `delay` fallback problem exists?
+How `action` handles work?
+what is the javascript execution context of a javascript promise
+The video mentions that the RxJS asap scheduler (8:51) behaves similarly to a Promise, indicating an asynchronous execution model.
+
+In JavaScript, a Promise itself doesn't have an immediate execution context in the traditional sense; rather, it manages the asynchronous operations that it represents.
+
+Here's how its execution context works:
+
+Non-Blocking Nature The primary function of a Promise is to handle asynchronous operations without blocking the main JavaScript thread. When a Promise is initiated, the asynchronous task begins, and the Promise object is immediately returned in a pending state, allowing other code to continue executing.
+Microtask Queue Once the asynchronous operation associated with a Promise (e.g., a network request) is completed, any attached callback functions (e.g., those in .then() or .catch()) are not executed immediately. Instead, they are placed into the microtask queue.
+Callback Execution The JavaScript event loop processes the microtask queue only after the current synchronous code on the call stack has finished executing. This means Promise callbacks run after all synchronous code but before the next macrotask (like setTimeout or UI rendering). Each callback is executed in its own function context.
+this Binding Inside Promise handlers, the this context can behave differently from regular functions. It often defaults to undefined in strict mode (especially within classes) unless explicitly bound, as it is not inherently tied to the original function's context.
+This model ensures that asynchronous operations don't block the main thread, providing a smooth user experience for web applications.
+
+
+Promise.then execution context when using class methods as callback
+
+Stack Overflow
+
+Promise - JavaScript - MDN Web Docs
+MDN Web Docs
+Difference Between Promise and Async/Await | by Jeswanth Reddy
+Medium
+
+
+
+Why animation frames scheduler mislead?
+How `async` scheduler mimics browser APIs?
+What are subscription's key methods?
+what is the role of observeOn operator
+The observeOn operator in RxJS plays a crucial role in controlling the execution context of an observable stream (5:01). It allows you to specify where and when the notifications (data, errors, or completion) from an Observable are delivered to its subscribers, without affecting where the actual observable subscription occurs.
+
+Here's a breakdown of its role:
+
+Controlling Downstream Execution The observeOn operator changes the scheduler for all notifications that are emitted after it in the observable chain. This means that the code within your subscribe() block, or any subsequent operators, will run according to the specified scheduler.
+Buffering and Rescheduling When observeOn is used, it intercepts all incoming notifications from the source observable. It then buffers these notifications and reschedules them to be emitted on the chosen scheduler.
+Use Cases for Schedulers
+animationFrameScheduler: This is particularly useful for smooth animations and UI updates (11:48), as it synchronizes the emission of values with the browser's repaint cycle, preventing choppy visuals.
+asyncScheduler: Similar to setTimeout, this scheduler is used to push work off the main thread into a macrotask queue, ensuring the UI remains responsive.
+queueScheduler: This processes actions one by one synchronously, which can be useful for iterative operations without blocking the event loop.
+Distinction from delay and subscribeOn
+delay: While delay also introduces a time component, it specifically delays the values and also delays errors, which is often undesirable. observeOn, on the other hand, is about scheduling the delivery of notifications, not just delaying them.
+subscribeOn: In contrast to observeOn, the subscribeOn operator dictates where the source Observable's subscription logic is executed (upstream). observeOn affects where the notifications are observed (downstream).
+In essence, observeOn provides fine-grained control over the execution environment of your observable stream's emissions, which is crucial for managing performance and ensuring a smooth user experience in asynchronous applications.
+
+
+RxJS Schedulers - DEV Community
+
+DEV Community
+
+RxJS Mastery - #66 observeOn - Ronnie Schaniel
+ObserveOn operator - ReactiveX
+ReactiveX
+observeon.md - Reactive-Extensions/RxJS - GitHub
+GitHub
+Types of RxJS Schedulers - Oboe
+Oboe — the easiest way to learn
+RxJS: applying asyncScheduler as an argument vs with observeOn ...
+Angular.love
+observeOn - RxJS
+RxJS
+
+
+
+Why 'delay: zero' causes issues?
+How `action` provides transactional control?
+How to prevent animation overlaps?
+what is the role of subscribeOn
+The video mentions that the subscribeOn operator (7:50) is one of the options that controls where the subscription happens (7:50 - 7:54).
+
+Specifically, subscribeOn dictates the scheduler on which the subscribe() call is executed and where the source Observable's subscription logic will run. This means it controls the execution context for:
+
+The actual act of subscribing to the observable.
+The setup logic of the observable itself (e.g., if it's reading a file or making an HTTP request, subscribeOn would determine which thread or context that initial setup runs on).
+Key distinction from observeOn:
+While subscribeOn controls where the subscription occurs and where the source logic runs, the observeOn operator controls where the notifications are delivered to the subscriber (7:40 - 7:43). Think of subscribeOn as setting up the "producer" of the observable chain, and observeOn as setting up the "consumer" side for subsequent operations downstream."
+
+
+
+What are scheduler building blocks?
+How to handle overlapping animations?
+Why `delay: zero` caused issues?
+Rxjs has 6 different Schedulers
+The video mentions different types of RxJS schedulers, grouping them into synchronous (queueScheduler) and asynchronous (async, asap, animationFrame) schedulers (8:17) and also touches upon virtual and test schedulers (9:12).
+
+Based on the information, RxJS has more than 6 schedulers, though some are used more frequently than others. The core built-in schedulers are:
+
+queueScheduler: Executes tasks synchronously, one by one, within the current event loop turn (8:29).
+asapScheduler: Uses the microtask queue, similar to Promises, for high-priority asynchronous execution right after the current synchronous code finishes (8:48).
+asyncScheduler: Utilizes setTimeout (a macrotask) for general time-based or delayed operations (8:35).
+animationFrameScheduler: Schedules tasks to run just before the browser's next repaint, which is ideal for smooth animations (8:59).
+Additionally, there are schedulers specifically for testing and historical simulations:
+
+TestScheduler: Provides manual control over time for unit testing observables.
+VirtualTimeScheduler: Used for simulating time in tests.
+Each scheduler maps to different levels of the JavaScript event loop and browser APIs, allowing precise control over when asynchronous work is performed.
+
+
+Mastering Time: A Deep Dive into RxJS Schedulers and the Event ...
+
+Medium
+
+Scheduler - RxJS
+RxJS
+RxJS Schedulers - DEV Community
+DEV Community
+Types of RxJS Schedulers - Oboe
+Oboe — the easiest way to learn
+Power of RxJS schedulers - JavaScript in Plain English
+JavaScript in Plain English
+
+
+
+Why 'time' is crucial?
+How `action` provides control?
+How does `async` scheduler work?
+what are the building blocks of a Scheduler
+The video explains that a scheduler is built upon four core internal building blocks (16:02):
+
+Work (16:34): This is simply the function that gets executed by the scheduler. It represents the actual task or code that needs to be run. The speaker uses console.log as an example of work (16:45).
+
+Action (16:51): An action is a wrapper around the work function (17:01). It essentially provides the execution context for the work. When work is executed, it's wrapped within an Action object, which also helps manage its subscription and execution state.
+
+Subscription (17:15): The subscription (17:22) building block is responsible for managing the lifecycle of the scheduled action. It allows you to unsubscribe from a scheduled action, preventing it from executing if it's no longer needed (17:35). The video highlights Subscription.add() and Subscription.remove() as key methods (24:08).
+
+Scheduler (16:15): This is the orchestrator that executes the work at a specific time and controls its execution context (16:18). It's responsible for managing and queuing the actions and their associated subscriptions. The scheduler (17:56) maintains a collection of actions (18:36) and ensures they are executed in the correct order and at the appropriate time (6:01).
+
+
+
+Why was `animationFrameScheduler` misleading?
+How did virtual time improve animation debugging?
+How are actions crucial for RxJS transactions?
+what is work
+As described in the video, "work" is a fundamental building block of an RxJS scheduler (16:34). It is simply the function that the scheduler is tasked with executing (16:36).
+
+Essentially, "work" represents the actual code or logic that needs to be performed asynchronously or synchronously by the scheduler. The speaker gives an example of console.log as a form of work (16:45), demonstrating that it can be any JavaScript function you want to run.
+
+
+
+Why 'execution context' is hard?
+What `delay:zero` animation issue?
+what is action
+In the context of RxJS schedulers, an "action" is a crucial building block that essentially acts as a wrapper around the "work" function (16:51). The video explains that work is "wrapped in action" (17:01).
+
+Here's what that means:
+
+Encapsulates Work: An Action object takes the work (the function to be executed) and provides an execution context for it.
+Manages Execution: The Action is what the scheduler actually schedules and executes. It holds the necessary information about the work and how it should be run, including any delay or specific scheduling rules.
+Connects to Subscription: Actions are closely tied to subscriptions. When a scheduler schedules an Action, it typically returns a Subscription that can be used to cancel or manage that Action (20:14).
+Think of it this way: if "work" is the raw task, the "action" is the packaged version of that task, ready to be handed off to the scheduler for execution.
+
+
+
+Why `delay:0` animates poorly?
+How does 'clock' enable time travel?
+How does `subscription.add` manage actions?
+
+what is subscription
+In RxJS, a Subscription is a crucial object that represents the execution of an Observable (17:15). When you subscribe to an Observable, a Subscription object is returned. Its primary role, as explained in the video, is to manage the lifecycle of the Observable's execution and its associated actions (17:22).
+
+Here's a breakdown of its functions in the context of schedulers:
+
+Resource Management: A Subscription is a handle to the ongoing execution. It allows you to clean up resources or cancel the scheduled work when it's no longer needed (17:35).
+unsubscribe() method: The most important method of a Subscription is unsubscribe() (17:30). Calling this method will tear down the execution, stop receiving notifications, and free up any allocated resources.
+Composing Subscriptions (add() and remove()): The video highlights the add() method (24:08), which allows you to group multiple subscriptions together. When the parent subscription is unsubscribed, all child subscriptions added to it are also unsubscribed. This is useful for managing complex asynchronous flows and ensuring no memory leaks. The remove() method (24:08) does the opposite, removing a child subscription from a parent.
+Transaction-like Behavior: The speaker likens actions within a subscription to "transactions" (18:31). If you have multiple actions scheduled within a subscription, you can ensure that if one fails or needs to be cancelled, the entire set of related actions can be managed together.
+In essence, a Subscription provides the necessary control mechanism to manage and terminate asynchronous operations scheduled by RxJS schedulers, ensuring efficient resource utilization and preventing unwanted side effects.
+
+
+
+Why `console.log` shows delay?
+How `Virtual Time Scheduler` aids testing?
+What are `Subscription` responsibilities?
+how to use a Scheduler
+The video explains how to use schedulers primarily by passing them as a parameter to RxJS operators or creation functions (5:43).
+
+Here's a breakdown of the key ways to use a scheduler:
+
+Providing a Scheduler to Operators (7:40):
+
+Many RxJS operators, especially those dealing with time or asynchrony (like delay, interval, debounceTime), accept an optional scheduler as their last argument.
+For example, when creating an observable with interval, you can specify the scheduler: interval(delay, scheduler) (8:01). This allows you to control the execution context and timing of the emitted values.
+Controlling Execution Context (5:30):
+
+Schedulers help you control where and when your code executes. For instance, to ensure code runs on the browser's animation frame for smooth animations, you would use the animationFrameScheduler (8:59).
+The speaker demonstrates changing an animation from a "jumpy" behavior to a smooth one by correctly applying the animationFrameScheduler (13:21 - 14:11).
+Basic Usage with interval (8:01):
+
+The video shows a simple example: interval(delay, scheduler) to specify the execution context of a basic interval. This is a common pattern for introducing schedulers.
+Managing Subscriptions for Animation Control (24:04):
+
+For managing multiple, potentially overlapping animations, the speaker demonstrates using a SubscriptionSet (which internally uses Subscription.add()) to ensure that previous animations are unsubscribed before a new one starts (24:08 - 25:00). This prevents animation overlaps and ensures a clean state.
+Virtual Time for Testing (25:34):
+
+The TestScheduler or VirtualTimeScheduler (9:12) allows you to simulate time in a controlled manner for testing asynchronous code without actual delays. This is crucial for writing fast and reliable unit tests for RxJS applications. The speaker shows an example where a drawing animation, which normally takes a long time, can be immediately "shown" using a virtual time scheduler (25:39 - 26:22).
+In essence, you use a scheduler by explicitly passing it as an argument to RxJS functions or operators, allowing you to fine-tune the timing, execution context, and performance of your observable streams.
+
+
+
+What are "building blocks"?
+What `delay: 0` implies?
+What is `flush` method's role?
+delay, work and state
+The terms delay, work, and state are parameters you provide when scheduling an action with an RxJS scheduler (19:42).
+
+Here's how they are used:
+
+Delay (19:46): This parameter specifies how long the execution of the "work" should be deferred. It's a numerical value representing milliseconds. For example, if you set a delay of 0, the work will be executed as soon as possible. If you set a delay of 1000, the work will be executed after 1 second. The video shows that changing the delay from 0 to 2000 milliseconds significantly changes when the console logs appear (10:40 - 11:05).
+
+Work (19:50): As discussed previously, this is the function that the scheduler will execute. It's the actual logic or task you want to run. When you call scheduler.schedule(), you pass this function as an argument. The work function can also receive the state as a parameter.
+
+State (19:46): This is an optional parameter that allows you to pass any arbitrary data or context to your work function. It can be any JavaScript value (a number, string, object, etc.). The state is useful because it allows your work function to operate on specific data without needing to capture variables from its lexical scope. This makes your scheduled work more reusable and independent. The work function receives this state as its first argument (16:38 - 16:42).
+
+In summary, when you tell a scheduler to perform a task, you specify:
+
+What to do (the work function).
+When to do it (the delay).
+Any additional data or context needed for the task (the state).
+The scheduler.schedule(delay, state, work) method (19:55) is the internal mechanism that uses these three parameters to manage and execute asynchronous operations.
+
+
+
+How `subscribeOn` works?
+What are scheduler groups?
+What are scheduler responsibilities?
+The video describes the core responsibilities of RxJS schedulers as helping to parameterize where and when your code is executed (4:37).
+
+Specifically, schedulers are responsible for three main aspects:
+
+Execution Context (4:49): Schedulers control where the "work" (your code) is run. This means determining the environment or thread in which the operations take place. For instance, some schedulers might run code immediately and synchronously, while others might defer it to a microtask queue, a macrotask queue (like setTimeout), or even the browser's animation frame for UI rendering. The speaker mentions that schedulers "control the execution context in vanilla JS" (5:30).
+
+Execution Policy (4:55): This refers to the order in which events or actions are executed (6:01). Schedulers manage queues of actions and determine how they are processed. They internally hold variables, collections of actions, and "flush" methods that run these actions in the correct order (6:19 - 6:33).
+
+Clock (5:01): Schedulers provide a concept of time, allowing you to schedule tasks to occur at a future point or with specific delays (6:38). They help "trigger some tasks at some point in time" (6:41) and are essential when you "need notion of time" (6:47). This includes handling delays and intervals for asynchronous operations.

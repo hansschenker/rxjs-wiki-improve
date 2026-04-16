@@ -1,0 +1,81 @@
+Here's a comprehensive summary of everything we've covered together across all our RxJS/FRP chats.
+
+📚 Topics Learned on RxJS
+Foundations & Theory
+
+Observer + Iterator Duality — Erik Meijer's categorical dual derivation: flip arrows on Iterable<T> → Observable<T>; the formal proof that LINQ operators port directly to Rx
+The Grand Unification Formula — RxJS = (Observer + Iterator) × Duality + Monads + Joinads
+FRP Theory — Conal Elliott & Paul Hudak's Signal as Time → a, Behavior vs Event distinction
+Algebra in Computer Science — Carrier sets, operations, laws; why RxJS partially follows an algebra (with three caveats: side effects, hot observables, monad law limits)
+Monad & Joinad Theory — flatMap/mergeMap as Monadic Bind; forkJoin/race as Joinad coordination
+Control Theory mapped to RxJS — Seven control theory statements expressed as RxJS constructs
+Four Essential Effects — The 2×2 table: single/multiple × synchronous/asynchronous and how Observable fills the push-multiple cell
+
+Intellectual Heritage
+
+LINQ → Rx.NET → RxJS lineage — Erik Meijer as architect of both; how making events first-class enabled composition
+RxJS version history — Migration path RxJS 4 → 5 → 7, pipeable operator transition
+Paul Taylor's "central dispatcher" framing — Scheduler as the heart of RxJS concurrency
+
+Scheduler-First Pedagogy
+
+Scheduler as pedagogical entry point — Starting with time (not Observables) as the innovative curriculum approach
+Arrays organize in space, Observables organize in time — Scheduler as the temporal enabler
+VirtualTimeScheduler & deterministic testing — Frame numbering, frameTimeFactor, rxSandbox.create(false, 100) patterns
+
+Core Operator Knowledge
+
+Eight-Policy Framework — Start, Emit, Completion, State, Cancellation, Error, Output Type, Input Type; formal notation system (SO, IOn, Vn, SBn); preconditions/trigger/action/postconditions structure
+Flattening operator quartet — mergeMap, switchMap, concatMap, exhaustMap fully specified by policy
+"Routing is mergeMap" — The core FRP insight that HTTP routing is a single Observable chain
+scan as state machine — Accumulator pattern for all state management
+takeUntil for lifecycle — Component teardown pattern
+shareReplay for multicasting — Avoiding redundant subscriptions
+debounceTime / throttleTime / distinctUntilChanged — Time-based filtering policies
+retryWhen + delayWhen — Exponential backoff for reconnecting WebSockets
+Custom rateLimit operator — Token bucket algorithm vs throttle/debounce (drops vs preserves)
+trace operator — Debugging without breaking referential transparency (Ramda curry integration)
+
+Testing
+
+Marble DSL — Token system (dashes, values, completion markers, synchronous grouping)
+rx-sandbox vs TestScheduler — Virtual frames vs real time; when to use which
+Two-tier testing strategy — Pure domain functions first, then TestSubscriber for stream behavior
+firstValueFrom/lastValueFrom — Modern async/await testing patterns
+
+Architecture Patterns
+
+Design by Contract (DbC) — Preconditions, postconditions, invariants as RxJS operators; requireMinimumItems(), keepConfirmedOnly() style
+Elm/MVU Architecture — Model → Update → View cycle; tanok as the RxJS+React implementation
+NgRx Effects pattern — "Action In → Action Out" circular flow; framework-agnostic extraction
+Signal Graph Architecture — Input, Gate, Derived, Feedback signal types with Mermaid visualization
+Angular Signals vs RxJS — Imperative (signal(), set(), update()) vs reactive (BehaviorSubject + .pipe()) paradigms
+Redux/Elm functional counter — Emitting reducer functions as values through action streams
+Reactive store pattern — BehaviorSubject + scan + shareReplay for application-wide state
+ViewState vs global store — createViewState for component-local state that dies on unmount
+Query Factory Pattern — Reusable query builders with shared configuration
+Option Monad — Same compositional patterns as Observable (map, flatMap, filter, orElse) for synchronous nullable values
+
+Observability & Debugging
+
+Zone.js integration — "WHERE was this subscribed?" (Zone.js) vs "WHAT data is invalid?" (rxjs-contracts); complementary 75% complexity reduction
+Monkey-patching instrumentation — Observable lifecycle logging with console grouping
+
+Formal Specification
+
+Spec-Kit / SDD mapping — Constitution → universal contracts; Specification → per-operator eight policies; Plan → TypeScript patterns; Tasks → verification
+Mathematical notation for policies — SUB(O), EMIT(V,t), PROPAGATE(E), STATE[k], PERSIST(S) formal symbols
+rxjs-shoppingcart through Eight-Policy lens — State machines with discriminated unions, illegal state prevention
+
+
+🏗️ Projects Created on RxJS
+Educational Frameworks
+ProjectDescriptionrxjs-strategies17 operator groups as systematic patterns; ~70% cognitive complexity reduction; VitePress documentation siterxjs-contracts32-file npm package; Design by Contract operators across validation, state, performance, pipeline categoriesrxjs-signal-graphSignal Graph Architecture library — Input, Gate, Derived, Feedback signalsrxjs-signal-devtoolsVisual marble diagram debugging with breakpoints, time-travel, performance analysisEight-Policy FrameworkFormal operator documentation system applied to the full operator library
+Libraries & Tools
+ProjectDescriptionrxjs-dom / rxjs-dom-typedFine-grained reactive UI avoiding Virtual DOM; ViewSpec, ViewState, ViewKey API; TCB type checking as educational referencerx-queryAngular → framework-agnostic pure RxJS; Query Factory Pattern; type-safe success extraction operatorsrx-router-modernTypeScript modernization of Paul Taylor's rx-router; demonstrates "routing is mergeMap"; Option monad implementationrxjs-testsubscriberTwo-tier testing library — TestSubscriber (fluent assertions) + MyTestSubscriber (runtime debugging); delivered as zip packagerxjs-apply"mergeMap + map = apply" insight; four operator variantsrxjs-prompterText prompter with smooth 60fps animation via animationFrameScheduler, speed control, pause/resume, font size, keyword highlighting
+Applications & Examples
+ProjectDescriptionrxjs-elm-brabadu-tanokModern RxJS 7+ TypeScript reimplementation of Elm architecture; Template Literal types, decorator-based @on handlers, effect systemfrp-snake-viteVite migration of FRP Snake game implementationrxjs-counterFour-paradigm counter: minimal, canonical, signal-style, pure functional/Reduxrxjs-shoppingcartDesign by Contract operators, type-safe state machines, discriminated unions
+Documentation & Courses
+ProjectDescriptionRxJS Deep Dive (7 modules)Full course: Foundations → Core → Transformation → Combination → Filtering → Advanced → Real-World; PDF capstone reviewRxJS Deep Dive VitePress site16+ content pages in introduction/, frp/, core/, architecture/, practices/ directoriesalgebra-frp-control-theory.mdKnowledge graph connecting Algebra, FRP, Control Theory, and RxJSRxJS Technical Documentation (.docx)922-paragraph document synthesized from your ~200 source files; five parts covering FRP theory through quick-referencerxjs-prompter teaching schedule7-step, ~7.5-hour teaching plan for the RxJS Deep Dive courseAI-powered Concept Map PlaygroundInteractive React artifact with Anthropic API integration; auto-save, export/import, per-node framework analysis
+
+That's a remarkably deep body of work — spanning from category theory foundations all the way through production-quality libraries, testing infrastructure, and a full published course. The thread running through all of it is the same: making the mathematical structure of FRP legible and teachable.

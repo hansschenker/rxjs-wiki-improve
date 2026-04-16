@@ -1,0 +1,34 @@
+https://www.youtube.com/watch?v=hsl00qDmmzA&list=PLw5h0DiJ-9PAbjEjSAVnx_r67SHRg0ipp&index=3&t=12s
+
+FUNCTIONAL REACTIVE PROGRAMMING
+
+COMPOSITIONAL EVENT SYSTEMS
+
+
+a different way of thinking
+about computation in our
+programs
+
+how we model state and state changes over time
+
+
+UI elements produce streams of value  // input
+
+Functions combine and transform those  // transform
+
+streams into new streams.
+
+Streams can be assigned to UI attributes // output
+to effect UI output.
+¨
+http://midwestjs.com/feedb
+
+@ph1
+
+phodgson@thoughtworks.com
+frp-talk-examples.thepete.net
+blog.thepete.net
+
+
+
+

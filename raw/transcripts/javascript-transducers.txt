@@ -1,0 +1,497 @@
+Transducers ...
+
+Prerequisites
+
+You have an understanding of javascript, especially es6
+You've been following along or understand reduce already
+You understand currying and partial application
+You understand function composition
+And that's it!
+
+. "are composable algorithmic transformations"
+· "are independent from the context of their input and output
+sources"
+. "specify only the essence of the transformation in terms of an
+individual element"
+. "are decoupled from input or output sources"
+. "can be used in many different processes-collections,
+streams, channels, observables, etc."
+. "compose directly, without awareness of input or creation of
+intermediate aggregates"
+
+Obligatory Etymology
+transducer (n.)
+1924, "device which converts energy from one form to another," from
+Latin transducere / traducere "lead across, transfer, carry over," from
+trans "across, beyond" + ducere "to lead" (from PIE root *deuk- "to
+lead"). - Online Etymology Dictionary
+In Clojure, it may also be helpful to think of this like transform +
+reducer.
+
+History & Status
+. Transducers were introduced in Clojure 1.7 in 2015.
+. 20+ functions in clojure . core can produce transducers.
+. Adopted into other languages:
+. JavaScript (Transducers-JS, RxJS, etc.)
+. Python
+. Surely others
+· Mature, deeply-integrated, and well-regarded.
+
+What Problem are We Solving?
+1. Traditional transformations (map, reduce, etc.) complect
+transformation with sequence types / "processes" (collections,
+streams, etc.).
+· e.g. map returns a lazy sequence ...
+. If we map over a vector, do we want a lazy sequence?
+. What if we map over a set?
+. What about "mapping" over the values passing through a
+channel or an observable?
+. Should each of these require their own function(s)? (e.g.
+mapv) Or is there a more generic way to tackle this?
+
+
+2. Performance
+· Lazy sequences have a very real performance cost (more on
+this later)
+. Should we be required to pay that cost if we don't ultimately
+want a lazy sequence?
+. Composing transformations compounds the overhead (e.g.
+mapping twice)
+. Quashing this can reduce readability
+. n.b. mapv is only one small piece of the story
+
+Lazy Sequence Recap
+. Provide / produce elements on demand
+. In batches of 32
+· Buffered pull model
+. Often we ignore these qualities
+· ... and sometimes get reminded when ...
+1. Side effects in map aren't realized
+2. A lazy seq escapes a with-open and we try to read from a
+closed file
+
+I contend that lazy sequences are actually a concurrency
+mechanism.
+
+extract the essence of map, filter et al
+
+away from the functions that transform
+sequences/collections
+
+so they can be used elsewhere
+
+recasting them as process transformations
+
+ones that can be defined in terms of a
+succession of steps
+
+where each step ingests an input
+
+building a collection is just one instance
+
+seeded left reduce is the generalization
+
+Why 'transducer'?
+reduce
+
+'lead back'
+
+ingest
+
+'carry into'
+
+transduce
+
+'lead across'
+
+on the way back/in, will carry inputs across
+a series of transformations
+
+Transducers in the Real
+World
+
+· 'put the baggage on the plane'
+'as you do that:'
+· break apart pallets
+. remove bags that smell like food
+
+· label heavy bags
+
+Conveyances, sources,
+sinks are irrelevant
+
+· And unspecified
+. Does baggage come/go on trolleys or
+conveyor belts?
+Rules don't care
+
+
+Transformation in the
+Programming World
+
+Collection function composition:
+
+(comp
+(partial map label-heavy)
+(partial filter non-food?)
+(partial mapcat unbundle-pallet))
+
+Conveyances are
+everywhere
+
+. map, filter, mapcat are functions of
+sequence -> sequence
+. 'rules' only work on sequences
+· creates sequences between steps
+
+Creating Transducers
+(def process-bags
+(comp
+(mapcatting unbundle-pallet)
+(filtering non-food?)
+(mapping label-heavy)))
+
+. mapcatting, filtering, mapping return transducers
+· process-bags is a transducer
+
+. transducers modify a process by transforming its
+reducing function
+
+;; build a concrete collection
+
+Using Transducers
+Concrete reuse!
+
+(into airplane process-bags pallets)
+;; build a lazy sequence
+(sequence process-bags pallets)
+;; like reduce, but takes transducer
+(transduce
+(comp process-bags (mapping weigh-bag))
++ 0 pallets)
+;; a CSP channel that processes bags
+(chan 1 process-bags)
+;; it's an open system
+(observable process-bags pallet-source)
+
+Transducible Processes
+
+· into, sequence, transduce, chan etc accept
+transducers
+
+· use the transducer to transform their
+(internal, encapsulated) reducing function
+
+· do their job with the transformed reducing
+function
+
+Deriving Transducers
+
+Lectures on
+
+Constructive Functional Programming
+by
+R.S. Bird
+
+A tutorial on the universality and
+expressiveness of fold
+GRAHAM HUTTON
+
+. http://www.cs.ox.ac.uk/files/3390/PRG69.pdf
+· http://www.cs.nott.ac.uk/~gmh/fold.pdf
+
+
+Many list fns can be
+defined in terms of foldr
+· encapsulates the recursion
+
+. easier to reason about and transform
+
+(defn mapr [f coll]
+(foldr (fn [x r] (cons (f x) r))
+() coll))
+
+(defn filterr [pred coll]
+(foldr (fn [x r] (if (pred x) (cons x r) r))
+() coll))
+
+Transducers
+. modify a process by transforming its reducing function
+(defn mapping [f]
+(fn [step]
+(fn [r x] (step r (f x)))))
+
+(defn filtering [pred]
+(fn [step]
+(fn [r x] (if (pred x) (step r x) r))))
+
+(def cat
+(fn [step]
+(fn [r x] (reduce step r x))))
+
+(defn mapcatting [f]
+(comp (map f) cat))
+
+
+Transducers are Fully
+Decoupled
+. Know nothing of the process they modify
+· reducing function fully encapsulates
+. May call step 0, I or more times
+. Must pass previous result as next r
+otherwise must know nothing of r
+
+· can transform input arg
+
+[1,2,3,4]
+.map ( addOne)    //  [2,3,4,5]
+.filter (isEven) //   [2,4]
+
+[1,2,3,4]
+.reduce((acc, val) => {
+// Add one to the current value.
+const transformedValue = addOne(val)
+
+// Keep only even numbers.
+if (!isEven (transformedValue))
+return acc
+
+// Push the transformed item onto the accumulator
+acc.push (transformedValue)
+
+return acc
+
+}, []) // [2,4]
+
+Transducers take a reducing function and return a new reducing function
+Think of them as factories for reducing functions
+
+(accumulator, currentValue) => newAccumulator
+
+simple transducer
+
+const theSimplestTransducer = reducingFn => (acc, val) => reducingFn(acc, val)
+
+// This is a reducing function too!
+const concat = (acc, val) => acc.concat(val)                             pass a function here: transformFn(val)
+                                                                           |
+                                                                           V
+const theSimplestTransducer = reducingFn => (acc, val) => reducingFn(acc, val)
+
+const reducingFn = theSimplestTransducer (concat) // returns a reducing function!
+
+[1,2,3,4].reduce(reducingFn, []) // [1,2,3,4]
+
+// This is a reducing function too!
+const concat = (acc, val) => acc.concat(val)
+
+// This creates a transducer!
+const makeTransducer = transformFn => reducingFn => (acc, val) => reducingFn(acc, transformFn(val))
+
+// These return transducers!
+const addOneTransducer = makeTransducer (val => val + 1)
+const timesTwoTransducer = makeTransducer(val => val * 2)
+
+const reducingFn = addOneTransducer (concat) // returns a reducing function!
+
+[1,2,3,4].reduce(reducingFn, []) // [2,3,4,5]
+
+Transducers compose
+The output of a transducer is a reducing function
+The input of a transducer is a reducing function
+
+
+const composeTransducers = (transducerOne, transducerTwo) => reducingFn => transducerOne(transducerTwo(reducingFn) )
+
+// This is a reducing function too!
+const concat = (acc, val) => acc.concat(val)
+
+// This creates a transducer!
+const makeTransducer = transformFn => reducingFn => (acc, val) => reducingFn(acc, transformFn(val) )
+
+// These return transducers!
+const addOneTransducer = makeTransducer (val => val + 1)
+const timesTwoTransducer = makeTransducer(val => val * 2)
+
+const addOneAndDoubleTransducer = composeTransducers (addOneTransducer, timesTwoTransducer)
+
+const reducingFn = addOneAndDoubleTransducer (concat) // returns a reducing function!
+
+[1,2,3,4].reduce(reducingFn, []) // [4,6,8,10]
+
+// Step function
+Remember: transducers will transform the data first, then call the
+function that's passed in
+
+These return transducers!
+const addOneTransducer = makeTransducer (val => val + 1)
+const timesTwoTransducer = makeTransducer (val => val * 2)
+
+const addOneAndDoubleTransducer = composeTransducers (addOneTransducer, timesTwoTransducer)
+
+const reducingFn = addOneAndDoubleTransducer (concat) // returns a reducing function!
+
+[1,2,3,4].reduce(reducingFn, []) // [2,3,4,5] -> [4,6,8,10]
+
+// lab
+Create a transducer that will transform lowercase letters to
+uppercase
+
+['a', 'b', 'c'] . reduce (upperCaseTransducer (concat), [ ]) / / ['A' , 'B' , 'C' ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,3 @@
+Actualizing ... (33s . 4 765 tokens . thought for 6s)
+E Tip: Working with HTML/CSS? Install the frontend-design plugin:
+/plugin install frontend-design@claude-plugins-official

@@ -1,0 +1,14 @@
+Producer		Pipeline		Consumer
+----------		----------		----------
+one producer		operator families       one consumer (unicast)
+						many consumers (multicast)
+many producers          multicast operator
+                        based on the Subject
+
+hot producer            Subject proxy between
+
+cold producer           producer and consumer
+			enabler for multicast
+
+			Schedulers determine
+                        the emission of values

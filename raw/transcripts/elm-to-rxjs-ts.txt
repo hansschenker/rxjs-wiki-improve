@@ -1,0 +1,417 @@
+main m
+StartApp.start { model = model, view = view, update = update )
+
+model = 0
+
+view address model =
+divfl)
+[ button [ onClick address Decrement ] [ text "-" ]
+, div [] [ text (toString model) ]
+button [ onClick address Increment ] [ text "+" ]
+
+type Action = Increment | Decrement
+
+update action model =
+case action of
+Increment -> model + 1
+Decrement -> model - 1
+
+// typescript
+
+/**
+ * Supporting types and infrastructure to mimic Elm's StartApp and HTML libraries.
+ */
+
+namespace StartApp {
+
+    export interface Config<M, A> {
+        model: M;
+        view: (address: (action: A) => void, model: M) => HTMLElement;
+        update: (action: A, model: M) => M;
+    }
+
+    export function start<M, A>(config: Config<M, A>): void {
+        let currentModel = config.model;
+        const root = document.body;
+
+        function render() {
+            root.innerHTML = '';
+            const element = config.view(address, currentModel);
+            root.appendChild(element);
+        }
+
+        function address(action: A) {
+            currentModel = config.update(action, currentModel);
+            render();
+        }
+
+        // Initialize the view
+        if (document.readyState === 'complete') {
+            render();
+        } else {
+            window.addEventListener('load', render);
+        }
+    }
+}
+
+/**
+ * Elm HTML library equivalents
+ */
+
+function text(content: string): Text {
+    return document.createTextNode(content);
+}
+
+function onClick<A>(address: (action: A) => void, action: A) {
+    return { name: "onclick", value: () => address(action) };
+}
+
+function div(attributes: any[], children: (HTMLElement | Text)[]): HTMLDivElement {
+    const element = document.createElement('div');
+    children.forEach(child => element.appendChild(child));
+    return element;
+}
+
+function button(attributes: { name: string, value: any }[], children: (HTMLElement | Text)[]): HTMLButtonElement {
+    const element = document.createElement('button');
+    attributes.forEach(attr => {
+        if (attr.name === "onclick") {
+            element.onclick = attr.value;
+        }
+    });
+    children.forEach(child => element.appendChild(child));
+    return element;
+}
+
+/**
+ * The translated Elm code
+ */
+
+StartApp.start({ model: 0, view: (address, model) => view(address, model), update: (action, model) => update(action, model) });
+
+const model: number = 0;
+
+const view = (address: (action: Action) => void, model: number): HTMLElement =>
+    div([],
+    [ button [ onClick(address, "Decrement") ] [ text("-") ]
+    , div([], [ text(model.toString()) ])
+    , button [ onClick(address, "Increment") ] [ text("+") ]
+    ]);
+
+type Action = "Increment" | "Decrement";
+
+const update = (action: Action, model: number): number => {
+    switch (action) {
+        case "Increment":
+            return model + 1;
+        case "Decrement":
+            return model - 1;
+    }
+};
+
+
+---- snake elm
+
+myShapes model = [group [polygon ((points model.time)
+                          ++
+                           (List.map moveDown <| List.reverse (points model.time)))
+                          |> filled red
+                        , oval 20 10 |> filled red |> move (-7,3)
+                        , circle 1.5 |> filled black |> move (-9,4)
+                        ]
+                    -- because the above shapes are grouped together, they move together
+                    |> move (-5 * model.time,0)
+                 ]
+
+-- used to move the bottom of the snake below the top
+moveDown : (Float,Float) -> (Float,Float)
+moveDown (x,y) = (x,y+4)
+
+-- make the pth point
+mkPoint : Float -> Float -> (Float,Float)
+mkPoint t p = ( 10 * p/3
+              , 10 * sin t * sin (p/3)
+              )
+
+-- make a list of points for each time in the animation
+points : Float -> List (Float,Float)
+points t = List.map (mkPoint t)
+         <| List.map toFloat
+         <| List.range 0 50
+
+type Msg = Tick Float GetKeyState
+
+update msg model = case msg of
+                     Tick t _ -> { time = t }
+
+init = { time = 0 }
+
+
+--- snake typescript
+
+/**
+ * Types and Graphics DSL to support the translated Elm logic.
+ * These mimic the behavior of the GraphicSVG library used in the original code.
+ */
+
+type Point = [number, number];
+
+type Color = string;
+
+const red: Color = "red";
+const black: Color = "black";
+
+enum ShapeType {
+    Circle = "Circle",
+    Oval = "Oval",
+    Polygon = "Polygon",
+    Group = "Group"
+}
+
+interface BaseShape {
+    type: ShapeType;
+    color?: Color;
+    x: number;
+    y: number;
+}
+
+interface CircleShape extends BaseShape {
+    type: ShapeType.Circle;
+    radius: number;
+}
+
+interface OvalShape extends BaseShape {
+    type: ShapeType.Oval;
+    width: number;
+    height: number;
+}
+
+interface PolygonShape extends BaseShape {
+    type: ShapeType.Polygon;
+    points: Point[];
+}
+
+interface GroupShape extends BaseShape {
+    type: ShapeType.Group;
+    shapes: Shape[];
+}
+
+type Shape = CircleShape | OvalShape | PolygonShape | GroupShape;
+
+/**
+ * Shape constructor and transformation functions
+ */
+
+const circle = (radius: number): CircleShape => ({
+    type: ShapeType.Circle,
+    radius,
+    x: 0,
+    y: 0
+});
+
+const oval = (width: number, height: number): OvalShape => ({
+    type: ShapeType.Oval,
+    width,
+    height,
+    x: 0,
+    y: 0
+});
+
+const polygon = (points: Point[]): PolygonShape => ({
+    type: ShapeType.Polygon,
+    points,
+    x: 0,
+    y: 0
+});
+
+const group = (shapes: Shape[]): GroupShape => ({
+    type: ShapeType.Group,
+    shapes,
+    x: 0,
+    y: 0
+});
+
+const filled = (color: Color) => <T extends Shape>(shape: T): T => ({
+    ...shape,
+    color
+});
+
+const move = (offset: Point) => <T extends Shape>(shape: T): T => ({
+    ...shape,
+    x: shape.x + offset[0],
+    y: shape.y + offset[1]
+});
+
+/**
+ * Main Application Logic
+ */
+
+interface Model {
+    time: number;
+}
+
+type KeyState = "Down" | "Up";
+type GetKeyState = (key: string) => KeyState;
+
+type Msg = 
+    | { type: "Tick"; time: number; keyState: GetKeyState };
+
+const myShapes = (model: Model): Shape[] => [
+    move([-5 * model.time, 0])(
+        group([
+            filled(red)(
+                polygon(
+                    points(model.time)
+                        .concat(points(model.time).slice().reverse().map(moveDown))
+                )
+            ),
+            move([-7, 3])(
+                filled(red)(
+                    oval(20, 10)
+                )
+            ),
+            move([-9, 4])(
+                filled(black)(
+                    circle(1.5)
+                )
+            )
+        ])
+    )
+    // because the above shapes are grouped together, they move together
+];
+
+// used to move the bottom of the snake below the top
+const moveDown = ([x, y]: Point): Point => [x, y + 4];
+
+// make the pth point
+const mkPoint = (t: number) => (p: number): Point => [
+    10 * p / 3,
+    10 * Math.sin(t) * Math.sin(p / 3)
+];
+
+// make a list of points for each time in the animation
+const points = (t: number): Point[] =>
+    Array.from({ length: 51 }, (_, i) => i) // List.range 0 50
+        .map(i => Number(i))                 // List.map toFloat
+        .map(p => mkPoint(t)(p));            // List.map (mkPoint t)
+
+const update = (msg: Msg, model: Model): Model => {
+    switch (msg.type) {
+        case "Tick":
+            // Tick t _ -> { time = t }
+            const t = msg.time;
+            return { time: t };
+    }
+};
+
+const init: Model = { time: 0 };
+
+
+----- explain
+
+1. **Graphics DSL Implementation**: The original code relies on functions like `group`, `polygon`, `filled`, and `move`, which are typical of the Elm `GraphicSVG` library. Since TypeScript does not have a built-in equivalent, I implemented a minimal version of these types and functions to ensure the code is complete and functional.
+2. **Functional Piping**: Elm's pipe operator `|>` was translated into nested function calls. To maintain the original readability and structure, I implemented `filled` and `move` as curried functions (functions returning functions), allowing for a syntax that closely mirrors the original (e.g., `move([x, y])(shape)`).
+3. **List Operations**: 
+    - `List.range 0 50` was translated to `Array.from({ length: 51 }, (_, i) => i)`, which creates the inclusive range [0, 1, ..., 50].
+    - `List.reverse` was translated using `slice().reverse()`. In JavaScript, `reverse()` is in-place (mutates the array), whereas Elm's `List.reverse` is pure. `slice()` creates a copy to preserve immutability.
+    - `++` (list concatenation) was translated to `Array.prototype.concat`.
+4. **Pattern Matching**: The Elm `case ... of` statement in the `update` function was translated into a TypeScript `switch` statement with type-safe case handling.
+5. **Types**: 
+    - `Float` was translated to `number`.
+    - `(Float, Float)` tuples were translated to `Point` (defined as `[number, number]`).
+    - `GetKeyState` was defined as a function type `(key: string) => KeyState` to match its usage in Elm graphics libraries.
+6. **Currying**: `mkPoint` was implemented as a curried function `(t: number) => (p: number) => Point` to directly support the `List.map (mkPoint t)` usage found in the original code.
+7. **Comments**: All original comments were preserved and placed in their corresponding locations in the TypeScript code.
+8. **Coordinates**: In Elm's `GraphicSVG`, `move (x, y)` adds to the existing position. My implementation of `move` similarly increments the `x` and `y` properties of the shape objects.
+
+------------------------
+Leave nothing to the imagination
+
+pure function		stateless function
+
+easy 			to reason about
+
+easy 			to refactor
+
+safe			reliable
+
+monad			group, monoid, functor, applicative, polymorphic programming with Effects, monadic promise,
+
+----------------
+main =
+StartApp.start
+{ model = init
+, update = update
+, view = view
+
+-- MODEL -----------------------------------------------------
+
+type alias Model =
+{ counters : List ( ID, Counter.Model )
+nextID : ID
+
+type alias ID = Int
+
+init : Model
+init =
+{ counters = []
+, nextID = 0
+
+- UPDATE -----------------------------------------------------
+
+
+in
+
+-- UPDATE
+
+type Action
+= Insert
+| Remove
+| Modify ID Counter.Action
+
+update : Action -> Model -> Model
+update action model =
+case action of
+Insert ->
+let newCounter = ( model.nextID, Counter.init 0 )
+newCounters = model.counters ++ [ newCounter ]
+
+{ model |
+counters <- newCounters,
+nextID <- model.nextID + 1
+
+in
+
+Remove ->
+{ model | counters <- List.drop 1 model.counters }
+
+Modify id counterAction ->
+let updateCounter (counterID, counterModel) =
+if counterID = id
+then (counterID, Counter.update counterAction counterModel)
+else (counterID, counterModel)
+
+{ model | counters <- List.map updateCounter model.counters }
+
+view  -----------------------------------------------------
+
+
+view : Signal.Address Action -> Model -> Html
+view address model =
+let counters = List.map (viewCounter address) model.counters
+remove = button [ onClick address Remove ] [ text "Remove" ]
+insert = button [ onClick address Insert ] [ text "Add" ]
+
+div [] ([remove, insert] ++ counters)
+
+in
+
+viewCounter : Signal.Address Action -> (ID, Counter.Model) -> Html
+viewCounter address (id, model) =
+Counter.view (Signal.forwardTo address (Modify id)) model
+
+------------------------------------------------------
+
+
+----------
+

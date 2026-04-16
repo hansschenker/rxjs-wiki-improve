@@ -1,0 +1,282 @@
+What I consider the RxJS basic public primitives is not one tiny official list, but a small practical basis of operator families.
+
+I would put them in this order:
+
+Source creation
+Observable itself, plus creation forms like of, from, defer, EMPTY, NEVER. RxJS’s foundation is the Observable, and pipeable operators are functions that take one observable and return another.
+
+Per-value transformation
+map
+This is the basic “same timing, new value” primitive. A lot of convenience operators collapse into it. For example, mapTo is currently implemented as map(() => value) and is deprecated in favor of that form.
+
+Per-value gating
+filter
+This is the basic “same source, fewer values” primitive.
+
+State / remembered stream
+scan
+This is the basic memory primitive: values flow in, state flows out. RxJS itself documents reduce as equivalent to scan followed by last, which is a strong sign that scan is the streaming primitive and reduce is the completion-based derived form.
+
+Combination
+merge, combineLatest, withLatestFrom
+I do not treat these as interchangeable.
+
+merge = let multiple streams flow through together
+
+combineLatest = produce from the latest values of several inputs
+
+withLatestFrom = one stream triggers, the others are sampled; all inputs must have emitted once before output can emit
+
+Higher-order flattening policy
+mergeAll, concatAll, switchAll, exhaustAll
+This is the heart of async RxJS. The *Map operators are mostly “map to inner observable + flatten with a policy.” RxJS’s own docs/source state that mergeMap maps to inner observables and flattens them with mergeAll, and concatAll is literally mergeAll(1).
+
+Execution ownership / sharing
+share
+This is basic in RxJS because it changes whether execution is private per subscriber or shared across subscribers. The source comments explicitly say share multicasts the original observable and makes the stream hot while subscribers are present.
+
+Lifecycle and failure channel
+takeUntil, completion, unsubscription, catchError
+RxJS is not only about values. Stop conditions and error routing are first-class. catchError is the core error-routing primitive: it handles source errors by mapping them to another observable while forwarding normal events.
+
+Scheduling / time context
+schedulers
+I would not treat time as “just another operator family.” In RxJS, schedulers control when subscription happens and when values are observed, so they are part of the machine under many time-based operators.
+
+So my compact practical basis is:
+
+create → map → filter → scan → combine/sample → flatten policy → share → lifecycle/error → scheduler
+
+That is the basis I would teach from.
+
+The even smaller “operator algebra” version
+
+If you force me to compress it further, I would say the smallest useful public basis is:
+
+map
+
+filter
+
+scan
+
+merge
+
+combineLatest
+
+withLatestFrom
+
+mergeAll
+
+concatAll
+
+switchAll
+
+exhaustAll
+
+share
+
+plus source creation and lifecycle.
+
+Because once you have those, many named operators become convenience forms:
+
+mapTo = map(() => value)
+
+mergeMap = map-to-inner + mergeAll
+
+concatAll = mergeAll(1)
+
+reduce = scan + last
+
+switchMapTo = switchMap(() => inner)
+
+One important correction
+
+I do not consider old lift part of the modern public primitive basis. RxJS maintainers explicitly questioned its value once pipeable operators became the norm, and the current repo’s master is the v8 line with a reduced API surface.
+
+My final answer
+
+What I consider the basic RxJS primitives is:
+
+Observable creation, map, filter, scan, merge, combineLatest, withLatestFrom, the four flattening policies (mergeAll/concatAll/switchAll/exhaustAll), share, lifecycle/error handling, and schedulers.
+
+If you want the most FRP-shaped subset, I would shrink that to:
+
+map, filter, scan, merge, withLatestFrom, switchAll, share
+
+but for real RxJS, I would keep the full practical basis above because RxJS makes sharing, cancellation, and flattening policy fundamental, not optional.
+
+I can turn this into a “RxJS primitive basis → derived operators” chart next.
+
+show me how this small Rxjs operator Algebra can be used to build more complex behavior, show how each operator in this list can be use to build more complex Rxjs Behavior:
+The even smaller “operator algebra” version
+
+If you force me to compress it further, I would say the smallest useful public basis is:
+- map
+- filter
+- scan
+- merge
+- combineLatest
+- withLatestFrom
+- mergeAll
+- concatAll
+- switchAll
+- exhaustAll
+- share
+
+I’m grounding this in the current RxJS docs and source so I can show the algebra as actual stream rewiring, not just informal analogies.
+
+I’ve got the flattening-family relationships from the docs. I’m checking one last point on shareReplay, because that is one of the clearest examples of “simple primitive → richer behavior.”
+
+Thought for 2m 26s
+
+Yes. This small algebra is enough to build a lot of the practical RxJS machine because each primitive controls one axis of stream behavior: change the value, gate the value, remember state, assemble streams, sample state, choose a flattening policy, or change execution ownership. The RxJS docs describe operators as functions that take one Observable and return another, and the current APIs/source make these relationships very visible.
+
+The most useful way to read this algebra is:
+
+map / filter / scan = what happens to each value over time
+
+merge / combineLatest / withLatestFrom = how streams relate to each other
+
+mergeAll / concatAll / switchAll / exhaustAll = what policy you choose for nested streams
+
+share = who owns execution: private or shared
+
+1) map — change what flows, keep the timing
+
+map is the basic “same moments, new payload” move: each source value is projected into a new value. That alone already builds richer behaviors like constant mapping, boolean negation, picking fields, tagging values, and converting raw domain events into command objects. RxJS’s own source shows mapTo(value) is just map(() => value), which is a clean example of a more specific behavior being built from map.
+
+More importantly, map is how you create nested streams. You take an outer value and map it to an inner Observable. At that point you have not yet decided concurrency or cancellation. That decision comes later with one of the four *All operators. So map is the “produce a new stream description from each value” step.
+
+2) filter — decide which values continue
+
+filter is the basic gate: values that do not satisfy the predicate do not continue. From that simple gate you get richer behaviors like validation streams, “only truthy”, “only changed items that matter”, or “only user intents that are currently allowed.” The API also exposes more specialized behaviors like first(predicate) and partition, but conceptually those are refinements of the same gating idea.
+
+In practice, map + filter already gives you many domain behaviors: map raw events into semantic messages, then filter away the ones that should not trigger work. That is often enough to express guards, edge detection, and branch selection in UI/event pipelines.
+
+3) scan — add memory
+
+scan is the primitive that turns a stream into a stream that remembers. The current RxJS docs call it useful for encapsulating and managing state, and the reduce source shows that completion-based aggregation is built from the same accumulator machinery. In other words: scan is the running state form; reduce is the “only emit the final accumulated value at completion” form.
+
+This is where store-like behavior comes from. merge(...actions).pipe(scan(reducer, initialState)) gives you state over time. Previous/current comparisons, counters, finite-state machines, undo stacks, form state, and animation state are all scan territory. The machine is always the same: new value comes in, accumulator decides the next remembered value.
+
+4) merge — assemble independent flows
+
+merge is the primitive for saying: these sources are independent, let their values flow together as they arrive. That lets you build richer behaviors like “many user intents become one action stream”, “mouse + keyboard + timer all feed the same machine”, or “local cache results and network refreshes both update the same consumer.”
+
+A very common pattern is merge first, scan second. You merge several intent streams into one command stream, then scan that into state. That is one of the cleanest ways to build reducer-style reactive state without introducing anything more complicated than this algebra.
+
+5) combineLatest — derive from multiple changing inputs
+
+combineLatest is the primitive for lifting a pure function over several live inputs. It keeps the latest value from each input and emits a new combined value when any relevant input changes. That is how you build derived state like fullName$, formValid$, viewModel$, layout state, or “can submit” streams from several inputs that all change over time.
+
+So combineLatest + map is the standard lifting pattern in RxJS: multiple flows come together, then a pure projection computes the derived result. That is the practical form of FRP lifting in RxJS.
+
+6) withLatestFrom — snapshot state when a trigger fires
+
+withLatestFrom is different from combineLatest: the source stream is the trigger, and the other streams only provide the latest remembered values when that trigger arrives. That makes it the right primitive for “submit button click + latest form state”, “save intent + latest draft”, or “animation tick + latest physics state.”
+
+So withLatestFrom + map builds command semantics: when event A happens, read the current value of B and compute the next action. This is the clean RxJS translation of FRP-style snapshot.
+
+7) mergeAll — flatten nested streams with overlap allowed
+
+mergeAll converts an Observable-of-Observables into one stream and allows inner streams to run concurrently. The docs describe it as concurrently delivering values from the inner Observables, and the mergeMap docs/source make the relationship explicit: mergeMap maps each source value to an inner Observable and then flattens with mergeAll.
+
+So this algebra gives you the exact mental model:
+
+map(projectToInner$) + mergeAll = mergeMap-style behavior
+
+Use it when overlap is allowed: parallel requests, independent uploads, multiple active animations, or many timers running at once.
+
+8) concatAll — flatten nested streams by queueing
+
+concatAll also flattens an Observable-of-Observables, but it does so by concatenating inner streams in order. The current source says it “puts one inner Observable after the other,” which is the queue policy.
+
+That gives you this mental model:
+
+map(projectToInner$) + concatAll = concatMap-style behavior
+
+This is the right policy for ordered saves, serialized writes, transactional steps, and anything where later work must wait until earlier work completes.
+
+9) switchAll — flatten nested streams by keeping only the latest
+
+switchAll flattens a higher-order stream by following only the most recent inner Observable. The companion switchMap docs describe the same behavior in mapped form: emit values only from the most recently projected Observable.
+
+So again the algebra is:
+
+map(projectToInner$) + switchAll = switchMap-style behavior
+
+This is how you build latest-wins behaviors: live search, route data loading, hover previews, preview rendering, or any stream where stale work must be cancelled when a newer value arrives.
+
+10) exhaustAll — flatten nested streams by ignoring new work while busy
+
+exhaustAll flattens by dropping new inner Observables while the current one has not completed. The exhaustMap docs say the mapped form only merges if the previous projected Observable has completed.
+
+That gives you:
+
+map(projectToInner$) + exhaustAll = exhaustMap-style behavior
+
+This is the right policy for “submit once”, “login while request in flight”, “ignore repeated clicks while busy”, or “do not restart this expensive effect until it finishes.”
+
+11) share — change execution ownership
+
+share changes the ownership model from private cold execution to shared multicasted execution. The docs say it returns a new Observable that multicasts the original source as long as there is at least one subscriber. That lets you build richer behaviors like shared network requests, one producer feeding many consumers, or a single event source driving multiple derived branches without duplicated work.
+
+This primitive also leads directly to richer caching behavior. The current source for shareReplay shows it is built with share plus a ReplaySubject connector and reset configuration. So “shared execution + replayed last N values” is literally a richer behavior layered on top of share.
+
+The most useful compositions
+
+This is where the algebra becomes really practical:
+
+Derived state = combineLatest + map
+Several changing inputs become one current derived value.
+
+Reducer/store = merge + scan
+Several intent streams become one remembered state stream.
+
+Snapshot command = withLatestFrom + map
+A trigger reads current state and produces the next command.
+
+Concurrent effects = map + mergeAll
+New values create inner work; overlap is allowed.
+
+Queued effects = map + concatAll
+New values create inner work; order is preserved.
+
+Latest-only effects = map + switchAll
+New values replace old work.
+
+Busy-lock effects = map + exhaustAll
+New values are ignored while current work is active.
+
+Shared live graph = ... + share
+Several subscribers observe one execution, not duplicate executions.
+
+So the algebra in compact form is:
+
+map            -> change payload
+filter         -> gate payload
+scan           -> remember payload
+merge          -> unify independent flows
+combineLatest  -> derive from several live values
+withLatestFrom -> snapshot state on trigger
+mergeAll       -> overlap policy
+concatAll      -> queue policy
+switchAll      -> latest-only policy
+exhaustAll     -> busy-lock policy
+share          -> shared execution
+
+And the key “complex behavior” equations are:
+
+map(() => c)                      -> mapTo-style behavior
+merge(...actions) + scan(reducer) -> store / state machine
+combineLatest(...inputs) + map(f) -> lifted derived state / view model
+trigger$.withLatestFrom(state$) + map(f) -> snapshot command
+map(project$) + mergeAll          -> mergeMap-style behavior
+map(project$) + concatAll         -> concatMap-style behavior
+map(project$) + switchAll         -> switchMap-style behavior
+map(project$) + exhaustAll        -> exhaustMap-style behavior
+share + ReplaySubject connector   -> shareReplay-style behavior
+
+The important idea is: the domain can change, but the RxJS machine stays the same. These primitives let you express value change, memory, combination, sampling, concurrency policy, and sharing. That already covers a very large part of real RxJS design.
+
+I can turn this next into a compact “primitive → derived operators → real-world use case” chart.

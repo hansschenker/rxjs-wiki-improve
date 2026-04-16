@@ -1,0 +1,17 @@
+Import ( of } from 'rxjs';
+import ( map } from 'rxjs/operators';
+
+interface Subject<T> extends Observer<T> Observable>T> {
+  notify (value: T):
+  register (observer: Observer<T>):
+  unregister (observer: Observer<T>):
+
+Interface Observer<T> {
+   next(value:T)
+}
+update (value: T) ;
+
+const source - of ('World') .pipe(
+map (x => 'Hello $(x] !')
+
+source. subscribe (x -> console. log(x) );

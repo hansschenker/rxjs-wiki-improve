@@ -1,0 +1,51 @@
+give me the list of chats where the topic was Rxjs Effects
+
+I don’t have access to your full ChatGPT chat list (titles/IDs) from the UI, but I can list the conversations I have in persistent memory where the topic was RxJS Effects (explicit effect handling, effect streams, effect handlers, NgRx-style effects, tagged effects, “effects at subscribe boundary”, etc.). Use the date + keywords below to find the exact threads via your chat-history search.
+
+Date (memory)	What we worked on (RxJS Effects-related)	Good chat-history search keywords
+
+2025-06-23	Demo: idiomatic RxJS vs RxJS + Algebraic Effects (debounced search + fetch + errors)	RxJS + effects, effect handlers, debounce, fetch
+
+2025-06-23	Expand effect model: nested handlers, cancellation, composable Task-like interface	nested handlers, cancellation, Task, effect model
+
+2025-06-23	JS/TS helpers like perform, withHandler / fp-ts-style DSL for effects	perform, withHandler, DSL, handlers
+
+2025-06-23	Applying effects in UI: React + RxJS + effect handlers	React, effect handlers, RxJS UI
+
+2025-07-15	NgRx-inspired utilities: createStore, createAction, createEffect, createSelector	createEffect, NgRx, effect
+
+2025-07-28	RxJS state machine factory: add RxJS effects (auto-fetch on events), guards/actions/context	state machine, RxJS effects, FETCH, effects
+
+2025-07-29	Extract createEffectHandler into standalone utility module with tests/examples	createEffectHandler
+
+2025-07-29	rxjs-user-explorer: wire model$ with reducer + effect$ interpreter stream	effect$, interpret effects, model$
+
+2025-07-29	Project identity: Rxjs-EffectMVU architecture (explicit effect handling)	EffectMVU, explicit effects
+
+2025-08-01	rxjs-web: “server requests” via effects—actions → effects → new actions (NgRx-style alternative)	actions flow into effects, NgRx-
+style, effects emit actions
+
+2025-08-06	rxjs-tagged: Tagged Effects (createEffect, tag, provideEnv, etc.)	Tagged Effects, rxjs-tagged, createEffect
+
+2025-11-14	Standard practice: effects isolated at subscribe boundary (Railway-Oriented Programming)	subscribe boundary, effects at subscribe
+
+2025-12-16	Domain Modeling Made Functional applied across projects: effects at subscribe boundary	Domain Modeling, effects at subscribe boundary
+
+2025-12-28	“RxJS Tip of the Day” format includes side effects at subscribe boundary	Tip of the Day, subscribe boundary
+Fastest way to locate them in your chat history
+
+Search your ChatGPT history for one of these high-signal strings:
+
+EffectMVU
+
+createEffectHandler
+
+effect$
+
+Tagged Effects / rxjs-tagged
+
+algebraic effects / effect handlers
+
+actions flow into effects
+
+If you want, paste your exported chat list (or just the titles), and I’ll mark exactly which ones are “RxJS Effects” threads and group them by subtype (NgRx-style vs explicit effect interpreter vs algebraic/handler-based vs tagged effects).

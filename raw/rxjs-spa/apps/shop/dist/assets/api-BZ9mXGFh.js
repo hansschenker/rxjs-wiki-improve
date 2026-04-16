@@ -1,0 +1,1 @@
+import{a as o}from"./public-CMCfNiD-.js";const r={request:t=>(console.log(`[shop] ${t.method} ${t.url}`),t)},e=o({baseUrl:"https://fakestoreapi.com",interceptors:[r]}),p={products:{list:()=>e.get("/products"),get:t=>e.get(`/products/${t}`),categories:()=>e.get("/products/categories")}};export{p as a};

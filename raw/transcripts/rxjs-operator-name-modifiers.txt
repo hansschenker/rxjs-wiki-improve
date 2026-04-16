@@ -1,0 +1,102 @@
+The second parts (suffixes) form a consistent vocabulary that reveals the operator's core behavior. 
+
+1. ...Map
+------------------------------------------------------------------------------------------------------------
+Meaning: 
+Transforms each emitted source value into a new Observable, subscribes to it, and emits its results.
+Core Idea: 
+"For each item, map it to an Observable and flatten its emissions." 
+Examples: 
+
+concatMap, mergeMap, switchMap, exhaustMap.
+
+Analogy: Like Array.prototype.map, but for asynchronous operations 
+(promises/Observables).
+
+2. ...All
+------------------------------------------------------------------------------------------------------------
+Meaning: 
+Operates on an Observable of Observables ("higher-order Observable"). 
+It "flattens" or combines the inner Observables according to a strategy.
+Core Idea: 
+"Take all the inner Observables and handle their emissions as a whole."
+Examples: 
+concatAll, mergeAll, switchAll. (These are the flattening strategies without the initial mapping step. 
+source.pipe(map(fn), mergeAll()) is equivalent to source.pipe(mergeMap(fn))).
+
+3. ...Latest
+------------------------------------------------------------------------------------------------------------
+Meaning: 
+Combines multiple Observables, but only emits the latest value from each whenever any source emits.
+Core Idea: 
+"Give me the most recent snapshot from each participant."
+Examples:
+ combineLatest, withLatestFrom. (Note: withLatestFrom is like a passive combo—it only emits when the primary source emits, 
+using the latest from others).
+
+4. ...When
+------------------------------------------------------------------------------------------------------------
+Meaning: 
+Uses a notifier Observable to gate emissions. The main logic is: "Emit when the notifier says so."
+Core Idea: 
+Conditional emission controlled by another Observable.
+Examples: 
+bufferWhen (close buffer & start new one when notifier emits), windowWhen (same for windows), 
+debounce (which is debounceWhen in some implementations).
+
+5. ...While & ...Until
+------------------------------------------------------------------------------------------------------------
+Meaning: 
+Conditional completion based on a predicate or notifier.
+...While: "Keep the source Observable alive while a condition is true." Completes when the condition becomes false.
+...Until: "Keep the source Observable alive until another (notifier) Observable emits." Completes at that moment.
+
+6. ...Time
+------------------------------------------------------------------------------------------------------------
+Meaning: 
+Operators where the primary controlling factor is time duration. 
+Core Idea: 
+Behavior is defined by a time window, interval, or timestamp. 
+Examples: auditTime, debounceTime, sampleTime, throttleTime, bufferTime, 
+
+7. ...Scan
+------------------------------------------------------------------------------------------------------------
+Meaning: 
+Accumulates state over time, emitting the intermediate results. Like Array.prototype.reduce, but emits on each source emission.
+Core Idea: 
+"Stateful reduction."
+Examples: 
+scan is the main one. mergeScan is a variant that allows the accumulator function to return an Observable (useful for async accumulations).
+
+8. ...Last
+------------------------------------------------------------------------------------------------------------
+Meaning: 
+Emits only the final value(s) before completion.
+Core Idea: 
+"Wait for everything to finish, then give me the conclusion." Examples: last (emits the last value), 
+takeLast (emits the last N values).
+
+9. ...With (less common as a suffix, but important as withLatestFrom)
+------------------------------------------------------------------------------------------------------------
+Meaning: 
+Combines the source with other Observables, often in a specific role (like a passive "companion").
+Core Idea: 
+"Do this with the latest from others."
+Examples: 
+withLatestFrom is the primary example. Note: startWith is a different pattern (injects an initial value).
+
+10. ...Toggle & ...Count (Specialized Suffixes)
+------------------------------------------------------------------------------------------------------------
+...Toggle:
+Meaning: Switches a state between two values based on a notifier.
+Example: toggle (not a built-in but exists in some variations). bufferToggle, windowToggle — 
+they open a buffer/window on one notifier and close it on another.
+
+.11. ..Count:
+------------------------------------------------------------------------------------------------------------
+Meaning:
+Uses a number of emissions as the controlling factor.
+Examples: 
+bufferCount (buffer every N items), windowCount (window every N items), skipCount (often just skip(N)), 
+takeCount (often just take(N)).
+

@@ -1,0 +1,74 @@
+IMPERATIVE
+It is a programming
+paradigm that uses
+statements that change
+program's state. In much
+the same way that the
+imperative mood in
+natural languages
+expresses commands, ar
+imperative program
+consists of commands
+for the computer to
+perform. Imperative
+programming focuses
+on describing how a
+program operates.
+
+FUNCTIONAL
+It is a declarative
+programming paradigm.
+which means
+programming is done
+with expressions. In
+functional code, the
+output value of a
+function depends only
+on the arguments that
+are input to the
+function, so calling a
+function f twice with the
+same value for an
+argument x will produce
+the same result f(x)
+each time.
+
+REACTIVE
+It is a programming
+paradigm oriented
+around data flows and
+the propagation of
+change. This means that
+it should be possible to
+express static or dynamic
+data flows with ease in
+the programming
+languages used, and that
+the underlying execution
+model will automatically
+propagate changes
+through the data flow.
+
+Functional Reactive
+
+
+
+OBSERVER PATTERN
+The observer pattern is a software design pattern in which an object,
+called the subject, maintains a list of its dependents, called
+observers, and notifies them automatically of any state changes.
+usually by calling one of their methods. It is mainly used to implement
+distributed event handling systems.
+
+
+ITERATOR PATTERN
+In object-oriented programming, the iterator pattern is a design
+pattern in which an iterator is used to traverse a container and
+access the container's elements. The iterator pattern decouples
+algorithms from containers
+
+cycle.js
+
+futurice.com/blog/reactive-mvc-and-the-virtual-dom
+
+

@@ -1,0 +1,146 @@
+The Mapping (Complete but Grouped)  
+Operators are categorized together when they have the same coordinates.  
+
+🔹 Transform Operators  
+----------------------------------------------------------------------------------------------
+Operator				Action			Control		State  
+----------------------------------------------------------------------------------------------
+map					Transform		Simple		Stateless  
+mapTo					Transform		Simple		Stateless  
+pluck					Transform		Simple		Stateless  
+
+🔹 Filter / Selection
+----------------------------------------------------------------------------------------------
+Operator				Action			Control		State  
+----------------------------------------------------------------------------------------------
+filter					Filter			Conditional	Stateless  
+ignoreElements				Filter			Simple		Stateless  
+
+distinct				Filter			Relational	Previous  
+distinctUntilChanged			Filter			Relational	Previous  
+distinctUntilKeyChanged			Filter			Relational	Previous  
+
+first					Filter			Quantitative	First  
+last					Filter			Quantitative	Last  
+single					Filter			Quantitative	Stateless  
+
+take					Filter			Quantitative	Stateless  
+takeLast				Filter			Quantitative	Last  
+takeWhile				Filter			Conditional	Stateless  
+takeUntil	
+					Filter			Conditional	External  
+skip					Filter			Quantitative	Stateless  
+skipLast				Filter			Quantitative	Last  
+skipWhile				Filter			Conditional	Stateless  
+skipUntil				Filter			Conditional	External  
+
+🔹 Accumulation / State  
+----------------------------------------------------------------------------------------------
+Operator				Action			Control		State  
+----------------------------------------------------------------------------------------------
+scan					Accumulate		Simple	Stateful  
+reduce					Accumulate		Terminal	Stateful  
+count					Accumulate		Terminal	Stateful  
+max					Accumulate		Terminal	Stateful  
+min					Accumulate		Terminal	Stateful  
+
+🔹 Combination (Multiple Sources)  
+---------------------------------------------------------------------------------------------
+Operator				Action			Control		State  
+----------------------------------------------------------------------------------------------
+merge					Combine			Concurrent	Stateless  
+concat					Combine			Sequential	Stateless  
+combineLatest				Combine			Relational	Latest  
+withLatestFrom				Combine			Relational	Latest  
+zip					Combine			Positional	Buffered  
+forkJoin				Combine			Terminal	Last  
+race					Combine			Competitive	First  
+startWith				Combine			Injection	Initial  
+endWith					Combine			Injection	Terminal  
+
+🔹 Higher-Order / Flattening (Explosion Point)  
+---------------------------------------------------------------------------------------------
+Operator				Action			Control		State  
+----------------------------------------------------------------------------------------------
+mergeMap				Flatten			merge		Stateless  
+mergeMapTo				Flatten			merge		Stateless  
+switchMap				Flatten			switch		Latest  
+switchMapTo				Flatten			switch		Latest  
+concatMap				Flatten			concat		Ordered  
+concatMapTo				Flatten			concat		Ordered  
+exhaustMap				Flatten			exhaust		First  
+mergeAll				Flatten			merge		Stateless  
+switchAll				Flatten			switch		Latest  
+concatAll				Flatten			concat		Ordered  
+exhaustAll				Flatten			exhaust		First  
+expand					Flatten			Recursive	Stateful  
+
+🔹 Time-Based Operators  
+------------------------------------------------------------------------
+Operator				Action			Control		State  
+----------------------------------------------------------------------------------------------
+delay					Control			Temporal	Time  
+delayWhen				Control			Conditional	Time  
+debounceTime				Filter			Temporal	Latest  
+debounce				Filter			Temporal	Latest  
+throttleTime				Filter			Temporal	First  
+throttle				Filter			Temporal	First  
+auditTime				Filter			Temporal	Last  
+audit					Filter			Temporal	Last  
+timeout					Control			Temporal	Time  
+timeoutWith				Control			Temporal	Time  
+sampleTime				Filter			Temporal	Latest  
+sample					Filter			Temporal	Latest  
+timeInterval				Transform		Temporal	Previous  
+timestamp				Transform		Temporal	Time  
+
+🔹 Buffering & Windowing  
+---------------------------------------------------------------------------------------------
+Operator				Action			Control		State  
+----------------------------------------------------------------------------------------------
+buffer					Accumulate		Conditional	Buffered  
+bufferCount				Accumulate		Quantitative	Buffered  
+bufferTime				Accumulate		Temporal	Buffered  
+bufferToggle				Accumulate		Conditional	Buffered  
+bufferWhen				Accumulate		Conditional	Buffered  
+window					Accumulate		Conditional	Windowed  
+windowCount				Accumulate		Quantitative	Windowed  
+windowTime				Accumulate		Temporal	Windowed  
+windowToggle				Accumulate		Conditional	Windowed  
+windowWhen				Accumulate		Conditional	Windowed  
+
+🔹 Error & Completion Control  
+---------------------------------------------------------------------------------------------
+Operator				Action			Control		State  
+----------------------------------------------------------------------------------------------
+catchError				Control			Conditional	External  
+retry					Control			Quantitative	External  
+retryWhen				Control			Conditional	External  
+throwIfEmpty				Control			Conditional	Terminal  
+defaultIfEmpty				Control			Conditional	Terminal  
+onErrorResumeNext			Control			Conditional	External  
+finalize				Utility			Terminal	Stateless  
+
+🔹 Multicasting & Sharing  
+------------------------------------------------------------------------
+Operator				Action			Control		State  
+----------------------------------------------------------------------------------------------
+share					Utility			Multicast	Shared  
+shareReplay				Utility			Multicast	Replayed  
+publish					Utility			Multicast	Shared  
+publishReplay				Utility			Multicast	Replayed  
+publishBehavior				Utility			Multicast	Latest  
+publishLast				Utility			Multicast	Last  
+refCount				Utility			Lifecycle	Shared  
+connect					Utility			Lifecycle	Shared  
+
+🔹 Side-Effects & Introspection  
+---------------------------------------------------------------------------------------------
+Operator				Action			Control		State  
+----------------------------------------------------------------------------------------------
+tap					Utility			Observation	Stateless  
+materialize				Utility			Observation	Wrapped  
+dematerialize				Utility			Observation	Wrapped  
+toArray					Accumulate		Terminal	Buffered
+
+

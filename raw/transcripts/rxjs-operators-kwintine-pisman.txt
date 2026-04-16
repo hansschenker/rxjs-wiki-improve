@@ -1,0 +1,181 @@
+interface MyObserver<T> {
+next: (n: T) = void;
+error: (err: any) = void;
+complete: () = void;
+
+}
+
+class MyObservable<T> {
+
+constructor(private producer: (observer: MyObserver<T>) = void) {}
+
+subscribe(observer: MyObserver<T>) {
+this.producer(observer);
+
+const obs$ = new MyObservable<number>((observer: MyObserver<number>) = {
+observer.next(1);
+setTimeout(()=observer.next(2), 20);
+setTimeout(()=>observer.complete(), 40);
+
+obs$. subscribe({
+next: (n: number) > console.log('next', n), next 1, next 2
+error: (err: any) > console.log('error', err),
+complete: () = console. log('complete') complete
+
+// simple operator
+const myOperator = <T>(identifier: string) = (source: Observable<T>) = {
+return new Observable((observer: Observer<T>) = {
+const subscription = source.subscribe(
+(next: T) = {
+console.log('next', next); next 1
+console.log('identifier', identifier); ridentifier someString
+observer.next(next);
+
+(error: any) = {
+console.log('erorr', error);
+observer.error(error);
+
+() = {
+console.log('complete');
+observer. complete();
+
+complete
+
+return subscription;
+
+};
+
+of(1).pipe(
+myOperator('someString'),
+).subscribe((next: number) =console.log(next)); 1
+------ combineLatest operator test and implementation
+
+// test
+
+test('create our own combineLatest operator', (done) > { 52ms
+const obs1 = new Observable((observer: Observer<number>) => {
+observer.next(1);
+setTimeout(()=observer.next(2), 10);
+setTimeout(() =observer.next(3), 30);
+setTimeout(() >observer.complete(), 50);
+
+const obs2 = new Observable((observer: Observer<string>) = {
+observer.next('a');
+setTimeout(()=observer.next('b'), 20);
+setTimeout(() >observer.next('c'), 40);
+setTimeout(() >observer.complete(), 50);
+
+let expectedResult = [
+[1, 'a'],
+[2, 'a'],
+[2, 'b'],
+[3, 'b'],
+[3, 'c']
+
+1:
+
+combineLatest(obs1, obs2)]
+.subscribe(val > {
+const expected = expectedResult.shift();
+expect(val).toEqual(expected);
+
+(err: any) >console.log,
+() > done()
+
+I
+// implementation
+
+export const myCombideLatest| = ( ... observables: Array<Observable<any>>) = {
+
+return new Observable((observer: Observer<Array<any>>) = {
+let values = Array. from({length: observables.length}).map( NONE);
+let toRespond = observables.length;
+const nrOfObservables . observables. length;
+let nrofObservablesCompleted = 0;
+const subscriptions observables.map((obs, i) = obs.subscribe(
+(next: any) = {
+// keep a reference to the last next of every observable
+
+if(values[i] NONE) {
+// first next event for this source observable
+toRespond --;
+
+values[i] = next;
+// have all of the observables emitted a value
+if(toRespond =0) {
+// if all of the observables have emitted a value
+observer.next(values);
+
+err: any) > {
+observer.error(err);
+
+() {
+// if ALL of the source observables completed
+nrofObservablesCompleted++;
+if(nrOfObservables =nrOfObservablesCompleted) {
+observer.complete();
+
+}
+}
+))
+
+  return () => subscriptions.forEache(sub => sub.unsubscribe());
+})
+}
+
+----------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

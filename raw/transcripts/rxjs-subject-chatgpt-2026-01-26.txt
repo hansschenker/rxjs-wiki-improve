@@ -1,0 +1,272 @@
+A Subject is an entity that is both an Observable and an Observer.
+Subject = Observable ⊓ Observer
+
+Meaning:
+
+It receives values (next / error / complete) like an Observer
+It emits values to subscribers like an Observable
+It is the explicit bridge between producers and multiple consumers.
+
+Internally, a Subject:
+Maintains a set of subscribed observers
+On next, broadcasts the value to all current observers
+
+
+3. Why Subjects exist (derivation)
+
+By default, Observables are unicast:
+each subscribe() ⇒ new execution ⇒ new producer
+Subjects introduce multicasting:
+one producer ⇒ many observers
+
+They exist to:
+Share a single execution
+Bridge imperative push-style sources
+Model shared, hot event sources
+They are not primarily a data abstraction — they are a coordination primitive.
+
+5. Canonical mental model
+
+Think of a Subject as:
+a manually-driven multicast channel
+or more precisely:
+a hot, shared, effectful interpreter of the Observer protocol
+
+One-line takeaway
+
+A Subject is an Observable that you can push values into, whose sole reason to exist is
+ multicasting and imperative–reactive bridging.
+
+
+A Subject is a proxy that implements both sides of the RxJS protocol, enabling multicasting by mediating between a producer and multiple observers.
+
+
+Producer ──▶ Subject ──▶ Observer₁
+                     └─▶ Observer₂
+                     └─▶ Observer₃
+
+
+A Subject is an effectful interpreter of the Observer algebra
+that replays each effect to a dynamic set of observers.
+
+or more compactly:
+Subject = hot, shared, imperative dispatcher of Observer effects
+
+
+All RxJS multicast operators are implemented using a Subject-like mechanism that 
+tracks a set of subscribers, either explicitly or implicitly.
+
+
+1. Semantic intent (what “multicast” means)
+
+Multicasting in RxJS means:
+
+One producer execution → many observers
+Formally, this requires:
+A shared execution
+A fan-out point
+A registry of active subscribers
+
+
+
+3. Operator architecture (how RxJS does it)
+
+Multicast operators fall into two categories:
+
+A. Explicit Subject-based
+multicast
+publish* (deprecated)
+connectable
+share({ connector })
+shareReplay
+
+These literally create a Subject (or Subject subclass) internally.
+
+share({ connector: () => new Subject<T>() })
+
+
+Every Subject maintains at least:
+
+Subscriber registry
+A mutable set of observers
+Changes on subscribe / unsubscribe
+Terminal state
+Whether complete or error has occurred
+Prevents further emissions
+
+5. Relation to algebraic effects
+
+Subjects behave like a manual effect handler:
+next, error, complete = effect invocations
+Subscriber list = handler environment
+Fan-out = effect dispatch
+So you can say:
+A Subject is a concrete handler for the Observer effect algebra.
+
+
+Precise formulation
+
+A Subject is a dispatcher of Observer effects.
+That sentence is semantically complete.
+Why “dispatcher” is the correct word
+A dispatcher has three defining properties:
+Receives commands / effects
+
+Maintains routing state
+Forwards those effects to multiple targets
+A Subject does all three.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

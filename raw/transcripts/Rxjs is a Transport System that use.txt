@@ -1,0 +1,151 @@
+Rxjs is a Transport System that uses packages (notifications) to transport good
+
+1. “RxJS is a Transport System” — correct
+
+RxJS is a transport system for change over time.
+
+It defines:
+
+how values move
+
+in what order
+
+under what lifetime
+
+with what cancellation semantics
+
+It does not define:
+
+what the values mean
+
+how they are interpreted
+
+what domain they belong to
+
+2. “uses packages (notifications)” — precise and important
+
+In RxJS, nothing is transported raw.
+
+Everything is wrapped in a Notification:
+
+next(value)
+
+error(error)
+
+complete()
+
+These are the packages.
+
+Why this matters
+
+A transport system does not move:
+
+“a value”
+
+“an error”
+
+“a termination”
+
+It moves messages with structure.
+
+RxJS packages always include:
+
+the kind of message
+
+the payload (if any)
+
+an implicit position in time
+
+This is exactly how real transport systems work.
+
+3. The “goods” are payload, not structure
+
+The goods are the payload of next notifications:
+
+next(value: A)
+
+
+RxJS treats A as:
+
+opaque
+
+uninterpreted
+
+domain-defined
+
+RxJS never inspects, validates, or constrains A.
+
+So:
+
+pixels
+
+GPS coordinates
+
+domain events
+
+animation states
+
+are all just cargo.
+
+. Notifications are not values — they are envelopes
+
+A critical refinement:
+
+RxJS does not transport values.
+RxJS transports notifications that may carry values.
+
+This distinction explains:
+
+why errors are first-class
+
+why completion is explicit
+
+why streams are total (must end or error)
+
+why operators can reason algebraically
+
+So the true transported unit is:
+
+Notification<A>
+
+5. Why this model is powerful
+
+Because RxJS transports structured packages, it can:
+
+route errors separately from values
+
+terminate streams deterministically
+
+compose streams lawfully
+
+merge, switch, buffer, replay, or drop packages
+
+reason about completion independently of values
+
+All without knowing anything about the goods.
+
+| Transport analogy | RxJS concept      |
+| ----------------- | ----------------- |
+| Transport system  | RxJS runtime      |
+| Goods             | Payload `A`       |
+| Package           | `Notification<A>` |
+| Route             | Observable        |
+| Sender            | Producer          |
+| Receiver          | Observer          |
+| Connection        | Subscription      |
+| Dispatcher        | Scheduler         |
+
+7. Refined, maximally precise formulation
+
+Here is the best formal version of your sentence:
+
+RxJS is a transport system for time-ordered notifications, where each notification is a structured package (next, error, complete) that may carry domain-specific goods as payload, while RxJS itself remains completely agnostic to the meaning of those goods.
+
+
+
+One-line law (high signal)
+
+RxJS transports envelopes, not values.
+
+Everything you’ve derived—operators, DSLs, purity, schedulers, Subjects—follows from that single fact.
+

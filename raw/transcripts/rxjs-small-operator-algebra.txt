@@ -1,0 +1,31 @@
+small RxJS algebra extended:
+
+value transformation  - can be value-based or time-based
+
+gating - can be value-based or time-based			
+
+state - can be value-based or time-based
+
+combination - can be value-based or time-based
+
+snapshotting - can be value-based or time-based
+
+flattening policy - can be value-based or time-based
+
+shared execution - can be value-based or time-based
+
+Algebra:
+from Arabic "al-jabr",
+literally meaning
+reunion of broken parts"
+
+Broken parts:
+- map
+- concat
+- merge
+- all
+- switch
+- to
+- scan
+- exhaust
+

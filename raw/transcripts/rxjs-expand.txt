@@ -1,0 +1,309 @@
+getData(page: number = 1): Observable<{ data: Repo[], page: number }> {
+return this.http.get<Repo[]>('https://api.github.com/users/${this.user}/repos?page=${page}'
++ '&per_page=${this. itemsPerPage}?&direction=desc&sort=created',
+
+headers: { ...
+
+}).pipe(
+map(data => ({
+data: data.map(({ id, name, description }) => ({ id, name, description })),
+page
+
+ge
+
+: number = 1): Observable<{ data: Repo[], page: number }> {
+.getData(page)
+
+=> result.data.length ? of(result) : EMPTY)
+-----------------
+}
+
+ent.ts .
+mllagier = tnis.gs. gelvala ) . pipe(
+expand(result => {
+if (result.data.length) {
+return this.gs.getData(result.page + 1);
+
+return EMPTY;
+}),
+reduce((acc, value) => [ ... acc, ... value.data], [])
+
+);
+
+this.magier$.subscribe(repos => {
+this.output = repos;
+this.currentPage = 1;
+
+..
+------------
+
+getData2(page: number = 1): Observable<{ data: Repo[], page: number }> {
+return this.getData(page)
+.pipe(
+mergeMap(result => result.data.length ? of(result) : EMPTY)
+);
+
+magier$ = this.gs.getData2().pipe(
+expand(result => this.gs.getData(result.page + 1)),
+reduce((acc, value) => [ ... acc, ... value.data], [])
+);
+
+-------------
+
+// angular schule
+constructor(private ms: MagischerService) {}
+
+ngOnInit(): void {
+this.nextPage$.pipe(
+expand(page => (page < 500) ? of(page+100).pipe(delay(500)): EMPTY)
+).subscribe(console.log);
+--------
+magier$ = this.ms.getData().pipe(
+expand(result => this.ms.getData(result.page + 1))
+
+);
+
+constructor(private ms: MagischerService) {}
+
+---------
+
+magier$ = this.ms.getData().pipe(
+expand(result => {
+if (result.data.length) {
+return this.ms.getData(result.page + 1);
+
+return EMPTY;
+
+);
+
+-----------
+
+constructor(private ms: MagischerService) {}
+
+ngOnInit(): void
+this.nextPage$.pipe(
+mergeMap(page => of(page + 100).pipe(delay(500)))
+).subscribe(console.log);
+
+this.magier$.subsci
+this. output = res
+this.currentPage
+
+Google Chrome
+
+import { Component, OnInit } from '@angular/core';
+import { MagischerService } from './magischer.service';
+import { GithubService } from './github.service';
+
+import { Subject, of, EMPTY } from 'rxjs';
+import { concatMap, tap, expand, reduce } from 'rxjs/operators';
+import { Magier } from './types';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.scss'],
+})
+export class AppComponent implements OnInit {
+
+  nextPage$ = new Subject<number>(); // triggered by buttons in the UI
+
+  output: Magier[] = [];
+  currentPage = 0;
+
+  // load one single page, with a subject triggered by buttons
+  singlePagesWithSubject$ = this.nextPage$.pipe(
+    concatMap(page => this.ds.getData(page))
+  );
+
+  // recursively load all pages, with a subject and side effects
+  recursionWithSubject$ = this.nextPage$.pipe(
+    concatMap(page => this.ds.getData(page)),
+    tap(({ data, page }) => {
+      if (data.length) {
+        this.nextPage$.next(page + 1);
+      }
+    })
+  );
+
+  // simple example with expand
+  simpleExpand$ = this.nextPage$.pipe(
+    expand(e => {
+      console.log('expand input:', e);
+      return (e < 10) ? of(e + 1) : EMPTY;
+    })
+  );
+
+  // fetch all pages of mock data with expand (starting with page 0)
+  dataFetchedWithExpand$ = this.ds.getData(1).pipe(
+    expand(({ data, page }) => {
+      if (data.length) {
+        console.log(`There is another page ${ page + 1 }, loading it...`);
+        return this.ds.getData(page +  1);
+      } else {
+        console.log('There is no next page. Stop.');
+        return EMPTY;
+      }
+    }),
+    reduce((acc, res) => [...acc, ...res.data], [])
+  );
+
+  // real data: fetch all GitHub repos for a user
+  repos$ = this.ds2.getData(1).pipe(
+    expand(({ data, page }) =>  data.length ? this.ds2.getData(page + 1) : EMPTY),
+    reduce((acc, res) => [...acc, ...res.data], []),
+  );
+
+  // real data: fetch all GitHub repos for a user + service returns EMPTY
+  repos2$ = of({ page: 0, data: [] }).pipe(
+    expand(({ page }) => this.ds2.getData2(page + 1)),
+    reduce((acc, res) => [...acc, ...res.data], []),
+  );
+
+  constructor(private ds: MagischerService, private ds2: GithubService) {}
+
+  ngOnInit(): void {
+
+    // this.singlePagesWithSubject$.subscribe(result => console.table(result.data));
+    // this.recursionWithSubject$.subscribe(result => console.table(result.data));
+    // this.simpleExpand$.subscribe(console.table);
+    // this.dataFetchedWithExpand$.subscribe(console.table);
+    // this.repos$.subscribe(console.table);
+    // this.repos2$.subscribe(console.table);
+
+    this.singlePagesWithSubject$.subscribe(({ data, page }) => {
+      this.output = data;
+      this.currentPage = page;
+    });
+  }
+}
+Highlight connections
+1 connections found
+Actions
+
+-----------
+
+
+
+// ben lesh
+function getPagedData (index: number) {
+return timer(500).pipe(
+map ( () => ({
+pageIndex: index,
+data: Array.from({ length: 10 }, () => ({ id:
+nextPageIndex: index < 10 ? index + 1 :
+undefined,
+
+------
+
+console.clear ();
+
+function getPagedData (index: number) {
+return timer (500) .pipe (
+map ( () => ({
+pageIndex: index,
+data: Array.from({ length: 10 }, (, i) => ({
+id: (index * 10) + i,
+data: Math.random(),
+
+nextPageIndex: index < 10 ? index + 1 :
+undefined,
+
+const source = getPagedData (1p) ;
+
+source.subscribe(x => console.log (JSON.stringify(x,
+null, 2)));
+
+-------
+function getPagedData (index: number) {
+return timer (500) .pipe (
+map ( () => ({
+pageIndex: index,
+data: Array.from({ length: 10 }, (,i) => ({
+id: (index * 10) + i,
+data: Math.random(),
+
+nextPageIndex: index < 10 ? index + 1 :
+undefined,
+}))
+
+const subject = new Subject<number>();
+
+const source = subject.pipe(
+concatMap (index => getPagedData (index) ),
+tap[({ nextPageIndex }) => nextPageIndex !==
+undefined && subject.next (nextPageIndex)
+-------
+subject -- > getPagedData -- > [is next?] -> results
+
+const requestIndex = new Subject<number>();
+
+// when a new index arrives
+const source = requestIndex.pipe (
+// request the data for that index
+concatMap (index => getPagedData (index)),
+// if there's a next page, pump it into the top
+tap ((( nextPageIndex )) =>
+nextPageIndex !== undefined && requestIndex.next
+(nextPageIndex) )
+
+source.subscribe (x => console.log (x));
+
+requestIndex.next (0);
+-----------
+
+const source2 = of({ nextPageIndex: 0 } ) .pipe(
+expand ( (( nextPageIndex }) => {
+if
+return getPagedData(nextPageIndex);
+
+return EMPTY;
+
+(next PageIndex
+----------
+
+
+of({ nextPageIndex: 0}).pipe(
+expand ((( nextPageIndex } ) =>
+(nextPageIndex !== undefined) ?
+getPagedData(nextPageIndex) : EMPTY
+
+skipll
+
+.subscribe (x => console.log (x) );
+
+---------
+) ,
+
+of ({ nextPageIndex: 0 }).pipe(
+expand ( (( nextPageIndex }) =>
+(nextPageIndex !== undefined) ?
+getPagedData (nextPageIndex) : EMPTY
+
+scani(allData, { data )
+> [ ... allData, .. .data],
+
+)
+.subscribe (x => console.log (x) );
+
+---------------
+
+of({ nextPageIndex: 0 }).pipe(
+expand ( (( next.PageIndex }) =>
+(nextPageIndex !== undefined) ?
+getPagedData (nextPageIndex) : EMPTY
+
+.subscribe (x => console.log (x) );
+
+-----------
+
+
+
+
+
+
+
+
+
+
+

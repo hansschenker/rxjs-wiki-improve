@@ -1,0 +1,102 @@
+
+
+Routing
+-------------------
+
+State
+Management
+-------------------
+DOM
+Rendering
+-------------------
+
+HTTP Client
+-------------------
+Reactive
+Forms
+-------------------
+Error Handling
+-------------------
+
+Store
+-------------------
+
+Persistence
+-------------------
+
+
+Testing
+-------------------
+
+Animations
+-------------------
+
+
+Details
+
+Nested routes, (:param matching, query params, hash + history
+mode, guards, lazy loading, scroll reset, route transitions, SSR
+initialUrl
+
+MVU (reducer + actions), select () with
+distinctUntilChanged
+getState()
+
+html tagged templates, when() conditionals, List() with key-
+based reconciliation, renderKeyedComponents, event binding,
+two-way binding, auto-escaped text
+
+Request/response interceptors, RemoteData<T>
+union, toRemoteData() , cold observables, cancellation on
+unsubscribe
+
+Schema builders, built-in validators, dirty/touched tracking,
+valid$, submitting$, two-way DOM binders, cross-field
+validation
+
+Global capture ( onerror + (unhandledrejection ),
+catchAndReport() , safeScan()
+centralized(errors$ )bus
+
+createPersistedStore(), pick for partial persistence,
+version for schema migration, custom storage backends
+
+Mock store, mock router, mock HTTP client, collectFrom()
+triggerHashChange()
+
+Enter/leave on routes, conditionals, and lists; (fadeIn ,
+scaleTn nresets. cssTransitinn()
+
+slideIn
+
+wehAnimate()
+Animations
+
+Good
+
+slideIn
+
+SSR
+
+Partial
+
+support
+
+Security
+
+Partial
+
+Enter/leave on routes, conditionals, and lists; fadeIn
+webAnimate()
+
+router initialUrl
+
+safeHtmL() , explicit
+
+scaleIn presets; cssTransition()
+
+renderToString() , hydrate(
+
+XSS protection via auto-escaping,
+unsafeHtml() escape hatch
+// explain in depth DOM Rendering feature

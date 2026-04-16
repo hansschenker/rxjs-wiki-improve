@@ -1,0 +1,27 @@
+vhat is Join Calculus !
+
+>D
+
+Join calculus is ...
+· a declarative language for concurrent & parallel computations
+. ... largely unknown and unused by the software engineering community
+
+Concurrent & parallel programming is hard
+
+Imperative concurrency is difficult to reason about:
+· callbacks, threads, semaphores, mutex locks
+. errors with shared mutable state
+. testing is hard - non-deterministic runtime behavior!
+race conditions, deadlocks, livelocks
+We can avoid this if we use declarative approaches:
+synchronous parallelism (parallel collections, Spark)
+. asynchronous parallelism (Future, async/await)
+· asynchronous streaming (Akka Streaming)
+· STM
+· Actors (Akka)
+. join calculus (Chymyst)
+
+Join calculus is part of Process Calculus (Winitzki)
+
+
+

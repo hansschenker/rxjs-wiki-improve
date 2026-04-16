@@ -1,0 +1,59 @@
+Structure You Already Have
+Every chapter already has source material from our work together:
+Part I — Foundations
+
+Ch 1: What RxJS really is (the Grand Unification Formula)
+Ch 2: Time as a first-class citizen (Scheduler-first pedagogy)
+Ch 3: The Mathematical Dual (Observer/Iterator, formally derived)
+Ch 4: Algebra, Monads, and Joinads in plain language
+
+Part II — The Eight-Policy Framework
+
+Ch 5: Why operators need formal specification
+Ch 6: The four flattening operators, fully specified
+Ch 7: Reading and writing operator policies yourself
+
+Part III — Patterns & Architecture
+
+Ch 8: State with scan — the universal accumulator
+Ch 9: The Elm/MVU pattern with RxJS
+Ch 10: Design by Contract for Observable streams
+Ch 11: Signal Graph Architecture
+
+Part IV — The Practitioner's Toolkit
+
+Ch 12: Testing with marble diagrams and TestScheduler
+Ch 13: Debugging with rxjs-contracts and Zone.js
+Ch 14: Real-world patterns (HTTP, WebSocket, drag-and-drop, state management)
+
+Part V — Teaching RxJS (unique — no other RxJS book has this)
+
+Ch 15: The Mailbox Model as a teaching metaphor
+Ch 16: Reducing cognitive load: the rxjs-strategies approach
+Ch 17: Building a curriculum
+
+
+The Honest Assessment of Where You Stand
+What you need for a bookStatusUnique angle / thesis✅ You have it — nobody teaches this wayTechnical depth✅ ExceptionalCode examples✅ All the projectsChapter outlines✅ Essentially doneProse drafts⚠️ This is the main work aheadPublisher or platform decision⚠️ Need to decide
+
+The Two Publishing Paths
+Path A — Self-publish on Leanpub (recommended to start)
+
+Write and publish incrementally — readers buy early and follow along
+You keep ~80% royalties
+No gatekeepers, no waiting
+The rxjs-contracts, rxjs-strategies documentation is already close to book-quality prose
+Best fit for your situation — you can ship Chapter 1 next week
+
+Path B — Traditional publisher (Packt / O'Reilly)
+
+Packt actively looks for RxJS/TypeScript authors
+O'Reilly is harder but more prestigious
+6–18 month lead time, lower royalties (~15–20%)
+Gives you editorial support and wider distribution
+Start with Leanpub, pitch publishers once you have 3 chapters done — proven content de-risks their decision
+
+
+The Concrete Next Step
+The single most useful thing we could do right now is write Chapter 1 — the opening argument for why this book exists and why your approach is different. It's the thing a publisher wants to see first, and it's what hooks a reader on Leanpub.
+We have all the raw material. Shall I draft Chapter 1 now — the thesis, the Grand Unification Formula introduced accessibly, and the promise of what the reader will be able to do by the

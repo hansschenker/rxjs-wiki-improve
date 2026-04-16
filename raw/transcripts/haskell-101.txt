@@ -1,0 +1,67 @@
+type Point = [number, number];
+
+type Polygon = Point[];
+
+type Map<K, V> = [K, V][];
+
+--
+type Point = [number, number];
+
+type Polygon = Point[];
+
+type Map<K, V> = [K, V][];
+
+1. **Point Type**: The Haskell tuple `(Int, Int)` is translated to a TypeScript tuple `[number, number]`. Since JavaScript/TypeScript uses `number` for both integers and floats, `number` is the standard equivalent for `Int`.
+2. **Polygon Type**: The Haskell list `[Point]` is translated to a TypeScript array `Point[]`.
+3. **Map Type**: 
+    - The Haskell definition `type Map k v = [(k, v)]` defines an "association list" (a list of key-value pairs) rather than a hash-mapped data structure.
+    - I have preserved this structure by defining it as a generic type `Map<K, V>` which is an array of tuples `[K, V][]`.
+    - **Note on Naming**: In TypeScript, `Map` is a built-in global class. Defining `type Map<K, V>` will shadow the built-in `Map` within the scope where this code is used. This was done to maintain the exact naming from the original Haskell source as per the requirement to preserve all types exactly.
+4. **Generics**: Haskell's type variables `k` and `v` are translated to TypeScript generic parameters `<K, V>`.
+
+---        Functor: Inc :: Functor f => f Int -> f Int  -- f is any Functor Type (List, Maybe, …)
+
+
+/**
+ * In Haskell, higher-kinded types (like 'f a') allow functions to be generic over the type constructor 'f'.
+ * TypeScript does not support higher-kinded types natively, so we use a common pattern 
+ * (Lightweight Higher-Kinded Types) to simulate this behavior.
+ */
+
+/**
+ * HKT (Higher-Kinded Type) placeholder.
+ * F represents the type constructor (e.g., Array, Option, Task).
+ * A represents the type of the value contained within the constructor.
+ */
+export interface HKT<F, A> {
+  readonly _F: F;
+  readonly _A: A;
+}
+
+/**
+ * Functor type class definition.
+ * In Haskell: class Functor f where fmap :: (a -> b) -> f a -> f b
+ */
+export interface Functor<F> {
+  readonly map: <A, B>(fa: HKT<F, A>, f: (a: A) => B) => HKT<F, B>;
+}
+
+/**
+ * Inc :: Functor f => f Int -> f Int
+ * 
+ * This function takes a Functor instance 'F' and a value 'fa' (f Int),
+ * and returns a new 'f Int' where the internal value is incremented.
+ */
+export const Inc = <F>(F: Functor<F>) => (fa: HKT<F, number>): HKT<F, number> => {
+  return F.map(fa, (n: number) => n + 1);
+};
+
+1. **Higher-Kinded Types (HKT):** Haskell's `f a` (where `f` is a type constructor) has no direct equivalent in TypeScript's type system (you cannot have a generic type like `T<K>`). I implemented a simulation using the `HKT<F, A>` interface, which is the standard way to translate Haskell's type-class-based generic code into TypeScript (as seen in libraries like `fp-ts`).
+2. **Type Class Constraint:** The Haskell constraint `Functor f =>` is translated into a curried function in TypeScript that accepts an implementation of the `Functor<F>` interface. This is the equivalent of "dictionary passing" which Haskell performs under the hood.
+3. **Type Mapping:** 
+    - `Int` in Haskell is represented as `number` in TypeScript.
+    - `f Int` is represented as `HKT<F, number>`.
+4. **Function Implementation:** While the original snippet was only a type signature, a Haskell function with the signature `Functor f => f Int -> f Int` named `Inc` is logically implemented as `Inc = fmap (+1)`. I have provided the full implementation of this logic using the `map` method of the Functor interface.
+5. **Dependencies:** No external libraries are required as I have included the necessary HKT and Functor definitions to make the code self-contained and functional.
+
+-------------

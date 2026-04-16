@@ -1,0 +1,273 @@
+/**
+ * FUNCTIONAL COMPOSITION
+ * with static typing in TypeScript
+ *
+ * Tomasz Ducin
+ * http://ducin.it
+ * twitter: @tomasz_ducin
+ */
+// index.ts
+
+
+// types.ts
+export type Nationality = "US" | "UK" | "FR" | "DE" | "NL" | "PL" | "IT" | "ES";
+
+export type ContractType = "contract" | "permanent";
+
+export type Developer = {
+  "id": number;
+  "nationality": Nationality,
+  "salary": number;
+  "office": [string, string];
+  "firstName": string;
+  "lastName": string;
+  "title": string;
+  "contractType": ContractType;
+  "email": string;
+  "hiredAt": string;
+  "expiresAt": string;
+  "personalInfo": {
+    "age": number;
+    "email": string;
+    "dateOfBirth": string;
+  },
+  "skills": string[];
+};
+
+// index.ts
+
+import { Developer, Nationality } from './types'
+
+declare const devs: Developer[]
+
+console.log(devs.length)
+
+// 1. jumping over a fn signature (fn -> fn)
+// 2. pipe/compose
+
+type ConditionFn<T> = (t: T) => boolean
+type DeveloperConditionFn = ConditionFn<Developer>
+
+const earnsALot = (d: Developer) => d.salary > 8000
+const earnsCrap: DeveloperConditionFn = (d) => d.salary < 2000
+const knowsJavaScript: DeveloperConditionFn = (d: Developer) => d.skills.includes('JavaScript')
+
+const hasNationality = (n: Nationality): DeveloperConditionFn =>
+  (d: Developer) =>
+    d.nationality === n
+
+const all = <T>(...fns: ConditionFn<T>[]): ConditionFn<T> =>
+  (t: T) => !fns.find(cfn => !cfn(t))
+
+const candidateCriteriaMet = all(
+  earnsALot,
+  knowsJavaScript,
+  hasNationality('PL')
+)
+
+// or
+// atLeast
+
+type ComparatorFn<T> = (e1: T, e2: T) => number
+
+const earnsMoreThan: ComparatorFn<Developer> = (d1, d2) => d1.salary - d2.salary
+
+const reverse = <T>(cfn: ComparatorFn<T>) =>
+  (e1: T, e2: T) => -cfn(e1, e2)
+
+const earnsLessThan = reverse(earnsMoreThan)
+const isYoungerThan: ComparatorFn<Developer> = (d1, d2) => d2.personalInfo.age - d1.personalInfo.age
+
+const combinedSort = <T>(...cfns: ComparatorFn<T>[]): ComparatorFn<T> =>
+  (e1, e2) => {
+    const firstFn = cfns.find(cfn => !!cfn(e1, e2))
+    return firstFn ? firstFn(e1, e2) : 0
+  }
+
+const theOrderOfGod = combinedSort(
+  isYoungerThan,
+  reverse(earnsMoreThan),
+)
+
+// console.log(devs.filter(candidateCriteriaMet).length )
+console.log(devs.sort(theOrderOfGod)[0].personalInfo.age )
+
+function pipe<T, U, V>(
+  f: (t: T) => U,
+  g: (u: U) => V
+): (t: T) => V
+function pipe<T, U, V, W>(
+  f: (t: T) => U,
+  g: (u: U) => V,
+  h: (v: V) => W,
+): (t: T) => W
+function pipe<T, U, V, W, X>(f: (t: T) => U, g: (u: U) => V, h: (v: V) => W, i: (w: W) => X): (t: T) => X
+function pipe (...fns: Function[]) {
+  return (value) => fns.reduce((current, fn) => fn(current), value )
+}
+
+const filter = <T>(cfn: ConditionFn<T>) =>
+  (collection: T[]) =>
+    collection.filter(cfn)
+
+const getEasterBonus = pipe(
+  filter(all(
+    earnsCrap,
+    hasNationality('PL')
+  )),
+  devs => devs.map(d => d.salary / 4),
+  amounts => amounts.reduce((sum, n) => sum + n)
+)
+console.log('bonus!', getEasterBonus(devs))
+
+-----------------------
+
+// currying applied
+const earnsALot = (d: Developer) => d.salary > 8000
+const knowsJavaScript = (d: Developer) => d.skills.includes('JavaScript')
+
+const hasNationality = (n: Nationality) =>
+(d: Developer) =>
+d.nationality == n
+
+isPolish = hasNationality('PL')
+
+I
+console. log(devs.filter(d => earnsALot(d) && knowsJavaScript(d)).length )
+// console. log( devs.filter(earnsALot). length )
+
+---------------------- declarative all   ------------------
+type DeveloperConditionFn = (d: Developer) => boolean
+
+// better generic
+tyne ConditionFn<T>= (t: T) => boolean
+type DeveloperConditionFn = ConditionFn<Developer>
+
+const all = <T>( ... fns: CondtionFnkT>[]): ConditionFn<T> =>
+// if I find one than all is false
+(t: T) => !fns.find(cfn => !cfn(t))
+
+
+const candidateCriteriaMet = all(
+earnsALot,
+knowsJavaScript,
+hasNationality( 'PL')
+
+
+// or
+// atLeast
+
+// we do not know T upfront, it is runtime specific, for each call specific
+type ComparatorFn = <T>(e1: T, e2: T) => number
+
+// we know T upfront , it is design time specific
+type ComparatorFn<T>  = (e1: T, e2: T) => number
+
+const earnsMoreThan: ComparatorFn<Developer> = (d1, d2) => d1.salary - d2.sala
+const earnsLessThan: ComparatorFn<Developer> = (d1, d2) => d2.salary - d1.sala
+
+const reverse = <T>(cfn: ComparatorFn<T>) =>
+(e1: T, e2: T) => -cfn(e1, e2)
+
+const earnsLessThan = reverse(earnsMoreThan)
+console. log(devs. sort (reverse(earnsMoreThan) [0].salary )
+
+// combined sort
+
+const combinedSort = <T>( ... cfns: ComparatorFn<T>[]): ComparatorFn<T> =>
+(e1, e2) => {
+const firstFn = cfns.find(cfn => !! cfn(e1, e2))
+return firstFn ? firstFn(e1, e2) : 0
+
+}
+
+const earnsLessThan = reverse(earnsMoreThan)
+const isYoungerThan: ComparatorFn<Developer> = (d1, d2)
+
+const theOrder0fGod = combinedSort(
+earnsMoreThan,
+isYoungerThan
+)
+
+console.log(devs.sort(theOrder0fGod) [0].personalInfo.age )
+
+//         using pipe composition , instead type signature into type signature way
+
+sum
+
+const getEasterBonus = pipe(
+filter(all(
+earnsCrap,
+hasNationality('PL')
+),
+_twentyFivePercentOfTheSalary(),
+You, a few seconds ago . Uncommitted changes
+
+)
+
+console. log( 'bonus!', getEasterBonus (devs))
+
+
+const filter = <T>(cfn: ConditionFn<T>) =>
+(collection: T[]) =>
+collection.filter(cfn)
+
+const getEasterBonus = pipe(
+filter(all(
+earnsCrap,
+hasNationality('PL')
+
+devs => devs.map(d => d.salary / 4),
+amounts => amounts.reduce((sum, n) => sum + n)
+
+console. log('bonus!', getEasterBonus(devs))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+console. log(devs. filter(candidateCriteriaMet).length )
+// console. log( devs. filter(earnsALot). length )
+
+
+
+
+--------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-------------

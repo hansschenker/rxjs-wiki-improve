@@ -1,0 +1,11 @@
+const getUserDetails = userIdsList => {
+
+const array0fObservables = userIdsList.map(userId =>
+ajax('https://backend_url/users/' + userId)
+
+)
+
+return forkJoin(array0fObservables)
+
+getUserDetails([1, 2, 15])
+. subscribe(handleUserDetails) // here we get array of userDetails [{ . .. }, { . .. }, { ... }]

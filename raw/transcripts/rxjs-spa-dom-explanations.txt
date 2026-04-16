@@ -1,0 +1,111 @@
+Deep Dive: How component.ts Works
+This file implements a reactive component system that bridges RxJS Observables with DOM rendering. Here's a step-by-step breakdown:
+
+1. Core Types
+Lifecycle Interface
+
+export interface Lifecycle {  onMount(fn: () => void | (() => void)): void  onDestroy(fn: () => void): void}
+onMount(fn): Registers callbacks that run after the component's DOM fragment is inserted
+
+The callback can optionally return a cleanup function, which will be registered as a onDestroy handler
+Scheduling via queueMicrotask ensures the DOM is already in place
+onDestroy(fn): Registers cleanup callbacks that run when the component is destroyed
+
+Tied to subscription disposal
+ComponentDef<P> Type
+
+export type ComponentDef<P> = (props: P) => TemplateResult
+A component is simply a function that takes props and returns a TemplateResult
+TemplateResult contains: a DOM fragment, a subscription, and template strings/values
+2. The defineComponent Function
+This is the core factory. It takes a setup function and returns a component definition.
+
+Signature:
+
+export function defineComponent<P>(  setup: (props: P, lifecycle: Lifecycle) => TemplateResult,): ComponentDef<P>
+The returned component definition is a function that:
+
+Creates lifecycle arrays
+Builds a composite subscription
+Executes the setup function
+Manages component lifecycle
+Returns a new TemplateResult
+3. Step-by-Step Execution Flow
+Step 1: Setup Invocation
+
+const result = setup(props, lifecycle)
+The user's setup function runs once per component instance
+It receives props and lifecycle hooks
+It returns a TemplateResult (fragment + related subscription)
+Step 2: Subscription Composition
+
+const compositeSub = new Subscription()compositeSub.add(result.sub)
+A new composite subscription is created
+The template's subscription is added to it
+This ensures template bindings (Observable subscriptions) are tracked
+When compositeSub unsubscribes, all template bindings are cleaned up
+Step 3: Schedule onMount Callbacks
+
+queueMicrotask(() => {  if (compositeSub.closed) return  for (const fn of mountCallbacks) {    const cleanup = fn()    if (typeof cleanup === 'function') {      destroyCallbacks.push(cleanup)    }  }})
+Why queueMicrotask?
+
+By the time this runs, the DOM renderer has already inserted the fragment into the DOM
+Callbacks can safely access DOM elements, parent nodes, etc.
+No race conditions with DOM insertion
+How it works:
+
+Check if subscription is already closed (component destroyed early)
+Execute each onMount callback
+If the callback returns a cleanup function, automatically register it as a onDestroy handler
+This provides an elegant way to clean up resources directly in mount handlers
+Step 4: Wire Destruction Handler
+
+compositeSub.add(() => {  for (const fn of destroyCallbacks) {    fn()  }})
+When the composite subscription is unsubscribed, all destruction callbacks fire
+This happens when:
+The component is removed from the template
+The parent component is destroyed
+The application manually unsubscribes
+Step 5: Return New TemplateResult
+
+return {  fragment: result.fragment,  sub: compositeSub,  strings: result.strings,  values: result.values}
+A new TemplateResult is returned wrapping the original fragment
+The subscription is now the composite subscription (which includes the original + lifecycle management)
+4. Usage Example Walkthrough
+
+const UserCard = defineComponent<{ user$: Observable<User> }>(  (props, { onMount, onDestroy }) => {    onMount(() => {      console.log('mounted')      return () => console.log('cleanup from mount')    })        onDestroy(() => console.log('destroyed'))    return html`      <div class="user-card">        <h3>${props.user$.pipe(map(u => u.name))}</h3>      </div>    `  },)// Usage:const selectedUser$ = new Observable<User>(...)const result = UserCard({ user$: selectedUser$ })
+Timeline:
+
+defineComponent called → Returns a factory function (UserCard)
+UserCard({ ... }) called → defineComponent's returned function executes:
+Calls setup(props, lifecycle) → Creates the template
+Creates compositeSub
+Schedules onMount via queueMicrotask
+Returns TemplateResult
+Template is rendered → Fragment inserted into DOM
+Microtask runs → onMount callbacks execute (component can safely access DOM)
+Component destroyed → compositeSub.unsubscribe():
+Template subscriptions (Observable bindings) are cleaned up
+onDestroy callbacks run
+Mount cleanup functions run
+5. Key Design Patterns
+Composite Subscription Pattern
+Combines template subscriptions + lifecycle teardown into one subscription
+Ensures nothing is orphaned when a component is destroyed
+Deferred Mount Callbacks
+Using queueMicrotask guarantees DOM is ready
+Allows synchronous template creation with async DOM safety
+Cleanup Function Chaining
+onMount can return a cleanup function
+Automatically becomes an onDestroy handler
+Elegant pattern for resource management
+Props-Based Reactivity
+Components receive Observable props (user$, items$, etc.)
+The html tagged template automatically subscribes to and renders them
+Updates flow through RxJS operators (map, filter, etc.)
+6. Why This Design?
+✅ Composable: Components are just functions — nest them easily
+✅ Reactive: Everything flows through RxJS — predictable data flow
+✅ Memory-safe: Automatic cleanup via subscription management
+✅ DOM-aware: Lifecycle hooks have the right timing
+✅ Simple: No build-time compilation or complex framework overhead

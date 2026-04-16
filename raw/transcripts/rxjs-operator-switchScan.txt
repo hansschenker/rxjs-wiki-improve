@@ -1,0 +1,22 @@
+switchScan<T,R>(accumulator: (acc: R, value: T) => ObservableInput<R>, seed: R): OperatorFunction<T,R>
+
+Description
+Like scan but the accumulator returns an Observable; switches (cancels) on each new source value.
+
+Use when
+Stateful async transforms where new input should cancel ongoing work.
+
+Marble
+--a--b--|  →  accumulates with cancellation on b
+
+Example▶ Run
+⎘
+const { of, switchScan } = rxjs;
+// Accumulate items into an array (like scan but switchMap inner)
+of('a', 'b', 'c')
+  .pipe(switchScan((acc, v) => of([...acc, v]), [] as string[]))
+  .subscribe(v => console.log(JSON.stringify(v)));
+
+See also
+scan
+switchMap

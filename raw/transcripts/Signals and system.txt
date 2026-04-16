@@ -1,0 +1,18 @@
+Signals and system
+Signal:
+
+A signal can be described as a function of one or more independent variables.
+
+f(t) or f(41,12,13 ... )
+
+Carry information
+Vary with respect to a independent variable
+A physical quantity
+
+Any physical phenomenon that carries information and varies with time, space or any other
+independent variable.
+
+Time Space Pressure Temperature Frequency etc.
+
+Examples: Speech signal, heart-rate, blood-pressure, radio signal
+

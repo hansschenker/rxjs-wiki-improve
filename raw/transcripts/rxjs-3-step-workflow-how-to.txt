@@ -1,0 +1,21 @@
+Bash(cd "C:/Users/HP/Web/Frontend/rxjs/rxjs-workflow" && npx tsc -- noEmit 2>&1)
+(No output)
+
+Bash(cd "C:/Users/HP/Web/Frontend/rxjs/rxjs-workflow" && npm run build 2>&1)
+> rxjs-workflow@0.0.0 build
+> tsc && vite build
+... +9 lines (ctrl+o to expand)
+
+Clean build. Here's the complete comparison flow:
+
+How it works:
+
+1. Click any operator > detail panel opens as normal, with a new @ Compare button in the header
+2. Click M Compare > panel shows an indigo banner: "M Click any operator to compare with switchMap"; the button becomes x Cancel; chips that are picked as the target get a dashed outline (chip -- compare
+3. Click any other operator in any column + comparison table opens with both operators side-by-side
+4. The comparison table shows: Step badge, Category, Signature, Description, Use when, Marble - with colored column headers matching each operator's step color
+5. The operator names in the comparison panel header are clickable - clicking either one exits comparison and opens that operator's normal detail view (for code examples, run button, etc.)
+6. The M button in the comparison header lets you swap the second operator while keeping the first
+7. Pressing Esc or clicking x clears everything
+
+The panel widens from 360px to 680px in comparison mode to give each column enough room.

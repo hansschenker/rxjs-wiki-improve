@@ -1,0 +1,113 @@
+Workshop Key Takeaways
+
+. Learn Modern Angular 21.3
+Signal-base Component
+Model
+
+. Learn how to do Data
+
+Fetching and Mutations
+. Understand Advanced
+
+Routing and Guards
+
+https://github.com/alex-okrushko/devfest-manager
+git checkout d1m1
+npm install -- force
+ng serve dev
+
+To create an input signal in the child component, use the input() function imported from Angular core. In the parent template, pass data using square bracket syntax that corresponds to the input name. For instance, <app-child [name]="text"></app-child>. Inside the child component, access the value by invoking the signal with parentheses: name().
+
+When using the signal() function in Angular, a writable signal is created by default. There are two methods available: set(), which directly assigns a new value, and update(), which receives the previous value as an argument and lets you calculate a new value based on it. The model decorator facilitates two-way binding between parent and child components, enabling changes made in the child to automatically update the parent. The 'banana in a box' syntax, represented as [(name)], is a shorthand for two-way binding, combining input and output binding by automatically listening for events with the
+same name plus a 'Change' suffix.
+
+When passing a signal to a model binding using the banana in a
+box syntax, should you invoke the signal or pass it directly?
+
+A linked signal allows you to change things within a component
+while still being tied to an input passed from the parent. When
+the parent changes, it re-updates the internal state. It creates a
+writable signal that acts as local state but remains synchronized
+with parent data sources.
+
+.
+
+You can destructure the linked signal into a source and
+computation function. The computation function receives the
+current value and can also access the previous value as a second
+parameter. For example: computation: (value, previous) => {
+} . This previous value refers to the previous value of the
+linked signal itself, not the source.
+
+A computed signal is a pure derivation of state that is read-only
+and cannot be overwritten (it doesn't have a set method). A
+linked signal is a writable signal that derives its initial value from
+other signals but can still be manually reset locally using set()
+or update() methods.
+
+Glitch-free behavior ensures that when multiple signal
+dependencies change simultaneously, the computation function
+runs only once instead of multiple times. The signal system
+realizes that multiple dependencies changed and pulls them first
+before computing once. This is possible because signals are
+synchronous.
+
+When the parent updates the text signal that feeds into the
+name input, the linked signal will detect that its tracked input
+has changed. It will re-trigger and update the value by running
+the computation function again with the new input value, even if
+the firstLetter was previously set manually.
+
+A source is the original source of truth (like a date value), while a
+computed value is derived state that is calculated from one or
+more sources. Computed values automatically recalculate
+whenever the signals used within their function body change.
+
+The @let directive allows you to read a value once from a signal
+or computed value and store it in a template variable that can be
+reused multiple times within the template, avoiding the need to
+call the same signal multiple times.
+
+You use the computed() function with a callback that contains
+the logic. Any signals read within the callback function will
+automatically trigger a recomputation when their values change.
+Inside the callback, you read signal values and return the
+computed result.
+
+Instead of multiplying time values together into a single large
+number, break down the conversion explicitly. For example, to
+convert milliseconds to days, divide by: 1000 * 60 * 60 * 24,
+where each factor represents milliseconds per second, seconds
+per minute, minutes per hour, and hours per day. Optionally,
+extract these values into named constants like
+daysInMilliseconds for clarity.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,326 @@
+export function expand<T, O extends ObservableInput<unknown>>(
+  project: (value: T, index: number) => O,
+  concurrent = Infinity
+): OperatorFunction<T, ObservedValueOf<O>> {
+  concurrent = (concurrent || 0) < 1 ? Infinity : concurrent;
+  return (source) =>
+    new Observable((subscriber) =>
+      mergeInternals(
+        source,
+        subscriber,
+        project as (value: T, index: number) => ObservableInput<ObservedValueOf<O>>,
+        concurrent,
+        undefined,
+        true // Use expand path
+      )
+    );
+}
+
+-------
+How expand works (plain explanation)
+
+Purpose
+
+expand takes each value from the source Observable, emits it to the subscriber, then applies a projection function (project) to that value to produce an inner Observable. Every value emitted by those inner Observables is treated like another "source" value: it is emitted and also passed to project again. This recurses until no new values are produced (or you stop it, e.g. with take).
+Implementation overview
+
+expand simply delegates the heavy lifting to the shared mergeInternals(...) routine with expand = true.
+mergeInternals implements a general merging strategy used by mergeMap/mergeAll/etc., and when expand = true it switches behavior slightly so that:
+every value that is being subscribed (outer or derived) is emitted immediately (destination.next(value)) before subscribing to its projected inner Observable,
+every inner emission is routed back into the same "outer" processing path (outerNext), so it is emitted and projected again — that's the recursion.
+Step-by-step runtime behavior
+
+subscribe to the source observable.
+for each source value, outerNext(value) runs:
+if active < concurrent, doInnerSub(value) starts; otherwise the value is buffered.
+doInnerSub(value) (the core):
+if expand is true, immediately emit the value: destination.next(value).
+increment active (count of active inner subscriptions).
+call project(value, index++) and subscribe to the returned inner Observable.
+when an inner Observable emits a value (innerValue):
+if expand is true, call outerNext(innerValue). That will:
+emit innerValue immediately (because doInnerSub emits before subscribing),
+then attempt to subscribe to project(innerValue, nextIndex) (if concurrency allows) or buffer it.
+if expand were false (other operators), innerValue would simply be forwarded to destination.next(innerValue).
+when an inner completes:
+the implementation decrements active (in finalize/complete handling) and starts any buffered values while active < concurrent.
+checkComplete() is called: if the outer source has completed, buffer is empty, and there are no active inner subscriptions, then destination.complete() is called.
+errors from project or inner Observables are forwarded to destination.error(...) and the subscription terminates.
+Concurrency and buffering
+
+The concurrent parameter limits how many inner subscriptions can be active at once.
+If active >= concurrent, new values are pushed into a buffer and will be consumed when active drops.
+expand.ts normalizes concurrency with:
+concurrent = (concurrent || 0) < 1 ? Infinity : concurrent; meaning 0 or negative values are treated as Infinity. To constrain concurrency, pass a positive integer >= 1.
+With concurrent = 1, expansion behaves like a sequential (depth-like) recursion: each inner emission is processed one at a time. With concurrent > 1, multiple recursive branches can be processed in parallel.
+Indexing
+
+An index counter is incremented and passed to project for each projection call (project(value, index++)), so you can know how many projections have been invoked.
+Emission order / recursion character
+
+Because doInnerSub emits a value before subscribing to its projection and because inner emissions are fed back into outerNext immediately, the pattern of processing depends on concurrency:
+concurrent = 1: you get a serial chain (each produced value is emitted and fully processed before the next).
+concurrent > 1: multiple inner subscriptions can interleave; the traversal is effectively concurrent and interleaved.
+There is no special scheduler passed from expand(...) in this implementation (mergeInternals historically had an innerSubScheduler param but it is not used here), so scheduling is driven by the inner Observables themselves.
+Practical considerations / cautions
+
+expand can easily produce an infinite stream (e.g., project keeps returning an Observable that emits new values). Always consider limiting recursion with operators like take, takeWhile, filter, or by using a project function that eventually returns empty/complete.
+If you need a specific traversal order, tune the concurrency argument.
+Because every projected value is emitted and then projected again, you will see the original source values plus all recursively generated values in the resulting output Observable.
+Small example (conceptual)
+
+Suppose source emits 1, project(x) returns of(x + 1). With no limits, expand will emit: 1, 2, 3, 4, ... forever. Use take(5) after expand to get first five values.
+Summary
+
+expand works by reusing the general merge logic (mergeInternals) with expand = true.
+It emits each value immediately, projects it to an inner Observable, and feeds every inner emission back into the same pipeline, producing recursive expansion.
+Concurrency controls how many inner subscriptions are active; buffering ensures the concurrency limit is respected.
+Be careful: expansion can be infinite unless you explicitly stop it.
+If you want, I can illustrate the emission/subscription order with a small marble-style example for several concurrency settings (1, 2, Infinity), or show a typical usage with take to prevent infinite emission. Which would you prefer?
+
+------
+Copilot said: ```typescript name=packages/rxjs/src/internal/operators/expand.ts url=https://github.com/ReactiveX/rxjs/blob/c15b37f81ba5f5abea8c872b0189a70b150df4cb/packages/rxjs/src/internal/operators/expand.ts export function expand<T, O extends
+ReactiveX / rxjs / packages / rxjs / src / internal / operators / expand.ts
+v2
+export function expand<T, O extends ObservableInput<unknown>>(
+  project: (value: T, index: number) => O,
+  concurrent = Infinity
+): OperatorFunction<T, ObservedValueOf<O>> {
+  concurrent = (concurrent || 0) < 1 ? Infinity : concurrent;
+  return (source) =>
+Below are small marble-style illustrations and subscription traces for expand with concurrency = 1. Concurrency = 1 means only one inner subscription may be active at a time; any values that need processing while an inner is active are buffered and processed only after that inner completes.
+
+Example A — synchronous inner (project(x) => of(x + 1))
+
+Inner emits synchronously and completes immediately. Buffering is still used internally, but because inner completes synchronously, the next buffered item is processed immediately. The visible output looks like a tight sequence.
+Timeline (marbles):
+
+Code
+Source:    --1----------------|
+Project:   project(1) => of(2)  project(2) => of(3) ...
+Output:    --1 2 3 4 5 ...     (emitted synchronously in sequence)
+Subscription trace (conceptual):
+
+subscribe to source
+source emits 1
+doInnerSub(1): emit 1 to destination, subscribe innerA = project(1)
+innerA synchronously emits 2 -> outerNext(2) -> buffered (active === 1)
+innerA completes -> finalize: active--, take from buffer -> doInnerSub(2)
+doInnerSub(2): emit 2, subscribe innerB = project(2)
+innerB synchronously emits 3 -> buffer, innerB completes -> start innerC, etc.
+So output: 1,2,3,... with nested-but-serial subscriptions.
+
+Example B — asynchronous inner (project(x) => of(x + 1).pipe(delay(1 frame)))
+
+Inner emits after a short delay. Because concurrency=1, any inner emission that happens while an earlier inner is still active is buffered; after that inner completes the buffered value is then processed (subscribed) so processing is serialized with visible spacing.
+Marbles (each "-" is one frame; assume delay = 3 frames for clarity):
+
+Code
+Source:       --1----------------|
+Operator:     expand(project delayed by 3 frames) concurrent=1
+             (on receiving value V: emit V immediately, subscribe inner for project(V))
+
+Timeline frames:
+t:            0 1 2 3 4 5 6 7 8 ...
+Source:       --1--------------
+Output:       --1---2---3---4---   (each new value appears after inner completes)
+Subscriptions:
+ innerA(sub for 1):    ^-----!    (subscribed at frame 2, emits at frame 5, completes)
+ innerB(sub for 2):          ^-----! (subscribed only after innerA completes)
+ innerC(sub for 3):                ^-----!
+Step-by-step (asynchronous):
+
+Source emits 1 at frame 2.
+doInnerSub(1): destination.next(1) (Output: 1), active = 1, subscribe innerA.
+innerA emits 2 at frame 5 -> outerNext(2) is called but active === 1 (concurrency full), so 2 is buffered.
+innerA completes (frame 5 finalize) -> active-- -> buffer has 2 -> doInnerSub(2): emit 2, subscribe innerB.
+innerB later emits 3 -> buffered, innerB completes -> take 3 -> doInnerSub(3) -> emit 3, subscribe innerC, etc.
+Visible output spacing: 1, (delay), 2, (delay), 3, ...
+
+Key points for concurrency = 1
+
+Exactly one inner subscription is active at a time.
+When inside an active inner subscription, any new values (outer or inner emissions) are buffered instead of immediately causing a new inner subscription.
+When the active inner completes, the next buffered value is processed (subscribed) and will emit immediately (because doInnerSub emits the value to destination before subscribing to its project).
+The operator therefore produces a serialized, breadth/level-like processing: each value is emitted immediately when its subscription starts, but projection (and processing of values produced by projection) happens one at a time.
+With synchronous inners, the result looks like a continuous chain (no visible buffering). With asynchronous inners, the buffering produces visible serialized spacing between emitted values.
+If you want, I can produce precise marble strings (RxJS TestScheduler style) for these examples, or show the analogues for concurrent = 2 and concurrent = Infinity so you can compare the ordering and interleaving behavior. Which would you like next?
+
+
+packages/rxjs/src/internal/operators/expand.ts
+L1-L4
+-------------
+export function expand<T, O extends ObservableInput<unknown>>(
+  project: (value: T, index: number) => O,
+  concurrent = Infinity
+): OperatorFunction<T, ObservedValueOf<O>> {
+Below are two precise RxJS TestScheduler-style marble examples for expand with concurrency = 1. Each test uses a single source emission and a project function that returns an inner cold observable. We pipe the result through take(3) so the expansion stops after 3 emitted values (otherwise expand can produce an infinite stream).
+
+Synchronous inner (project returns a synchronous cold observable '(b|)'):
+TypeScript
+// Synchronous inner: project(x) => cold('(b|)', { b: x + 1 })
+// Source emits 'a' once; expand will emit a, then process inner synchronously,
+// producing b immediately (buffered then processed because concurrent = 1),
+// and so on. All three emissions happen in the same virtual frame.
+
+testScheduler.run(({ cold, hot, expectObservable }) => {
+  const e1 = hot('--a--|', { a: 1 });
+  const project = (x: number) => cold('(b|)', { b: x + 1 });
+  const result = e1.pipe(expand(project), take(3));
+  // a, b, c are produced in the same frame -> group them
+  const expected = '--(abc|)';
+  expectObservable(result).toBe(expected, { a: 1, b: 2, c: 3 });
+});
+Explanation (synchronous):
+
+Frame 2: source emits 1 -> expand emits 1 immediately and subscribes to inner(project(1)).
+inner(project(1)) synchronously emits 2. Because active === concurrent (1), 2 is buffered.
+inner completes -> active-- -> buffer processed => doInnerSub(2) emits 2 and subscribes to project(2) which synchronously emits 3, etc.
+Because everything is synchronous and handled in finalize/while-loop, the three outputs appear in the same virtual frame.
+Asynchronous inner (project returns delayed cold '---(b|)'):
+TypeScript
+// Asynchronous inner: project(x) => cold('---(b|)', { b: x + 1 })
+// Source emits 'a' at frame 2; inner emits after 3 frames. With concurrent = 1,
+// each inner emission is buffered until the active inner completes, producing
+// serialized emissions spaced by the inner delay.
+
+testScheduler.run(({ cold, hot, expectObservable }) => {
+  const e1 = hot('--a--|', { a: 1 });
+  const project = (x: number) => cold('---(b|)', { b: x + 1 }); // emits after 3 frames
+  const result = e1.pipe(expand(project), take(3));
+  // Emissions at frames: 2: a, 5: b, 8: c -> completion on third emission
+  const expected = '--a--b--(c|)';
+  expectObservable(result).toBe(expected, { a: 1, b: 2, c: 3 });
+});
+Explanation (asynchronous):
+
+Frame 2: source emits 1 -> expand emits 1 immediately and subscribes to innerA (will emit at frame 5).
+Frame 5: innerA emits 2, but because active === 1 at emission time we buffer 2; innerA then completes -> active-- -> start doInnerSub(2), which emits 2 and subscribes innerB (which will emit 3 at frame 8).
+Frame 8: innerB emits 3 -> buffered until innerB completes -> doInnerSub(3) emits 3 and take(3) completes the chain.
+The visible output is serialized at frames 2, 5, and 8.
+Key points for concurrency = 1 illustrated by these marbles:
+
+Only one inner subscription is active at a time.
+doInnerSub emits the value immediately (so you see the "current" value as soon as it starts processing it).
+Inner emissions are routed back into outerNext; when concurrency is full they get buffered and processed serially after the active inner completes.
+Synchronous inner observables can make several values appear in the same virtual frame; asynchronous inners introduce spacing matching their delays.
+
+------
+Copilot said: ```typescript name=packages/rxjs/src/internal/operators/expand.ts url=https://github.com/ReactiveX/rxjs/blob/c15b37f81ba5f5abea8c872b0189a70b150df4cb/packages/rxjs/src/internal/operators/expand.ts export function expand<T, O extends
+ReactiveX / rxjs / packages / rxjs / src / internal / operators / expand.ts
+v3
+export function expand<T, O extends ObservableInput<unknown>>(
+  project: (value: T, index: number) => O,
+  concurrent = Infinity
+): OperatorFunction<T, ObservedValueOf<O>> {
+  concurrent = (concurrent || 0) < 1 ? Infinity : concurrent;
+  return (source) =>
+Typical usage patterns to prevent infinite emission
+
+Use take (or takeWhile / takeUntil) after expand to stop the resulting (potentially infinite) stream.
+Important: place take after expand. Putting take before expand only limits the source emissions, not the recursive emissions produced by expand.
+Examples
+
+Simple numeric chain — stop after 5 emissions
+ts
+import { of } from 'rxjs';
+import { expand, take } from 'rxjs/operators';
+
+const source$ = of(1);
+
+const project = (x: number) => of(x + 1);
+
+source$.pipe(
+  expand(project),
+  take(5) // stop after 5 total values (1,2,3,4,5)
+).subscribe({
+  next: v => console.log(v),
+  complete: () => console.log('done')
+});
+
+// Console:
+// 1
+// 2
+// 3
+// 4
+// 5
+// done
+Asynchronous expansion with delay; limit results with take
+ts
+import { of } from 'rxjs';
+import { expand, delay, take } from 'rxjs/operators';
+
+const source$ = of(1);
+
+const project = (x: number) => of(x + 1).pipe(delay(100)); // async step
+
+source$.pipe(
+  expand(project),
+  take(4) // prevents infinite recursion; will unsubscribe when 4 values emitted
+).subscribe(v => console.log(v));
+
+// emits: 1, 2, 3, 4 (each ~100ms apart after the first)
+Limit by depth using index in project (alternative to take)
+ts
+import { of, EMPTY } from 'rxjs';
+import { expand } from 'rxjs/operators';
+
+const maxDepth = 3;
+const project = (value: number, index: number) =>
+  index >= maxDepth ? EMPTY : of(value + 1);
+
+of(1).pipe(
+  expand(project)
+).subscribe({
+  next: v => console.log(v),
+  complete: () => console.log('complete')
+});
+
+// emits: 1,2,3,4 then completes because project returns EMPTY at index >= 3
+Combine a condition and takeWhile (stop when a condition is met)
+ts
+import { of } from 'rxjs';
+import { expand, takeWhile } from 'rxjs/operators';
+
+of(2).pipe(
+  expand(x => of(x - 1)),     // produce next value x-1
+  takeWhile(x => x >= 0, true) // inclusive: emit 0 then complete
+).subscribe(console.log);
+
+// emits: 2,1,0 then completes
+Notes / caveats
+
+take unsubscribes from the expanded stream when the requested number of emissions is reached; that unsubscription will tear down active inner subscriptions, so expand won’t keep producing values after take completes.
+If you place take before expand (e.g., source$.pipe(take(1), expand(...))), you only limit the number of source emissions, not the recursive emissions generated by expand.
+You can also combine concurrency control (the second argument to expand) with take to control parallelism and total output size.
+expand can easily produce infinite streams; always ensure you have an explicit stopping condition (take, takeWhile, takeUntil, project logic that returns EMPTY, etc.) when you expect a finite result.
+If you want, I can show the exact marbles/TestScheduler strings for any of these examples. Which one would you like turned into a TestScheduler test?
+
+----------
+xact TestScheduler-style marble test for sample 1 (simple numeric chain, stop after 5 emissions)
+
+ts
+// TestScheduler.run style
+testScheduler.run(({ hot, cold, expectObservable }) => {
+  const e1 = hot('--a--|', { a: 1 });
+
+  // project returns a synchronous inner that immediately emits x+1 and completes
+  const project = (x: number) => cold('(b|)', { b: x + 1 });
+
+  const result = e1.pipe(
+    expand(project),
+    take(5) // stop after 5 total emissions: 1,2,3,4,5
+  );
+
+  // All emissions happen in the same virtual frame because the inner is synchronous.
+  // The initial 'a' from the source appears at frame 2; subsequent sync emissions are grouped.
+  const expected = '--(abcde|)';
+  const values = { a: 1, b: 2, c: 3, d: 4, e: 5 };
+
+  expectObservable(result).toBe(expected, values);
+});
+Notes:
+
+The source emits 1 at frame 2 ; because project(...) returns a synchronous Observable, expand emits 1 then immediately produces 2, 3, ... synchronously until take(5) unsubscribes. That is why the expected marble groups the five values into the same frame: '--(abcde|)'.
+
+-------------

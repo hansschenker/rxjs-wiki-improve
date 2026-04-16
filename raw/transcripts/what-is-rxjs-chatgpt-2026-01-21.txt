@@ -1,0 +1,67 @@
+Rxjs Observable can be seen as a lazy, potentially infinite Sequence of Pairs of Time T and Value a: [{T,a}..]
+Rxjs Observable/Observer are the mathematical Dual of Javascript Enumerable/Iterator
+Rxjs is the combination of the Iterator with the Subject/Observer Pattern
+Observable is a Producer and Observer is a Consumer
+Producer - Consumer Scenarios:
+- 1 Producer - 1 Consumer
+- 1 Producer - n Consumers
+- n Producers - n Consumers
+- n Producers - 1 Consumer
+in these 4 Producer - Consumer scenarios can we replace Consumer with Subscription without changing the semantic meaning
+What I really meant: replace 1 Consumer equals 1 Subscription, n Consumers equals either 1 or n Subscriptions
+what is the role of a Subject in Rxjs
+having Rxjs Subject we could create Multicast behavior without using a special Multicast operator
+so Rxjs Subject is the root (parent) of all Rxjs Multicast operators
+explain in depth and step by step:
+Subject is a derived, impure escape hatch
+So the essential Rxjs Building blocks are Observable, Observer and Subscription
+Observable, Observer and Subscription build the 'Rxjs Machine', what is the role of Rxjs Operators
+are Rxjs Schedulers part of the 'Rxjs Machine'
+one of the former Rxjs core team member Paul Taylor called Rxjs Schedulers: Central Dispatchers
+Rxjs consists of 3 different pillars that are combined together but are not entangeled with each other:
+- Rxjs Machinery: Observable, Observer, Subscription, value producing machine
+- Operators: the Transducers, the value pipes
+- Schedulers: the central dipatcher managing the value flow
+
+can we replace 'parameterizing execution' with 'parameterize concurrency' without changing the semantic meaning
+why is it possible that in Rxjs the domain can change (web animations, gps sensor data, ...) but the Operator stay the same
+Rxjs is only the Transport Layer not interested in the Transport good, any good can be transported with Rxjs
+explain each item in this list with a short description:
+- why operators stay the same across domains
+- why Subjects are dangerous (they inject goods imperatively)
+- why Schedulers are external (execution ≠ payload)
+- why RxJS scales as a DSL foundation
+- why strong typing works so well with RxJS
+- why RxJS resembles algebra more than APIs
+this is also the reason why we should not use the raw standard rxjs operators in the rxjs pipeline, we should rename them to domain specific names making the neutral transport system a meningful domain model
+the Rxjs canonical workflow is:
+- enter Rxjs world with a creation operator
+- once in Rxjs world all operators are at  your disposal to apply the planned transformations
+- exit Rxjs world with .subscribe on the Rxjs pipeline and apply the planned side effects
+in Rxjs there are value-oriented and time-oriented operators
+there are also:
+- concurrencty oriented operators
+- joining oriented operators
+- selection oriented operators
+- error handling operators
+- subscription oriented operators
+- inspection oriented operators
+- folding oriented operators
+- unfolding oriented operators
+- sharing oriented operators
+- ...
+what do you mean by:
+DSLs are possible
+explain in depth and step by step:
+algebraic transport calculus
+Rxjs is a Transport System that uses packages (notifications) to transport good
+I would like to make an x.com tweet on Rxjs with the meatphor as a Transport system, make some suggestions for a tweet
+I like best:
+RxJS is best understood as a transport system:
+• Notifications are packages
+• Observables are routes
+• Operators are routing rules
+• Schedulers are dispatchers
+Payload meaning is none of RxJS’s business. ( maybe change to: Payload is not Rxjs' business)
+adapt it to a Paul Taylor style phrasing
+adapt it to a Erik Meijer style phrasing

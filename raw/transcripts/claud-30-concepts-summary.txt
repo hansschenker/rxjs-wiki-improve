@@ -1,0 +1,523 @@
+What are you and what do you have access to on my computer? Give me the
+30-second version
+
+I'm Claude Code, Anthropic's CLI assistant for software engineering tasks.
+
+On your computer, I can:
+- Read, edit, and create files in /Users/sabrina/dev/playground and
+subdirectories
+- Run shell commands and git operations
+- Search your codebase with grep/glob tools
+- Access your persistent memory system at ~/.claude/projects/
+
+External access:
+- Web search & &craping via Perplexity and Apify
+- Workflow automation via n8n
+- Customer management via Intercom
+- Various other APIs depending on your MCP server setup
+
+Limits:
+- I won't take destructive actions (force push, delete branches, etc.) without
+asking first
+- I follow your CLAUDE.md rules and project-specific instructions
+- I can't access files outside your working directory without explicit permission
+
+/crosspost
+
+claude.md
+
+# Every Claude Code Concept Explained for Normal People
+N V. HVW LU IOLA LU LLOUUG LVUG
+
+## 7. CLAUDE.md (Your AI's Instruction Manual)
+
+This is where Claude Code gets PERSONAL.
+
+A CLAUDE.md file is a document you write once, and Claude reads it
+at the start of EVERY conversation. It's your AI employee's job
+description.
+
+"Here's how my business works. Here are my brand rules. Here's
+what I NEVER want you to do. Here are the tools I use. Here's my
+writing style."
+
+Teach it once, it knows every time. No more repeating yourself
+every conversation.
+
+In Claude Code, you don't even need to know how to create files.
+Say: "create a file called CLAUDE.md with these 3 rules" and tell
+it your rules. Done.
+
+** Before **: "Remember, I want you to ... " every single
+conversation. "I TOLD you yesterday, don't use this format!"
+
+** After **: write it once in CLAUDE.md. Claude follows your rules
+from now on. Forever.
+
+Done. Created CLAUDE.md in your project folder with your preferences:
+
+- Concise communication - no filler, no trailing summaries
+Show steps as you go - visible progress through multi-step tasks
+Ask clarifying questions methodically - one at a time until 95% confident
+Code practices - re-read before editing, no over-engineering
+Task tracking - use tools when multi-step work needs organization
+- Working style - action-oriented, practical, notice patterns
+
+This complements your global CLAUDE.md (which covers research and file re-reading rules).
+Now I'll reference this for how to work with you on this project.
+
+context window
+
+The whiteboard is big. But it's not infinite.
+
+When it fills up, older stuff gets summarized to make room. Like
+taking a photo of the whiteboard before erasing part of it to
+write more.
+
+This is why Claude sometimes "forgets" what you said 20 minutes
+ago. The whiteboard filled up and your early notes got compressed.
+Your early notes blend in with everything else, and it gets
+increasingly hard to understand what was truly important among all
+your notes.
+
+Understanding this changes how you use Claude Code. Long, rambling
+conversations fill the whiteboard fast. Short, focused sessions
+keep it clean.
+
+** PASTE THIS INTO CLAUDE **: '/usage' (after a few back-and-forths, "
+to see how full your whiteboard is)
+
+/usage // procent of usage
+
+tokens cost
+
+## 10. Tokens + Cost Management
+
+Tokens are how AI measures text. Every word you send and every
+word Claude sends back costs tokens. There's a max per
+conversation (the whiteboard size).
+
+Type '/usage' to see your spending. It shows input tokens (what
+you sent) vs output tokens (what Claude sent back). Type '/' and
+click "Account & usage" for a fuller breakdown.
+
+4 ways to keep costs down:
+
+1. ** Switch to a cheaper brain for simple tasks .** You have 3
+brains to choose from (next concept). Use the expensive one for
+big tasks, the cheap one for quick questions.
+2. ** Use /clear between unrelated tasks .** Don't let old context
+pile up.
+3. ** Use /compact during long sessions .** Compresses the
+whiteboard without losing key details.
+4. ** Install the context-mode plugin .* It significantly reduces
+context usage by managing what Claude reads more efficiently. Run
+these 2 commands: '/plugin marketplace add mksglu/context-mode
+then `/plugin install context-mode@context-mode'. Full details at
+[github.com/mksglu/context-mode] (https://github.com/mksglu/
+
+Effort Levels
+
+## 16. Effort Levels
+
+Tell Claude how hard to think.
+
+Low effort for quick answers ("what time zone is Denver in?").
+High effort for complex problems ("restructure my entire pricing
+strategy").
+
+You don't always need full brain power. Effort levels let you get
+fast answers for simple stuff and deep analysis for hard stuff.
+Change it anytime by typing '/model' and using the left/right
+arrow keys to adjust the effort slider.
+
+There's also a keyword: type "ultrathink" in your prompt and
+Claude maxes out its reasoning for one response. It'll think
+through every edge case before answering. Also, it's RAINBOW
+COLORED! !
+
+** Before **: waiting 30 seconds for Claude to overthink a simple
+question.
+
+** After **: low effort for quick stuff, ultrathink for the complex
+stuff.
+
+ultrathink // auto choos model
+
+/model
+
+project scope - global scope
+
+** Project scope **: settings applying ONLY to your current
+project folder. Each project gets its own CLAUDE.md, its own
+rules, its own playbook.
+
+** Global scope **: settings following you everywhere. Your name,
+your writing style, your preferences.
+
+Think of it like having different employee handbooks for
+different departments, but 1 company-wide policy covering all of
+them.
+
+** Before **: your blog project rules bleeding into your app
+project.
+
+** After **: each project has its own playbook. Global preferences
+stay consistent.
+
+** PASTE THIS INTO CLAUDE **: 'Create a CLAUDE.md for this project
+with rules tailored to what we're doing mhere. .Also.show-me
+what's.in.my.global.settings. so. I.know-what.applies .everywhere ..
+Ask.me. clarifying.questions.to.customize.how.to o ganize this
+for my needs.'
+
+
+
+claude commands
+
+/claude-api
+
+/compact
+
+/context
+
+/cost
+
+/crosspost
+
+/debug
+
+/design
+
+/extra-usage
+/fact-chegk
+/heapdump
+
+/ideas
+
+Show the total cost and duration of the current session
+
+…
+
+skills
+
+## 22. Skills (Your Custom Workflows)
+
+I frequently hear from folks who followed my Claude Code
+tutorials: "MIND BLOWING !! "
+
+A skill is a set of instructions saved as a file. They can be
+chained together. They can do complex things. Type '/skill-name'
+and an entire workflow runs.
+
+Claude Code will always interpret your prompt, then determine
+what skill(s), if any, it should use. Or you can trigger the
+skill manually by typing '/skill-name'.
+
+Here's what my /crosspost' skill does with 1 command:
+
+1. ** Searches Google Drive ** for my latest finished videos (file
+access + tool use)
+2. ** Downloads each video ** to my computer temporarily (file
+system tools)
+3. ** Transcribes the audio ** using Whisper, a speech-to-text
+tool running locally on my machine (terminal commands)
+4. ** Matches each transcript to its topic ** in my Airtable
+database (MCP connection to Airtable)
+5. ** Reads my brand voice rules ** from my CLAUDE.md and writing
+templates (file access + context)
+6. ** Writes 3 types of captions ** per video: a long SEO
+description for TikTok/YouTube/Instagram/Facebook, a short
+conversational tweet for Twitter/Threads/Bluesky, and a
+standalone text post for Substack (AI writing with constraints)
+7. ** Runs every caption through a quality gate ** blocking banned
+words, checking character limits, catching vague references, and
+rejecting formatting I don't use (hooks, concept #23)
+8. ** Shows me all the captions ** in a review file so I approve
+
+Hoks
+
+## 23. Hooks (Automated Guardrails)
+
+Hooks are scripts running automatically before or after Claude
+takes an action. Guardrails you don't need to remember.
+
+In my '/crosspost' skill, I have a quality gate hook. Every time
+Claude tries to publish a post, the hook automatically
+intercepts it and checks:
+
+- Are there any banned punctuation marks? (I block specific ones
+from my brand voice.)
+- Are there banned words? (40+ words I've banned.)
+- Is the caption over the platform's character limit?
+- Is there missing media for platforms needing it?
+- Does the text reference "this website" without naming the
+specific website?
+
+If ANY check fails, the hook blocks the post. Claude has to fix
+the issue and try again. This happens automatically. I don't
+need to remember to check. The guardrail is built in.
+
+You also get a desktop notification when long tasks finish, so
+you don't need to stare at the screen waiting.
+
+You set up hooks by telling Claude what you want. Claude creates
+the hook for you.
+
+** Before **: forgetting to proofread, shipping typos, breaking
+your own brand rules.
+
+Set up a hook so my Mac sends me a desktop notification every time you
+finish a long task. I want to hear a sound when you're done so I don't need to
+watch the screen
+
+## 24. Web Browsing
+
+Claude reads any webpage you give it.
+
+Paste a URL and it fetches the page, reads the content, and works with it.
+Competitor pricing pages, blog posts, documentation, job listings,
+recipes ... anything public on the internet.
+
+Here's what makes this different from ChatGPT: Claude Code reads the page
+AND takes action. It doesn't stop at a summary. It writes a comparison doc,
+saves it to your project folder, and moves on to the next task.
+
+** Before **: manually copying website text into a chat window, losing
+formatting, missing sections.
+
+** After **: Claude fetches the page, pulls the data, creates a file with the
+analysis, and saves it. You review the finished document.
+
+** PASTE THIS INTO CLAUDE ** (swap the URL for a real one): 'Read https://www.
+blotato.com, pull out their pricing tiers and top features, then create a
+file called competitor_analysis.md comparing them to 2 other competitofs
+
+## 25. MCP Servers (From Consultant to Employee)
+
+MCP stands for Model Context Protocol. In plain English: it's the bridge
+between Claude and your real tools.
+
+Remember tools (concept #5)? Those are what Claude does on your computer:
+reading files, searching folders, running commands. MCP extends this to the
+nects Claude to apps like Google Drive, Slack, Notion,
+NET. It connects
+INTERNET.
+
+MCP Servers
+
+## 25. MCP Servers (From Consultant to Employee)
+
+MCP stands for Model Context Protocol. In plain English: it's
+the bridge between Claude and your real tools.
+
+Remember tools (concept #5)? Those are what Claude does on
+your computer: reading files, searching folders, running
+commands. MCP extends this to the INTERNET. It connects
+Claude to apps like Google Drive, Slack, Notion, Airtable,
+Stripe, Perplexity, and your email.
+
+Without MCP, Claude says "go update your Airtable." With MCP,
+Claude UPDATES your Airtable.
+
+My '/crosspost' skill uses 3 MCP connections: Airtable (to
+read topics and update records), Blotato (to publish to 7
+social platforms), and Google Drive (to find and download
+videos). Claude talks directly to these tools. No
+copy-pasting. No switching tabs.
+
+** Before **: Claude says "here's what you should update in
+your spreadsheet." And YOU do it.
+
+** After **: Claude updates the spreadsheet, confirms the
+
+## 26. Perplexity MCP (AI-Powered Web Research)
+
+Web browsing (#24) lets Claude read pages you point it to. Perplexity MCP
+lets Claude RESEARCH the entire internet with verified sources. I personally
+use Perplexity MCP ALL THE TIME instead of Claude's native internet
+capabilities.
+
+This step is optional, but I highly recommend it.
+I
+Instead of "read this 1 link," it's "go research this topic, find the 10
+best verified sources, and tell me where you got each fact."
+
+This is the upgrade from reading 1 article to having a research assistant
+who reads 50 and gives you the summary with citations.
+
+Note: Perplexity has its own pricing (free tier + paid plans at perplexity.
+ai). Check their site for current numbers.
+
+** Before **: Claude reads the 1 page you gave it.
+
+** After **: Claude finds the best sources itself, synthesizes them, and cites
+every fact.
+
+** PASTE THIS INTO CLAUDE ** (after adding Perplexity MCP): 'Create a skill
+called 'fact-check'. It should read whatever content I paste, go line by
+line, and use Perplexity MCP to find primary sources backing every claim,
+and flag anything unverified. Each claim gets a verdict: confirmed,
+unverified, or wrong. With citations.'
+
+## 27. Subagents (Automatic Parallel Workers)
+
+"Research these 5 competitors" becomes 5 agents working
+simultaneously instead of 1 going through them 1 by 1.
+
+In.my.'/crosspost' .skill, .if . I .have.5.new.videos, Claude.
+spawns . 5.transcription.agents.at.once. .All.5.videos.get.
+transcribed. simultaneously. .Then. 5.more. to.publish them all
+at . once. .What .used. to.be. sequential . is.now parallel.
+
+You'll see it happening in the output. Multiple tasks runnin
+at the same time. No configuration needed.
+I
+** Before **: watching Claude research competitors sequentiall
+for 10 minutes.
+
+** After **: 5 agents, 2 minutes, same work. Automatically.
+
+** PASTE THIS INTO CLAUDE **: `I need you to deeply research 5
+companies for me. For EACH company, spawn a separate agent
+visit their website, read their pricing page, read their
+features page, read at least 2 customer reviews, and write a
+full 1-page competitive analysis saved as a separate file.
+The companies: Notion, Airtable, Monday.com, ClickUp, and
+Asana.
+
+Scheduled Tasks
+
+# Every Claude Code Concept Explained for Normal People
+## 28. Remote Control (Use Claude From Your Phone)
+** PASTE THIS INTO CLAUDE **: '/remote-control' (scan the QR code with your
+phone, then send a message from the Claude app to confirm it works)
+
+## 29. Scheduled Tasks (/loop)
+
+Schedule Claude to run tasks on a recurring timer using '/loop'.
+
+*/loop 1h check if any new files were added to my Google Drive'
+
+*/loop 1d pull my marketing data from Airtable and summarize'
+
+You write the interval and the task in plain English. Claude runs it
+automatically in the background. Type 'Show me all my scheduled tasks' to
+see what's running and cancel anything you don't need.
+
+2 things to know: tasks in the terminal only run while your session is open
+(close the terminal, they stop). And they auto-expire after 3 days as a
+safety net.
+
+For permanent recurring tasks, you'd have to use the Claude Code Desktop
+app, which has other limitations. Personally, this is why I still use n8n
+for its orchestration layer, especially with n8n-mcp which allows Claude
+Code to create and fix all my n8n automations.
+
+** Before **: manually pulling the same report every morning.
+
+** After **: '/loop 1d summarize yesterday's sales' and it's waiting for you
+when you sit down.
+
+** PASTE THIS INTO CLAUDE **: '/loop 1h check my Downloads folder for new PDF
+invoices and list them with the total amount.'
+
+Git version control
+
+# Every Claude Code Concept Explained for Normal People
+## 29. Scheduled Tasks (/loop)
+
+** After **: '/loop 1d summarize yesterday's sales' and it's waiting for you
+when you sit down.
+
+** PASTE THIS INTO CLAUDE **: '/loop 1h check my Downloads folder for new PDF
+invoices and list them with the total amount.'
+
+## 30. Version Control with Git
+
+Every time Claude makes changes, you want a save point you can roll back to.
+That's git. It's already built into Claude Code.
+
+Git is LOCAL. It saves versions on your computer. Think of it like a
+timeline of every change Claude ever made. You can rewind to any point.
+Nothing gets lost.
+
+GitHub is the OPTIONAL cloud layer on top. It backs up your project online,
+lets you share it with a developer, and lets them review what Claude did. If
+you work with a team or want cloud backup, it's worth setting up. But if
+you're working solo, local git is all you need to start.
+
+Claude Code works with both natively. Save versions, create branches, roll
+back mistakes, open pull requests for your developer to review ... all from
+the terminal.
+
+** Before **: Claude makes changes and you pray nothing breaks. No undo button.
+
+** After **: every change is saved, documented, and reversible. You roll back
+to any previous version in seconds.
+
+** PASTE THIS INTO CLAUDE **: 'Save all the changes we've made today as a new
+
+
+git log -oneline -3
+
+0b5f4f2 feat: claude code concepts newsletter + skill updates
+3d3a2c4 feat: manychat skill, tiktok writer skill, and remix
+0877f01 chore: quitgpt pentagon script
+
+Stage all changed and new files (excluding .lock file)
+
+git add competitor_analysis.md plan.md research_airtable.md r
+
+(Bash completed with no output)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

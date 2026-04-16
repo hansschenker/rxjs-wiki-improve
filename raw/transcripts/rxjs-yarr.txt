@@ -1,0 +1,191 @@
+// main.js
+import h from 'virtual-dom/h';
+import {Observable} from 'rx';
+
+import postsList_, {readPost_} from './posts-list';
+import sidebar_, {feedFilters_} from './sidebar';
+import reader_ from './reader';
+
+let view = (postsList, sidebar, reader) =>
+      <div id='container' className='container'>
+         <div className="surface">
+           <div className="surface-container">
+             <div className="content">
+               <aside className="cover">{sidebar}</aside>
+               <div className="reader">{reader}</div>
+               <div className="wrapper">
+                 <div className="wrapper-container">{postsList}</div>
+               </div>
+             </div>
+           </div>
+         </div>
+       </div>
+  ;
+
+let render_ = () => Observable.combineLatest(
+  postsList_(feedFilters_),
+  sidebar_(),
+  reader_(readPost_),
+  view
+);
+
+
+export default render_;
+
+// renderer.js
+import {h} from 'virtual-dom';
+import createElement from 'virtual-dom/create-element';
+import diff from 'virtual-dom/diff';
+import patch from 'virtual-dom/patch';
+
+
+let render = (mainView_, baseDOMNode) => {
+  let view = null;
+  let rootNode = null;
+
+  let initialize = (newView) => {
+    view = newView;
+    rootNode = createElement(view);
+    baseDOMNode.appendChild(rootNode);
+  };
+
+  let update = (newView) => {
+    let patches = diff(view, newView);
+    rootNode = patch(rootNode, patches);
+    view = newView;
+  };
+
+  return mainView_
+    .subscribe(
+      newView => view
+        ? update(newView)
+        : initialize(newView),
+      error => console.warn('Error occured somewhere along Observable chain', error)
+    );
+};
+
+export default render;
+
+
+// events.js
+import {Observable} from 'rx';
+
+import {toArray} from './utils';
+
+
+let body = document.body;
+
+let clicks_ = Observable.fromEvent(body, 'click').share();
+
+let filterClassName = (className, e) => {
+  let classes = toArray(e.target.classList);
+  return classes.indexOf(className) >= 0;
+};
+
+let clicksByClass_ = (className) => clicks_
+      .filter(e => filterClassName(className, e));
+
+let keyups_ = Observable.fromEvent(body, 'keyup').share();
+
+let keyupsByClass_ = (className) =>
+      keyups_
+      .filter(e => filterClassName(className, e));
+
+export {clicksByClass_, keyupsByClass_};
+
+// component post-list.js
+import h from 'virtual-dom/h';
+import {Observable} from 'rx';
+
+import {posts_} from '../models/posts';
+import {formatDate} from '../utils';
+import {clicksByClass_} from '../events';
+import {markPostAsRead_} from '../models/posts';
+
+let postView = (post) =>
+    <article className="post-item post">
+      <header className="post-item-header">
+        <h2 className="post-item-title">
+          <a className='post-title' href={post.link}>{post.title}</a>
+          </h2>
+      </header>
+      <section className="post-item-excerpt">
+        {post.contentSnippet}
+      </section>
+
+      <footer className="post-item-footer">
+        <ul className="post-item-meta-list">
+          <li className="post-item-meta-item">
+            <p><a href={post.link}>{post.author}</a>
+            </p>
+          </li>
+
+          <li className="post-item-meta-item">
+
+          </li>
+
+          <li className="post-item-meta-item">
+            <p itemprop="articleSection">{post.categories.join(', ')}</p>
+          </li>
+        </ul>
+      </footer>
+    </article>
+  ;
+
+
+let view = (postViews) =>
+  <section className="post-list">
+    {postViews}
+  </section>;
+
+let render_ = (feedFilters_) => Observable
+      .combineLatest(
+        posts_,
+        feedFilters_(),
+        (posts, filters) => posts.filter(post => {
+          let result = true;
+          let checks = Object.keys(filters);
+          for(let key of checks) {
+            if(post[key] !== filters[key])
+              result = false;
+          }
+
+          return result;
+        })
+      )
+      .map(posts => posts.map(postView))
+      .map(view)
+      .startWith(view());
+
+let readPost_ = () => {
+  let readPostClicks_ = clicksByClass_('post-title');
+  let posts_ = readPostClicks_
+        .do(e => e.preventDefault())
+        .map(e => e.target.href)
+        .flatMap(link => Posts.get(link))
+        .do(markPostAsRead_);
+
+  return posts_;
+}
+
+export default render_;
+export {readPost_};
+
+
+// index.js
+
+import mainView_ from './components/main';
+import render from './renderer';
+import Rx from 'rx';
+
+Rx.config.longStackSupport = true;
+
+require('./styles/style.scss');
+
+let view_ = mainView_();
+
+render(view_, document.getElementById('app'));
+
+
+
+

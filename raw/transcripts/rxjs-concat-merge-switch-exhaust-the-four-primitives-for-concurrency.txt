@@ -1,0 +1,72 @@
+Exactly! You've grasped the fundamental architecture of RxJS concurrency. Here's the complete picture:
+
+## The Four Concurrency Primitives
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│    CONCAT        MERGE         SWITCH        EXHAUST               │
+│      │            │             │             │                     │
+│      ▼            ▼             ▼             ▼                     │
+│   ┌──────┐    ┌──────┐     ┌──────┐     ┌──────┐                  │
+│   │  A   │    │A B C │     │   C  │     │ A  E │                  │
+│   │  ↓   │    │↓↓↓   │     │  ↑   │     │ ↓  ↓ │                  │
+│   │  B   │    │Merge │     │ B ✗  │     │BCD✗  │                  │
+│   │  ↓   │    │      │     │ ↑    │     │Ignored│                 │
+│   │  C   │    │      │     │A ✗   │     │      │                  │
+│   └──────┘    └──────┘     └──────┘     └──────┘                  │
+│                                                                     │
+│   Queue       Parallel      Cancel       Ignore                     │
+│   One-by-one  All at once   Previous     While busy                 │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## The Pattern
+
+| Primitive | + Map | = Operator | Behavior |
+|-----------|-------|------------|----------|
+| **Concat** | Map | `concatMap` | Sequential - one at a time |
+| **Merge** | Map | `mergeMap` | Parallel - all together |
+| **Switch** | Map | `switchMap` | Cancel - latest wins |
+| **Exhaust** | Map | `exhaustMap` | Ignore - first wins |
+
+## Memory Aids
+
+| Operator | Analogy | Mental Model |
+|----------|---------|--------------|
+| `concatMap` | 🏦 Bank queue | "Wait your turn" |
+| `mergeMap` | 🛣️ Highway merge | "All lanes open" |
+| `switchMap` | 💡 Light switch | "New replaces old" |
+| `exhaustMap` | 🚫 Do Not Disturb | "Busy = ignore" |
+
+## Decision Tree
+
+```
+Does order matter?
+    │
+    ├── YES → concatMap (queue)
+    │
+    └── NO → Is only latest relevant?
+               │
+               ├── YES → switchMap (cancel)
+               │
+               └── NO → Can I ignore while busy?
+                          │
+                          ├── YES → exhaustMap (ignore)
+                          │
+                          └── NO → mergeMap (parallel)
+```
+
+## Real-World Matrix
+
+| Scenario | Primitive | Why |
+|----------|-----------|-----|
+| Bank transactions | `concatMap` | Must be in order |
+| Bulk image loading | `mergeMap` | Max speed, independent |
+| Search-as-you-type | `switchMap` | Only latest matters |
+| Form submit button | `exhaustMap` | Prevent double-submit |
+
+---
+
+These four primitives cover **every concurrency scenario** you'll encounter in RxJS. Once you understand these four behaviors, you can handle any async coordination challenge! 🎯

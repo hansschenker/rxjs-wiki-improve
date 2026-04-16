@@ -1,0 +1,462 @@
+The app is a solid demonstration of pure RxJS patterns replacing every Angular-specific feature:
+
+- BehaviorSubject > signals & state
+- Subject + exhaustMap > NgRx effects
+- fromEvent + switchMap > httpResource() with search
+- combineLatest + takeUntil > computed() + effect()
+Hash router via fromEvent(window, 'hashchange') > Angular Router
+
+All in 55 kB with zero framework overhead. Let me know if you want to extend it further - things like route transitions, optimistic event deletion, or a
+auth API would be natural next steps.
+
+When to choose each
+
+Choose Angular when:
+- Building a production app that will grow
+- You need SSR, prerendering, or SEO
+- Team size > 2 (conventions matter)
+- Complex forms with reactive validation
+- You want a full ecosystem (DevTools, CLI, testing harnesses)
+
+Choose Pure RxJS + TypeScript when:
+- Learning RxJS patterns without framework noise
+- Building a lightweight widget or micro-frontend
+Bundle size is a hard constraint (CDN delivery, embedded tools)
+You want full control with no magic
+- Proof-of-concept / workshop demo
+
+The core insight
+
+Both apps use the same RxJS operators. Angular's Signals, NgRx Store, and httpResource() are all built on top of RxJS internally. The Angular version just
+provides ergonomic abstractions (signalStore, rxMethod, input()) that reduce boilerplate and add type safety - at the cost of bundle size and framework
+lock-in.
+
+1. Minimal Bundle Size
+
+Angular devfest-manager
+RxJS devfest-manager
+
+10x smaller. No Angular compiler, no Zone. js, no decorator metadata, no DI system - just RxJS + your code. This matters for:
+- Slow networks / mobile users
+- CDN-delivered widgets
+Embedded tools inside other apps
+
+~500 KB initial JS
+55 KB total JS
+
+(~150 KB gzip)
+( ~15 KB gzip)
+
+2. Zero Framework Lock-in
+
+The entire app is portable TypeScript. You could drop it into:
+- A React app as a vanilla web component
+- A browser extension
+An Electron desktop app
+A Node.js server-side renderer
+Any future framework
+
+Angular code lives and dies with Angular. RxJS + DOM code lives anywhere a browser exists.
+
+3. Transparent Reactivity - You See Everything
+
+In Angular, a lot happens invisibly:
+
+// Angular - magic happens inside
+readonly events = this. eventsService. getEventsResource(this. searchQuery);
+
+In the RxJS version, the entire data flow is explicit:
+
+// RxJS - every step is visible and debuggable
+fromEvent(searchInput, 'input' ) .pipe(
+startWith(null),
+map (() => searchInput.value),
+debounceTime(300)
+debounce l LmE (00 )
+distinctUntilChanged(),
+tap(() => this.loading$.next(true)),
+switchMap(query => eventsService.getEvents(query) .pipe(
+catchError(err => { this. error$. next(err.message); return of([]) ; })
+
+takeUntil(this. destroy$)
+). subscribe(events => this. events$.next(events));
+
+Every transformation, every cancellation, every error path is readable in one chain. No hidden lifecycle, no zone triggering, no change detection c
+reason about.
+
+4. Pure RxJS Skills Transfer Universally
+
+What you learn building this app applies everywhere:
+
+Skill learned
+
+BehaviorSubject stores
+
+switchMap for HTTP
+
+exhaustMap for actions
+
+takeUntil cleanup
+
+combineLatest for derived state
+
+Subject as dispatcher
+
+Where it transfers
+
+NgRx, Akita, NGXS, Redux-Observable
+
+Angular services, React + RxJS, Node.js
+
+Any event-driven system
+
+Vue + RxJS, Svelte + RxJS
+
+Any reactive UI
+
+Event buses, message queues
+
+Angular-specific APIs (signalStore, httpResource, input()) only transfer within Angular.
+
+5. Subscription Lifecycle is Explicit and Intentional
+
+Angular manages subscriptions silently via the component lifecycle. In the RxJS version, every subscription is intentional:
+
+// You decide exactly when streams start and stop
+private destroy$ = new Subject<void> ();
+
+someStream$. pipe (
+takeUntil(this. destroy$)
+) .subscribe ( ... );
+
+destroy(): void {
+this. destroy$. next ();
+this. destroy$. complete ();
+
+This forces a deep understanding of observable lifecycles - one of the hardest concepts in RxJS - instead of relying on Angular's AsyncPipe or DestroyRef
+hide it.
+
+// < you control this
+
+// you trigger cleanup
+
+6. No Dependency Injection Magic
+
+Angular's DI is powerful but abstract:
+
+// Angular - where does EventsService come from? The injector tree.
+private readonly eventsService = inject(EventsService);
+
+In the RxJS version, every dependency is explicit:
+
+// RxJS - imports are the dependency graph
+import * as eventsService from ' .. /services/events.service';
+import * as cartStore from ' .. /store/cart.store';
+
+What you import is what you use. No injector hierarchies, no provider scopes, no token confusion. Easier to trace, easier to test in isolation.
+
+const
+
+7. The Store Pattern is Fully Yours
+
+The cart and auth stores are plain TypeScript modules - no library required:
+
+// cart.store.ts - no NgRx, no Akita, no Redux
+const ticketIds$ = new BehaviorSubject<string[ ]>([]);
+addToCart$ = new Subject<string> ();
+
+const effect$ = addToCart$. pipe(
+exhaustMap(eventId => http. post( ... ).pipe(catchError( ... )))
+
+export const ticketIds$ = ticketIds$. asObservable() ;
+export function addToCart(id: string) { _addToCart$.next(id); }
+
+You understand every line because you wrote every line. When something breaks, you know exactly where to look. There is no "NgRx magic" to blame.
+
+8. Perfect for Learning RxJS Deeply
+
+Building this app forces you to encounter and solve real problems with RxJS primitives:
+
+Problem
+
+Cancel previous HTTP on new search
+
+Prevent double form submission
+
+Show loading state during request
+
+Rollback on error
+
+React to multiple streams at once
+
+Clean up subscriptions on destroy
+
+RxJS solution you must learn
+
+switchMap
+
+exhaustMap
+
+tap + finalize
+
+catchError + manual state reset
+
+combineLatest
+
+takeUntil + Subject
+
+9. Simpler Mental Model for Small Apps
+
+For an app of this size, you only need to think about three things:
+
+BehaviorSubject (read via . asObservable() )
+Functions that call .next() or Subject.next()
+Pipelines that react to state/action changes
+
+No modules, no decorators, no lifecycle hooks, no zone, no DI tree. Just reactive streams flowing through functions.
+
+State
+Actions
+Effects
+
+Summary
+
+Advantage
+
+10x smaller bundle
+
+Zero lock-in
+
+Explicit data flow
+
+Universal RxJS skills
+
+Visible subscription lifecycle
+
+No DI abstraction
+
+Owned store pattern
+
+Ideal learning environment
+
+Impact
+
+Faster load, better UX
+
+Portable to any environment
+
+Easier debugging, no hidden magic
+
+Transfers to Angular, React, Node, backend
+
+Forces deep understanding
+
+Transparent dependency graph
+
+Full control, no library overhead
+
+Real problems, real RxJS solutions
+
+The biggest advantage: when something goes wrong, you have nowhere to hide. Every bug leads you back to an RxJS concept you now have to truly understand.
+That makes yol
+s you a significantly better reactive programmer - in any framework.
+
+how do you avoid CORS error
+
+Avoiding CORS Errors in devfest-manager-rxjs
+
+hy CORS happens here
+
+Browser (localhost:4200)
+
+fetch("http://localhost:3000/events")
+
+Different port = different origin
+Browser blocks the request
+
+The frontend (Vite on :4200) and the API (json-server on :3000) are on different origins. The browser enforces CORS and blocks the request unless the serv
+sends the right headers.
+
+The best fix - Vite Dev Proxy
+
+Configure Vite to proxy all /api requests to json-server. The browser only ever talks to :4200, so there is no cross-origin request at all.
+
+Read 1 file (ctrl+o to expand)
+
+Update(C:/Users/HP/Web/Frontend/rxjs/devfest-manager-rxjs/vite.config.ts)
+Added 9 lines
+server: {
+port: 4200,
+open: true,
+proxy: {
+// Any request to /api/* is forwarded to json-server on :3000
+// The browser only sees localhost:4200 - no cross-origin request is made
+'/api': {
+target: 'http://1ocalhost:3000',
+changeOrigin: true,
+rewrite: (path) => path.replace(/^\/api/, ''),
+Update (C:/Users/HP/Web/ Frontend/rxjs/ devfest-manager-rxjs/ src/ store/ cart . store. ts)
+Added 1 line, removed 1 line
+import { TicketEntry } from ' .. /models/event.model';
+import * as http from ' .. /core/http';
+
+17 -const TICKETS_URL = 'http://localhost:3000/tickets';
+17 +const TICKETS_URL = '/api/tickets'
+18
+19
+20
+
+Verify types still pass cleanly:
+
+Bash(cd /c/Users/HP/Web/Frontend/rxjs/devfest-manager-rxjs && npx tsc -- noEmit 2>&1)
+E (No output)
+
+All clean. Here's the full picture of what was done and why:
+
+How the proxy works
+
+Before (CORS error):
+Browser > fetch("http://localhost:3000/events")
+t cross-origin! Browser blocks it.
+
+After (no CORS):
+Browser > fetch("/api/events")
+Vite proxy rewrites to >
+fetch("http://localhost:3000/events")
+
+The rewrite rule strips /api before forwarding:
+/api/events > localhost: 3000/events
+/api/tickets > localhost: 3000/tickets
+
+
+//State atoms
+const ticketIds$ = new BehaviorSubject<string[ ]>([]);
+
+After (no CORS):
+Browser > fetch("/api/events")
+Vite proxy rewrites to >
+fetch("http://localhost:3000/events")
+
+The rewrite rule strips /api before forwarding:
+/api/events > localhost:3000/events
+/api/tickets > localhost: 3000/tickets
+
+same origin v
+
+server-to-server, no CORS
+
+The three layers of CORS defence
+
+(what we did)
+
+Approach
+
+Vite proxy
+
+json-server CORS headers
+
+Nginx / Express proxy
+
+Where
+
+vite. config.ts
+
+-- middlewares flag
+
+Production server
+
+Best for
+
+Development - zero config on server
+
+When you can't use a proxy
+
+Deployed apps
+
+Why the proxy is the right choice
+
+- No server changes needed - json-server stays untouched
+- Mimics production - in prod you'd have a real reverse proxy (Nginx/Express) doing the same thing
+
+Works for all origins - if you change the API to a remote server, just update the target in vite. config.ts, nothing else changes
+
+Relative URLs (/api/events) are cleaner and environment-agnostic - no localhost hardcoded in source files
+
+
+Why the proxy is the right choice
+
+No server changes needed - json-server stays untouched
+Mimics production - in prod you'd have a real reverse proxy (Nginx/Express) doing the same thing
+- Works for all origins - if you change the API to a remote server, just update the target in vite.config.ts, nothing else changes
+Relative URLs (/api/events) are cleaner and environment-agnostic - no localhost hardcoded in source files
+
+Churned for 55s
+
+great work
+
+Thank you! It was a fun project to build.
+
+The journey from Angular signals to pure RxJS TypeScript really highlights what frameworks give you versus what they abstract away. Building everything from
+scratch - the router, the store, the form validation, the auth guard - forces a deep understanding of the reactive primitives that Angular itself is built o
+top of.
+
+Key takeaways from this project:
+
+- RxJS is the foundation - Angular, NgRx, and most reactive libraries are just structured wrappers around the same operators you used here
+- The proxy pattern is the standard way to handle cross-origin in any Vite/Webpack project
+- BehaviorSubject + exhaustMap is a surprisingly powerful pattern that covers most real-world state + async action scenarios without needing a library
+
+Let me know whenever you want to extend it further or start a new RxJS challenge.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

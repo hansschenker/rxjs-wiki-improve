@@ -1,0 +1,318 @@
+const noop = function() { return this; }
+
+// A sum type for error handling
+class Validation {}
+
+class Success extends Validation {
+	constructor( value ) {
+		super();
+		this.value = value;
+	}
+}
+
+class Failure extends Validation {
+	constructor( value ) {
+		super();
+		this.value = value;
+	}
+}
+
+// Applicative
+Validation.prototype.of = Validation.of = value => new Success( value );
+
+Success.prototype.of = Success.of = value => new Success( value );
+
+Failure.prototype.of = Failure.of = value => new Failure( value );
+
+Success.prototype.isSuccess = true;
+
+Success.prototype.isFailure = false;
+
+Failure.prototype.isFailure = true;
+
+Failure.prototype.isSuccess = false;
+
+// Apply
+Success.prototype.ap = function( x ) {
+	return x.map( this.value );
+}
+
+Failure.prototype.ap = noop;
+
+// Functor
+Success.prototype.map = function( func ) {
+	return new Success( func( this.value ) );
+}
+
+Failure.prototype.map = noop;
+
+// Chain
+Success.prototype.chain = function( func ) {
+	return func( this.value );
+}
+
+Failure.prototype.chain = noop;
+
+Success.prototype.toString = function() {
+	return `Validation.Success( ${ this.value } )`;
+}
+
+Failure.prototype.toString = function() {
+	return `Validation.Failure( ${ this.value } )`;
+}
+
+const validateForm = data => Success.of( data );
+
+const cleanData = data => data.toUpperCase();
+
+const auth = data => {
+	const connected = true;
+	return connected ? Success.of( data ) : Failure.of( 'DB connection down' );
+}
+
+const fetchUserData = data => Failure.of( data );
+
+const sendEmail = data => Success.of( data );
+
+const logStatus = data => console.log( data.toString() );
+
+// failure at any step will skip the remaining steps
+const processForm = R.compose(
+	logStatus,
+	R.chain( sendEmail ),
+	R.chain( fetchUserData ),
+	R.chain( auth ),
+	R.map( cleanData ),
+	validateForm );
+
+// const results = processForm( 'jacob bolda' );
+
+const add = R.curry( ( a, b ) => a + b );
+
+console.log( add( 1, 1 ) );
+
+const addM = Success.of( add );
+
+const one = Success.of( 1 );
+
+const two = Success.of( 2 );
+
+const result = addM.ap( one ).ap( two );
+
+console.log( result.toString() );
+
+
+const x = Success.of( Success.of( 1 ) );
+
+console.log( x.toString() );
+
+---------------------------------------
+// JSBIN CAN TAKE A LONG TIME TO FETCH CDN REFS SO JUST
+// GIVE IT A LITTLE TIME BEFORE YOU PUNCH THE "RUN"
+// BUTTON.
+
+// Form Validation
+const noop = function() { return this; }
+
+// A sum type for error handling
+class Validation {}
+
+class Success extends Validation {
+	constructor( value ) {
+		super();
+		this.value = value;
+	}
+}
+
+class Failure extends Validation {
+	constructor( value ) {
+		super();
+		this.value = value;
+	}
+}
+
+// Applicative
+Validation.prototype.of = Validation.of = value => new Success( value );
+
+Success.prototype.of = Success.of = value => new Success( [ value ] );
+
+Failure.prototype.of = Failure.of = value => new Failure( [ value ] );
+
+Success.prototype.isSuccess = true;
+
+Success.prototype.isFailure = false;
+
+Failure.prototype.isFailure = true;
+
+Failure.prototype.isSuccess = false;
+
+// Apply
+Success.prototype.ap = function( x ) {
+	return x.map( this.value );
+}
+
+Failure.prototype.ap = noop;
+
+// Functor
+Success.prototype.map = function( func ) {
+	return new Success( func( this.value ) );
+}
+
+Failure.prototype.map = noop;
+
+// Chain
+Success.prototype.chain = function( func ) {
+	return func( this.value );
+}
+
+Failure.prototype.chain = noop;
+
+// Traversable
+Failure.prototype.sequence = function() {
+	return this.value.map( Failure.of );
+}
+
+// Semigroup
+Success.prototype.concat = Failure.prototype.concat = 
+	Success.concat = Failure.concat = function( validation ) {
+	if ( this.isFailure && validation.isFailure ) {
+		return Failure.of( this.value.concat( validation.value ) );
+	} else if ( this.isFailure && validation.isSuccess ) {
+		return Failure.of( this.value );
+	} else if ( this.isSuccess && validation.isFailure ) {
+		return Failure.of( validation.value )
+	} else {
+		return Success.of( this.value.concat( validation.value ) );
+	}
+}
+
+// Monoid
+Success.prototype.empty = Success.empty = function() { return new Success( [] ); }
+
+Failure.prototype.empty = Failure.empty = function() { return new Failure( [] ); }
+
+
+// readable string representation
+Success.prototype.toString = function() {
+	return `Validation.Success( ${ this.value } )`;
+}
+
+Failure.prototype.toString = function() {
+	return `Validation.Failure( ${ this.value } )`;
+}
+
+
+
+//------------------------------------------------
+class FailureTypes {}
+
+class NameMustNotBeBlank extends FailureTypes {
+	constructor( value ) {
+		super();
+		this.value = value;
+	}
+}
+
+NameMustNotBeBlank.prototype.of = NameMustNotBeBlank.of = function( value ) {
+	return new NameMustNotBeBlank( value );
+}
+
+NameMustNotBeBlank.prototype.toString = function() {
+	return `NameMustNotBeBlank( ${ this.value } )`;
+}
+
+class EmailMustNotBeBlank extends FailureTypes {
+	constructor( value ) {
+		super();
+		this.value = value;
+	}
+}
+
+EmailMustNotBeBlank.prototype.of = EmailMustNotBeBlank.of = function( value ) {
+	return new EmailMustNotBeBlank( value );
+}
+
+EmailMustNotBeBlank.prototype.toString = function() {
+	return `EmailMustNotBeBlank( ${ this.value } )`;
+}
+
+class InvalidEmail extends FailureTypes {
+	constructor( value ) {
+		super();
+		this.value = value;
+	}
+}
+
+InvalidEmail.prototype.of = InvalidEmail.of = function( value ) {
+	return new InvalidEmail( value );
+}
+
+InvalidEmail.prototype.toString = function() {
+	return `InvalidEmail( ${ this.value } )`;
+}
+
+//------------------------------------------------
+const nameMustNotBeBlank = name =>
+    name != '' ?
+	    Success.of( name ) :
+        Failure.of( NameMustNotBeBlank.of( name ) );
+
+const emailMustNotBeBlank = email =>
+    email != '' ?
+	    Success.of( email ) :
+        Failure.of( EmailMustNotBeBlank.of( email ) );
+
+const invalidEmail = email => {
+	var re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return re.test( email ) ?
+		Success.of( email ) :
+	    Failure.of( InvalidEmail.of( email ) );
+}
+
+const tap = x => {
+	console.log( x.toString() );
+	return x;
+}
+
+const validateForm = data => R.reduce(
+	R.concat,
+	Success.empty(),
+    [ nameMustNotBeBlank( data.name ),
+	  emailMustNotBeBlank( data.email ),
+	  invalidEmail( data.email ) ] );
+
+const feedback = vs => {
+// 	log( vs );
+    vs.map( v => {
+		if ( v instanceof NameMustNotBeBlank ) {
+			log( 'Your username must not be blank.');
+		} else if ( v instanceof EmailMustNotBeBlank ) {
+			log( 'Your email must not be blank.');
+		} else if ( v instanceof InvalidEmail ) {
+			log( `Email ${ v.value } is not valid.` );
+		}
+    } );
+}
+
+const validationFlow = R.compose(
+    feedback,
+	tap,
+	validateForm
+)
+
+const log = a => console.log( a.toString() );
+
+const tests = [ 
+	{ name : 'Ian Stewart',    email : '' },
+	{ name : 'Joanne Daudier', email : 'foo@bar.com' },
+	{ name : '',               email : 'bogus email' },
+	{ name : '',               email : '' }
+]
+
+tests.map( data => log( validateForm( data ) ) );
+
+// validationFlow( tests ); // Not working yet
+
+
+
+-----------------------------------

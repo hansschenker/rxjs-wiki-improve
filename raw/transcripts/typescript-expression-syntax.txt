@@ -1,0 +1,21 @@
+type Expr<T> =
+  | { kind: "I"; value: number }
+  | { kind: "B"; value: boolean }
+  | { kind: "Add"; left: Expr<number>; right: Expr<number> }
+  | { kind: "Mul"; left: Expr<number>; right: Expr<number> }
+  | { kind: "Eq"; left: Expr<number>; right: Expr<number> };
+
+function evalExpr<T>(expr: Expr<T>): T {
+  switch (expr.kind) {
+    case "I":
+      return expr.value as T;
+    case "B":
+      return expr.value as T;
+    case "Add":
+      return (evalExpr(expr.left) + evalExpr(expr.right)) as T;
+    case "Mul":
+      return (evalExpr(expr.left) * evalExpr(expr.right)) as T;
+    case "Eq":
+      return (evalExpr(expr.left) === evalExpr(expr.right)) as T;
+  }
+}

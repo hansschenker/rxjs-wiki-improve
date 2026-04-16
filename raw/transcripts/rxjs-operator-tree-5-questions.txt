@@ -1,0 +1,31 @@
+Q1) “Will this stream be subscribed to more than once?”
+  yes hot
+  no  cold
+
+Q2) “Are you mapping to inner Observables?” - async work
+  yes async
+  no  not async
+
+Q3) “Do you want fewer values than the source emits?” not need all values
+  yes
+  no
+Q4) “What should come out?” final value from many values
+  yes final value from many
+  no  one output from one input
+
+Q5) “What happens at the edges (time, errors, cleanup, debug)?” do you care about edges
+  yes care about edges
+  no not cate about edges
+
+Q1: “Will I ever have 2 subscribers?” → decide share/replay
+
+Q2: “Do values start async work?” → pick merge/switch/concat/exhaust
+
+Q3: “Am I allowed to drop?” → lossy vs non-lossy
+
+Q4: “What output shape do I want?” → map vs reduce vs buffer/window vs combine
+
+Q5: “What about time/errors/cleanup?” → delay/timeout/retry/finalize/tap
+
+not happy path -> Q5
+single subscriber -> Q1

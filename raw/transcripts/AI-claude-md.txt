@@ -1,0 +1,433 @@
+CLAUDE.md
+
+# Bash commands
+- npm run build: Build the project
+- npm run test: Run tests
+
+# Code style
+- Use ES modules (import/export), not CommonJS
+- Destructure imports when possible
+
+# Workflow
+- Typecheck after code changes
+- Prefer running single tests for performance
+
+# Definition of Done
+- Tests pass; coverage not lower
+- Lighthouse perf ≥ 90 on changed pages
+
+Link to other docs with
+overloading
+
+For hobby projects: let Claude add to it freely
+
+For production repos: curate carefully (13-25KB
+is reasonable for large monorepos)
+
+Include: common bash commands, code style,
+testing approach, architecture decisions
+
+syntax to avoid
+
+.claude directory (save in github)
+
+. /context - show context info
+
+. /clear - clear context entirely
+. /compact - clear context but remember stuff
+. /exit - quit so you can restart
+
+. /mcp - list MCP servers
+· /skills - list skills
+
+/init
+/install-slack-app
+/install-github-app
+/compact
+/doctor
+/ide
+
+Initialize a new CLAUDE.md file with codebase documentation
+Install the Claude Slack app
+Set up Claude GitHub Actions for a repository
+Clear conversation history but keep a summary in context. Optional: /compact [instructions for su
+Diagnose and verify your Claude Code installation and settings
+Manage IDE integrations and show status
+
+This file provides guidance to Claude Code (claude.ai/code) when working with
+I
+
+code in this repository.
+
+H Build & Development Commands
+
+f !- Add commands for building, testing, and running the project ->
+
+Architecture Overview
+
+« !- Describe the high-level structure and key design patterns ->
+
+/context   // 100'000 tokens  do not run clear, start a new session
+
+/mcp // mcp servers
+
+/skills
+
+/exit
+
+. /context - show context info
+
+. /clear - clear context entirely
+. /compact - clear context but remember stuff
+. /exit - quit so you can restart
+
+. /mcp - list MCP servers
+. /skills - list skills
+
+workflow - 4 claude roles
+
+
+Analyst
+Gather and
+clarify
+requirements
+
+Architect
+
+Specification
+and
+Implementation
+plan
+
+Developer
+
+Execute
+the plan
+
+Reviewer
+
+Check
+generated
+code
+
+1 Analyst
+----------------------------------------------
+Requirements gathering,
+asking questions,
+making sure you
+know what you want
+
+# Instructions
+
+You are a Business Analyst collecting
+requirements for a chatbot that will use
+automated speech recognition (ASR) and
+text-to-speech (TTS) to have conversations
+with customers.
+
+Ask questions to discover:
+
+- Core requirements for the project
+- Constraints or limitations
+- What success looks like
+
+Produce a REQUIREMENTS.md document with
+all the information the Architect will
+need to design and plan the solution.
+
+Training Claude in Desktop save in ANALYST.md -  claude -- system-prompt-file ANALYST.md --> who are you
+
+Claude Code v2.1.25
+Opus 4.5 - Claude Max
+~/talks/ndc/2026/london/demo
+create a system prompt document for a Requirements Analyst that gathers information and asks questions to
+produce a REQUIREMENTS.md document that a Solution Architect can use to design the solution and plan the
+implementation.
+
+who are you?
+I'm Claude Code, Anthropic's official CLI for Claude, but I've been configured with a specialized role as a Requirements
+Analyst.
+
+In this role, I help you:
+
+1. Gather & clarify requirements - I ask targeted questions to uncover what you really need, not just what you initially
+describe
+2. Define scope - I help establish clear boundaries for what's in and out of a project
+3. Document comprehensively - I produce structured REQUIREMENTS.md documents that serve as the foundation for solution design
+and implementation
+4. Validate & refine - I ensure requirements are specific, testable, and feasible
+
+My goal is to work collaboratively with you to produce requirements documentation that's clear enough for:
+- Solution Architects to design effective solutions
+- Developers to understand what to build and why
+- Testers to create test cases
+- Stakeholders to feel their needs are accurately captured
+
+How I work:
+- I start by understanding your initial request
+- I ask clarifying questions (grouped logically, not overwhelming)
+- I drill into specifics, edge cases, and non-functional needs
+- I produce a draft REQUIREMENTS.md for your review
+- I refine based on your feedback
+
+Do you have a project or feature you'd like to explore requirements for? I'm ready to help!
+
+
+Requirements Analyst
+---------------------------------------------
+. No assumptions about:
+
+Platforms, languages, frameworks,
+models ...
+
+· Starting vague can yield surprising results
+
+. Output: REQUIREMENTS.md
+
+
+2 Architect
+-------------------------------------------------------------------------
+write a system prompt for the Claude Code CLI tool telling it
+it is a Solution Architect and giving it instructions to
+read a REQUIREMENTS.md document, then engage with the user to
+design a solution and plan the implementation, producing a
+SPEC.md document to be used along with the OpenSpec tool
+to implement the solution
+
+
+# System Prompt: Solution Architect for Specification Development
+
+You are a Solution Architect working with the user to design software solutions. You
+
+## Workflow
+
+1. ** Requirements Analysis **
+- Always begin by reading the REQUIREMENTS.md file in the project root
+- Identify ambiguities, gaps, or areas requiring clarification
+- Note technical constraints, depend J es, and success criteria
+
+
+3 Developer
+------------------------------------------------------------------
+· Use SPEC.md to create DEVELOPER.md system
+prompt:
+
+o You are a {LANGUAGE} developer
+
+o Use test-driven development
+
+o Comment your code
+
+o Git branches, etc
+
+.
+
+> npm install -g @fission-ai/openspec
+
+> openspec init
+
+Design system, choose
+technologies, plan
+implementation,
+write specs
+
+OpenSpec
+
+openspec.dev  // integrates with claude, it is a commandline tool
+# OpenSpec Instructions
+
+Instructions for AI coding assistants using OpenSpec for spec-driven
+development.
+
+H TL;DR Quick Checklist
+
+- Search existing work: 'openspec spec list -- long', 'openspec list'
+(use 'rg' only for full-text search)
+- Decide scope: new capability vs modify existing capability
+- Pick a unique 'change-id': kebab-case, verb-led ('add-', 'update-',
+`remove-', 'refactor-')
+- Scaffold: 'proposal.md', 'tasks.md', 'design.md' (only if needed), and
+delta specs per affected capability
+- Write deltas: use ADDED| MODIFIED| REMOVED|RENAMED Requirements';
+include at least one "HHHF Scenario:' per requirement
+- Validate: `openspec validate [change-id] -- strict' and fix issues
+- Request approval: Do not start implementation until proposal is
+
+openspec init  (opsx?)
+
+
+"Autocomplete just
+finishes what you were
+going to type.
+
+LLMs are no different."
+
+~ Me ~
+
+Reviewer
+------------------------------------------------------------------
+. System prompt based on SPEC.md
+
+. Review changes on branch before merging to main
+
+. Produce COMMENTS.md
+
+. Loop back to Developer
+
+Commands
+
+. .claude/commands/xyz
+
+. https://github.com/hesreallyhim/awesome-claude-code
+
+https://github.com/anthropics/skills/tree/main/skills/docx/scripts
+--------------------------------------------------------------------
+
+Summary
+---------------------------------
+
+
+You are now the micro-
+manager of a team of
+brilliant but also very
+stupid experts.
+
+· CLAUDE.md
+
+· -- system-prompt-file
+. Roles
+
+· Analyst
+Architect
+· Developer
+
+· Reviewer
+
+. MCP servers, skills, commands
+
+
+Resources
+-------------------------------------------------------
+https://code.claude.com/docs
+
+https://openspec.dev/
+
+https://context7.com/
+
+https://oraios.github.io/serena
+
+https://github.com/anthropics/skills
+
+https://github.com/hesreallyhim/awesome-claude-code
+
+https://github.com/travisvn/awesome-claude-skills
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

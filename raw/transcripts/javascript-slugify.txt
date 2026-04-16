@@ -1,0 +1,7 @@
+const slugify = s => pipe(
+toString,
+toLower,
+split(' '),
+filter(removeDashes),
+join('-')
+);

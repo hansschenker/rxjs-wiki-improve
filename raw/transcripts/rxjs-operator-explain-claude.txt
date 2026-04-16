@@ -1,0 +1,32 @@
+Extension 1 - Batch mode (throttle*, window*, etc.)
+
+A built-in operator registry maps wildcard patterns to their full operator lists. Running /rxjs-explain throttle* silently processes throttle and
+throttleTime - cache-aware, skipping any already saved. Only status lines are printed during batch, not full explanations. At the end it offers to run
+-- index or -- sync.
+
+Extension 2 - Index generation ( -- index)
+
+Scans all saved .md files, reads their frontmatter, and writes index.md with:
+- A Quick Filter table grouping operators by property (lossy, timeSensitive, etc.)
+- An All Operators by Family section with a
+
+Extension 3 - Docs site sync ( -- sync)
+
+Copies all saved files into docs/operators/encyclopedia/ in the VitePress site, updates the sidebar config with a collapsible Encyclopedia group (replacing
+it if it already exists), then runs npm run docs:build to verify nothing broke.
+
+property grid and links to each file
+
+batch-fill a family
++ fill another
++ rebuild the index
++ push everything to the docs site
+
+A natural workflow now looks like:
+
+/rxjs-explain throttle*
+/rxjs-explain window*
+/rxjs-explain -- index
+/rxjs-explain -- sync
+
+Cooked for 1m 13s

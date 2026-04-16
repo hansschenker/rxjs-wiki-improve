@@ -1,0 +1,65 @@
+2. SET THEORY
+
+With the changes in the mathematics curriculum in the schools in the United
+States, many college students have had some exposure to set theory. This in-
+troduction to set theory in the schools usually includes the elementary no-
+tions and operations with sets. Going on the assumption that many readers
+will have some acquaintance with set theory, we shall give a rapid survey of
+those parts of set theory that we shall need in what follows.
+First, however, we need some notation. To avoid the endless repetition
+of certain phrases, we introduce a shorthand for these phrases. 
+
+Let S be a collection of objects; 
+the objects of S we call the elements of S. 
+To denote that a given element, a, is an element of S, 
+we write a E S-this is read "a is an element of S." 
+
+To denote the contrary, namely that an object a is not an
+element of S, we write a € S. So, for instance, 
+
+if S denotes the set of all positive integers 1, 2, 3, ... ,n, ... , 
+then 165 E S, whereas -13 € S.
+
+We often want to know or prove that given two sets S and T, 
+one of these is a part of the other. 
+We say that S is a subset of T, 
+which we write S C T (read "S is contained in T") if every element of S is an element of T.
+
+Things Familiar and Less Familiar
+
+In terms of the notation we now have: S C Tif s E S implies that s € T. We
+can also denote this by writing T D S, read "T contains S." (This does not ex-
+clude the possibility that S = T, that is, that S and T have exactly the same
+elements.) Thus, if T is the set of all positive integers and S is the set of all
+positive even integers, then S C T, and S is a subset of T. In the definition
+given above, S S for any set S; that is, S is always a subset of itself.
+We shall frequently need to show that two sets S and T, defined per-
+haps in distinct ways, are equal, that is, they consist of the same set of ele-
+ments. The usual strategy for proving this is to show that both S C T and
+T C S. For instance, if S is the set of all positive integers having 6 as a factor
+and T is the set of all positive integers having both 2 and 3 as factors, then
+S = T. (Prove!)
+The need also arises for a very peculiar set, namely one having no ele-
+ments. This set is called the null or empty set and is denoted by Ø. It has the
+property that it is a subset of any set S.
+Let A, B be subsets of a given set S. We now introduce methods of con-
+structing other subsets of S from A and B. The first of these is the union of A
+and B, written A U B, which is defined: A U B is that subset of S consisting
+of those elements of S that are elements of A or are elements of B. The "or"
+we have just used is somewhat different in meaning from the ordinary usage
+of the word. Here we mean that an element c is in A U B if it is in A, or is in
+B, or is in both. The "or" is not meant to exclude the possibility that both
+things are true. Consequently, for instance, A U A = A.
+If A = {1,2,3] and B = (2, 4, 6, 10), then A U B = {1, 2, 3, 4, 6, 10}.
+We now proceed to our second way of constructing new sets from old.
+Again let A and B be subsets of a set S; by the intersection of A and B, writ-
+ten A n B, we shall mean the subset of S consisting of those elements that
+are both in A and in B. Thus, in the example above, A n B = {2]. It should
+be clear from the definitions involved that A n B C A and A n B C B.
+Particular examples of intersections that hold universally are: A n A = A,
+AnS= A.ANØ=Ø.
+This is an opportune moment to introduce a notational device that will
+be used time after time. Given a set S, we shall often be called on to de-
+scribe the subset A of S, whose elements satisfy a certain property P. We
+shall write this as A = [s E S | s satisfies P]. For instance, if A, B are subsets
+

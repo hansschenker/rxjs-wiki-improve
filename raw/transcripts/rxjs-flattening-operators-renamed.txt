@@ -1,0 +1,16 @@
+fromLatestMap   ≡ switchMap   // replacement
+fromAllMap      ≡ mergeMap    // concurrency
+fromQueuedMap   ≡ concatMap   // sequencing
+fromFirstMap    ≡ exhaustMap  // first-wins
+
+
+The Policy (ơ) Decides:
+
+. Concurrency: How many inner streams may run.
+. Order: When values may be emitted.
+. Admission: When an inner is allowed to start.
+. Cancellation: What gets torn down and when.
+. Completion: When the flattened stream completes.
+. Buffering: How to handle over-production.
+
+

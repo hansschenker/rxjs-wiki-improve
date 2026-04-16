@@ -1,0 +1,103 @@
+Wie?
+
+zeitliches Verhalten als
+first-class value
+
+type Behavior a = Time - a
+= [(Time, a) ]
+
+type Event a
+
+Behavior API
+
+instance Functor Behavior
+
+Functor
+
+instance Applicative Behavior
+
+Applicative
+
+Behavior API
+
+(<$>) : : (a -> b)
+-> Behavior a -> Behavior b
+
+Functor
+
+pure :: a -> Behavior a
+( <* >) :: Behavior (a -> b)
+-> Behavior a -> Behavior b
+
+bf <* > bx =
+\time -> bf time $ bx time
+
+Applicative
+
+Für jeden
+Zeitpunkt
+
+Event API
+
+instance Functor Event
+
+Functor
+
+List
+
+never
+
+filterE
+
+accumE
+
+:: Event a
+unionWith :: (a -> a -> a)
+-> Event a -> Event a -> Event a
+
+:: (a -> Bool)
+-> Event a -> Event b
+
+: : a -> Event (a -> a)
+-> Event a
+
+zipWith
+
+filter
+
+scanl
+
+Event & Behavior API
+
+stepper :: a -> Event a -> Behavior a
+
+
+
+Frameworks (GUI, ... )
+data NetworkDescription t a
+
+fromAddHandler
+
+fromPoll
+
+reactimate
+
+changes
+
+Events importieren
+
+Behaviors importieren
+
+Event exportieren
+
+Event aus Behavior erhalten
+
+
+
+
+
+
+
+
+
+

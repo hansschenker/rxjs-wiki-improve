@@ -1,0 +1,156 @@
+This sets the stage for FRP, because FRP extends function composition into time.
+
+That’s the lens through which everything else (tick$, direction$, scan, BehaviorSubject, etc.) will make sense later.
+
+“I can express my application as a mathematical combination of observables.”
+
+Not math for math’s sake — but predictable composition.
+
+If something is a monad, you don’t need a framework to orchestrate it.
+You only need:
+Streams
+Operators
+One final subscribe
+
+That’s why he can build a full game with ~80 lines of RxJS.
+
+By pushing everything into pipe, you:
+Make time explicit
+Make ordering explicit
+Make policies explicit
+
+
+At this point, you could pause the talk and already say:
+
+“A game is just:
+a clock
+some inputs
+some derived streams
+a renderer”
+That’s the entire mental model.
+
+FRP starts by asking “what flows?” — not “what do I store?”
+Now the stream is no longer about keyboards — it’s about directional intent.
+This is the first FRP law being applied:
+Rename values as early as possible.
+You want streams to talk in domain language.
+
+
+State = stream that remembers
+scan + shareReplay(1) = cell
+Operators encode policies
+No hidden time
+No hidden mutation
+Markel is doing RxJS-as-a-state-machine, even if he doesn’t name it that way.
+
+
+Always:
+
+Identify event stream
+scan into state stream
+Derive multiple views from it
+One machine — many states.
+
+State grows by folding events over time — never by mutating memory.
+
+
+tick$.pipe(
+  withLatestFrom(direction$, snakeLength$)
+)
+This line is doing a lot of work.
+Conceptually:
+Tick is the clock
+Direction & length are state snapshots
+Movement happens only on tick
+This enforces:
+Time controls updates — not input events.
+Key insight:
+Direction changes don’t move the snake
+Only ticks do
+This is classic game-loop logic — expressed declaratively.
+
+
+scan(moveSnake, initialSnake)
+Where:
+
+initialSnake = generated array of coordinates
+moveSnake(prevSnake, [dir, length]) => nextSnake
+This is the true game state:
+An ordered list of body segments
+But it is:
+Immutable
+Recreated every tick
+Local to the stream
+
+nextSnake = [newHead, ...prevSnake].slice(0, length)
+FRP elegance at its peak.
+
+Movement is just state folded over time — geometry, not mutation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

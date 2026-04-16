@@ -1,0 +1,73 @@
+Rxjs Observable can be seen as a lazy, potentially infinite Sequence of Pairs of Time T and Value a: [{T,a}..] this allows for
+operators that Aare time-sensitive working on T and there are value-sensitive operators that work on a
+
+RxJS offers a comprehensive collection of time-based operators that help control the timing of value emissions, regulate event frequencies, and manage asynchronous delays. These operators are vital for use cases such as search-as-you-type, debouncing button presses, or implementing polling systems. Below are the main groups of time-sensitive RxJS operators:
+
+1. Rate-Limiting & Debouncing (Time-Based)  
+These operators regulate how often values are emitted from a source observable, often to enhance performance.  
+- debounceTime(dueTime): Emits a value only if no new value has been emitted within the specified time frame. This is useful for search inputs where you wait for the user to stop typing.  
+- throttleTime(duration): Emits the first value and then ignores subsequent values for the given duration, helping to limit rapid button clicks.  
+- sampleTime(period): Emits the most recent value from the source at regular intervals.  
+- auditTime(duration): Similar to throttleTime, but instead of emitting the first value immediately, it waits for the duration to finish and then emits the latest value.
+
+2. Delay & Timing  
+These operators add pauses or specific timing to emissions.  
+- delay(delay): Postpones value emissions by a set number of milliseconds or until a particular Date.  
+- delayWhen(delayDurationSelector): Delays emissions based on another observable’s output, allowing dynamic, value-dependent delays.  
+- timeout(config): Throws an error if no value is emitted within the specified time frame.
+
+3. Time-Based Creation Functions  
+These operators initiate or manage asynchronous timing from the start of a stream.  
+- timer(dueTime, period): Creates an observable that emits 0 after dueTime milliseconds, then emits increasing values at each period interval.  
+- interval(period): Produces an observable that emits an endless sequence of ascending integers at consistent time intervals.
+
+4. Time-Based Buffering & Windowing  
+These operators group emitted values based on time.  
+- bufferTime(bufferTimeSpan): Gathers values from the source into arrays and emits these arrays periodically.  
+- windowTime(bufferTimeSpan): Similar to bufferTime but emits an observable of values instead of an array.
+
+5. Time-Sensitive Utility  
+- timeInterval(): Transforms a stream of values into a stream of objects that track the time elapsed between emissions.
+
+Summary Table  
+Operator | Best Used For  
+---|---  
+debounceTime | Search-as-you-type, form validation.  
+throttleTime | Preventing rapid multiple clicks on a button.  
+delay | Adding artificial latency, animations.  
+timer | Polling, delayed execution (similar to setTimeout).  
+timeout | Failing quickly if a server response takes too long.  
+bufferTime | Processing events in batches (e.g., logging every 5 seconds).
+
+
+
+What are value-sensitive operators?
+
+In RxJS, value-sensitive operators (commonly classified as filtering or transformation operators) base their functionality on the content or identity of the emitted data rather than just timing. They enable you to ignore, retain, or alter emissions according to specific criteria or comparisons with previous values.
+
+1. Distinctness Operators  
+These operators avoid redundant processing by verifying if a value has already appeared in the stream.  
+- distinctUntilChanged: Emits a value only if it differs from the immediately preceding value. This is often used in search bars to prevent making a new API call when a user deletes a character and then re-enters the same one.  
+- distinct: Emits only values that have never been emitted by the source before throughout the observable's lifetime.  
+- distinctUntilKeyChanged: A specialized form of distinctUntilChanged that compares a particular property of an object instead of the entire object.
+
+2. Value-Based Filtering  
+These operators selectively pass values based on specific traits or a Boolean condition.  
+- filter: The most basic value-sensitive operator; it emits only values that satisfy a given predicate function (e.g., val => val > 10).  
+- takeWhile: Emits values as long as they meet a condition; once a value fails the check, the observable completes.  
+- skipWhile: Ignores all initial values that satisfy a condition and begins emitting only after a value does not meet that condition.  
+- find: Emits only the first value from the source that matches a condition and then completes.
+
+3. Value-Sensitive Transformation  
+These operators adjust or manage streams based on the data of the emitted value.  
+- map: Transforms each emitted value into a new value according to a function (e.g., extracting a property from an object).  
+- switchMap: Maps each value to a new inner observable. If a new value arrives before the previous inner observable finishes, it cancels the previous one and starts the new one—very effective for "switching" based on the latest input.  
+- scan: Accumulates values over time based on the previous "state" and the current emitted value, similar to how Array.reduce works.
+
+Comparison Summary  
+| Operator               | Sensitivity Basis          | Action                              |  
+|------------------------|----------------------------|-----------------------------------|  
+| distinctUntilChanged    | Comparison (previous vs current) | Drops consecutive duplicates       |  
+| filter                 | Predicate logic (True/False) | Allows only matching values         |  
+| map                    | Data transformation         | Changes the value's shape or type  |  
+| takeWhile              | Cumulative condition        | Stops the stream once a value fails the check |

@@ -1,0 +1,91 @@
+// intermediate level
+
+Interactive Analytics Dashboard
+A SPA where users can filter large datasets, switch between multiple chart types, and configure saved views in real time without full page reloads.
+
+Project/Task Management Board
+A kanban-style board with drag-and-drop tasks, inline editing, real-time updates across collaborators, and deep URL-based routing for boards and filters.
+
+Multi-step Form Wizard for Onboarding
+A guided, multi-step registration or onboarding flow with validation, conditional steps, progress persistence, and back/forward navigation handled entirely client-side.
+
+Collaborative Document Editor
+A rich-text or markdown editor supporting autosave, presence indicators, comments, and optimistic UI updates synchronized with a backend in near real time.
+
+Customizable E-commerce Product Configurator
+A product page where users configure variants (size, color, add-ons), see live price and availability updates, and switch between views (gallery, specs, reviews) without navigation.
+
+// advanced use cases
+Real-time Collaborative Code Editor
+An SPA enabling multiple developers to edit code simultaneously with live cursors, conflict resolution, syntax highlighting, and version diffing—all synchronized via WebSockets without page refreshes.
+​
+
+Advanced Data Visualization Canvas
+An interactive canvas where users drag, zoom, and manipulate complex graphs, geospatial layers, and time-series data with smooth transitions, filtering, and export options handled client-side.
+​
+
+Infinite Canvas Whiteboard with AI Assistance
+A boundless drawing board supporting infinite scrolling, shape recognition, real-time multiplayer strokes, and integrated AI for auto-grouping content and generating suggestions on the fly.
+​
+Google Maps—instant zooming and location searches
+Slack—real-time team communication
+
+Trello—drag-and-drop project management
+
+Spotify Web Player—seamless music streaming
+WhatsApp Web—continuous messaging interface
+
+
+------------- claude 2026-02-15
+
+Essential Missing Features (by priority)
+
+Tier 1 - High-impact gaps most SPA frameworks solve
+
+1. Nested/Child Routes - The router is flat. No layout routes, no parent-child outlet nesting. Every real app needs shared layouts (sidebar + content, tabs within a page). Currently
+requires fully manual outlet management.
+
+2. Template / Declarative Rendering - All HTML is written via innerHTML strings or imperative DOM calls. There's no compile-time safety, no conditional rendering primitive (if$/when$), no
+show/hide operator beyond classToggle('hidden'). This is the single biggest ergonomic gap.
+
+3. Component Model - No formal component abstraction with lifecycle hooks (onMount, onDestroy, onUpdate). The (container, ... deps) => Subscription convention works but isn't enforced. No
+way to compose components declaratively.
+
+4. Dependency Injection / Service Layer - Services are singleton imports. No DI container means testing requires manual wiring and there's no per-route or per-component scoping of services.
+
+5. Selector Memoization - select() uses basic distinctUntilChanged. No createSelector equivalent with multi-input memoization (like Reselect/NgRx selectors). Performance degrades as state
+trees grow.
+
+Tier 2 - Expected by most production apps
+
+6. Nested/Cross-Field Form Validation - No form groups, form arrays, async validators, or cross-field validation (password === confirmPassword). Real-world forms hit this quickly.
+7. Animation/Transition System - No route transition animations, no enter/leave animations for list items, no JS-driven animation primitives. CSS-only workarounds are limited.
+8. Store Middleware / DevTools - No Redux DevTools integration, no middleware pipeline, no time-travel debugging. This makes debugging state changes in non-trivial apps painful.
+9. WebSocket / Real-time Support - No built-in WebSocket or SSE Observable factory. For an RxJS framework, this is a natural fit that's conspicuously absent.
+10. Named Route Generation - No router.urlFor('user-detail', { id: '42' }). URLs are built manually as strings, which is error-prone as route patterns change.
+
+Tier 3 - Expected for framework maturity
+
+11. SSR / Hydration - Zero server-side rendering support. window is assumed everywhere. No renderToString, no hydration. Critical for SEO-sensitive apps.
+12. CLI / Scaffolding - No create-rxjs-spa or code generators. Every new project/route/store must be manually wired.
+13. i18n / Localization - No internationalization support at all.
+14. Error Boundaries at Component Level - createErrorHandler is global. No way to catch and recover at a subtree level (like React error boundaries).
+15. Marble Testing Helpers - The testing package has mock utilities but no TestScheduler integration - surprising for an RxJS-native framework.
+
+My Recommendation - What to build next
+
+If the goal is a credible, usable SPA framework, the highest-leverage additions would be:
+
+1. Nested routes + layout system - unlocks real app architectures
+2. A declarative rendering layer - even a minimal tagged-template or hyperscript system (h('div', {}, ... )) would dramatically improve DX
+3. createSelector - small effort, big payoff for derived state
+4. WebSocket Observable factory - natural for an RxJS framework, small surface area
+5. Named route URL generation - small but removes a whole class of bugs
+
+The framework is genuinely functional today for small-to-medium SPAs. The biggest gap isn't any single missing feature - it's the imperative DOM story. Every competing framework (React,
+Vue, Svelte, Solid, Angular) provides declarative rendering. That's the single feature that would most transform this from "a collection of RxJS utilities" into "a framework people would
+choose to build with."
+
+---------------
+
+

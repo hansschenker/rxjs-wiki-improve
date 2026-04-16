@@ -1,0 +1,680 @@
+What follows is a focused, practical explanation of the Join Calculus: what it is, its core primitives and semantics at a high level, short examples (textual / pseudo-code), its relation to other concurrency models, and common encodings (mutex, buffer, choice). I’ll keep the math light but precise enough to be useful.
+
+Short summary
+
+The Join Calculus is a small process calculus designed to model and program concurrent/distributed systems.
+Its core idea: concurrency is driven by reaction rules called join patterns that wait for a particular combination (multiset) of messages on named channels, then atomically consume them and run the reaction.
+It is essentially a disciplined, distribution-friendly fragment of the pi-calculus with a very natural programming interpretation (and practical implementations: JoCaml, extensions for Scala/Java, etc.).
+Core concepts and primitives
+
+Names (channels): like mailbox names or channel identifiers (a, b, c, …). Messages are sent on names.
+Asynchronous send: sending a message is a one-way action; it posts a message and returns immediately. Syntax often: a〈v〉 (or a(v) in some texts).
+Join definitions (reaction rules / patterns): define what to do when a specific combination of messages is present. A simple form: def a(x) & b(y) => P(x,y) in ... (processes that use a,b) ... This defines a reaction that waits until there is a message on a and a message on b simultaneously; when both are present, the rule fires, consuming those messages and executing P with the values.
+Local scope: definitions are typically lexically scoped; names introduced in a definition are local (important for distribution).
+Atomicity: the join reaction consumes all matched messages atomically — no interleaving where only part of the pattern is consumed.
+Basic operational intuition (informal)
+
+The runtime keeps a multiset of pending messages (like a chemical solution). Each join-definition is a reaction rule that inspects the multiset for the required pattern. When the pattern is found, the rule fires, removing those messages and producing new processes (possibly sending new messages).
+Senders never block (asynchrony). Synchronization happens when the reaction rule requires multiple messages to be present.
+Minimal example — rendezvous Pseudo-join syntax: def a(x) & b(y) => print(x,y) in a〈1〉 | b〈2〉 When both a〈1〉 and b〈2〉 are present, the reaction fires and prints "1 2".
+
+Producer/consumer (simple hand-off) def put(x) & get(k) => k〈x〉 in // producer does put〈42〉 // consumer does get〈replyChannel〉 The consumer sends a continuation channel replyChannel in get; when a put is available, the reaction invokes replyChannel(42).
+
+Encoding a mutex (lock)
+
+You can represent a lock with a single message available(): def acquire(k) & available() => k〈ok〉 release() => available() in available() // initially unlocked Clients acquire by sending acquire(reply) and wait for reply; release by sending release().
+Choice / mutual exclusion patterns
+
+Join patterns let you express guarded choice by overlapping patterns (rules compete for available messages). Because reactions consume their inputs atomically, choice arises naturally: whichever rule finds its full pattern first will fire.
+A slightly more concrete example (buffer that stores at most one item) def put(x) & get(k) => k〈x〉 put(x) & empty() => put_buffered(x) // when someone gets from buffered, reply and restore empty get(k) & put_buffered(x) => k〈x〉 & empty() in empty() // initial state Producers call put, consumers call get(reply). This pattern replaces explicit mutable state with message combinations.
+
+Why Join Calculus (design goals / benefits)
+
+Very small set of primitives that are a natural fit for multi-party synchronization patterns.
+Explicit atomic consumption of multiple messages avoids many races that occur with ad-hoc lock/message code.
+Lexical scoping of definitions makes distribution easier: names are local and the calculus was designed so that definitions can be physically located without changing semantics (a key point for distributed implementations).
+Good fit for compilation: join patterns map well to event-driven implementations or efficient runtime dispatch tables.
+Relation to other models
+
+Pi-calculus: Join Calculus can be seen as a restriction on pi-calculus that makes distribution and implementation simpler while retaining expressiveness (you can encode a lot of pi-calculus behavior in it).
+Chemical Abstract Machine (CHAM): the multiset-of-messages / reaction metaphor is shared — join rules are like chemical reaction rules.
+Actors / message-passing: join calculus is in the same design space; join patterns give more declarative multi-channel synchronization than classic actors (which wait on one mailbox).
+Languages & implementations: JoCaml is a direct implementation; there have been “join libraries” and language support for Java, Scala and others; join patterns are a common high-level concurrency primitive in several experimental languages.
+Formal note (very short)
+
+A join definition is typically written: def J1 | J2 | ... => P where each Ji is a channel pattern like a(x) or b( ). Reactions run when all required Ji messages are available.
+Reduction consumes messages matching the pattern and yields the body process P with parameters instantiated by the message contents.
+Common idioms / encodings
+
+Futures / continuations: encode by sending a continuation channel to receive the value.
+Locks / semaphores: represent resource tokens as messages (available, permit(n)).
+Barriers / multiway sync: a join pattern lists all channels that must have a message before continuing.
+Stateful servers: encode state as messages that represent the current state; reactions replace the state by sending different messages.
+When to use it (practical guidance)
+
+When you need clear, declarative synchronization across multiple sources/events.
+When you want to avoid low-level locks and prefer composable synchronization primitives.
+When designing systems that will be distributed and want semantics that map cleanly to distributed deployments.
+If you want more
+
+I can:
+give a short formal semantics (syntax + one-step reduction rule),
+show a worked JoCaml example or a Scala join-pattern library example that mirrors the talk in your repo,
+show how to encode classic concurrency patterns (futures, barriers, bounded buffers) step-by-step,
+or compare directly with pi-calculus encodings. Tell me which of the above you’d like next and I’ll produce code or formal rules accordingly.
+You said: what are the set of primitives that
+what are the set of primitives that are a natural fit for multi-party synchronization patterns
+Copilot said: Good question — multi‑party synchronization is easiest
+Good question — multi‑party synchronization is easiest to design and reason about when you start from a small set of orthogonal primitives that compose well. Below I list the primitives that are especially natural for expressing multi‑party synchronization, why each helps, and a tiny pseudo‑code example or encoding note for each.
+
+Core message / channel primitives
+
+Named channels (mailboxes)
+What: first‑class names that identify a place to send or receive messages.
+Why: they let different participants publish tokens/requests that reactions can wait for.
+Example: a, b, barrier.
+Asynchronous send (post)
+What: send a message and return immediately (non‑blocking).
+Why: decouples producers and consumers; messages accumulate until a reaction consumes them.
+Example: a〈v〉
+Synchronous send / rendezvous
+What: caller blocks until a receiver is paired with it.
+Why: convenient when sender expects immediate reply; useful for two‑party rendezvous patterns.
+Example: call a(v) and wait for reply.
+Multi‑party synchronization primitives 4. Join patterns (multi‑channel receive)
+
+What: a reaction that waits for a specific combination of messages on multiple channels, then fires atomically.
+Why: directly expresses multi‑party synchronization (e.g., “wait for A and B and C”).
+Example: def a(x) & b(y) & c() => P(x,y)
+Atomic consumption
+What: when a join fires, it removes all matched messages in one atomic step.
+Why: prevents races and partial consumption that break multi‑party semantics.
+How encoded: reactions must match and consume the whole pattern together.
+Guarded reactions (guards/conditions)
+What: a join fires only if some boolean guard holds over message payloads.
+Why: refines synchronization so parties can coordinate only when preconditions hold.
+Example: def a(n) & b(m) when n+m>0 => P(n,m)
+Coordination & composition primitives 7. Continuation channels / callbacks
+
+What: a caller provides a channel to receive the result (continuation).
+Why: encodes request/response and futures without blocking the caller.
+Example: get(k) & put(x) => k〈x〉
+Futures / promises
+What: a one‑shot placeholder for a value that will be delivered later.
+Why: lets many parties wait/compose on a single eventual result.
+Encoding: a future is an ephemeral reply channel + a completion message.
+Resource tokens (semaphores)
+What: represent available capacity (n identical tokens).
+Why: simple, composable resource control for mutual exclusion and bounded buffers.
+Example: permit() messages = available permits; acquire(k)&permit() => k〈ok〉
+Higher‑level synchronization constructs (often built from the above) 10. Barriers / collective sync
+
+What: wait for N participants (or specific ones) before proceeding.
+Why: common collective synchronization pattern.
+Encoding: join pattern for N reply channels, or accumulate N tokens then fire one reaction.
+Broadcast / multicast
+What: send one message observed by many receivers.
+Why: useful to notify many participants simultaneously.
+Implementation notes: either copy message to many channels or use publish/subscribe.
+Selective receive / pattern matching on queues
+What: pick a message that matches shape/guard from a mailbox.
+Why: expresses prioritized or conditional multi‑party protocols; useful when many message types arrive on the same channel.
+Example: Erlang-style selective receive or join patterns with guards.
+Scoping, replication & distribution primitives 13. Lexical scoping for definitions
+
+What: definitions (reaction rules) are lexically scoped and can introduce fresh names.
+Why: enables safe locality and makes distributed placement semantics simpler.
+Replication / persistent servers
+What: a reaction that is persistent (can fire many times).
+Why: models servers that accept multiple synchronizations over time.
+Notation: def !server(...) => body or server replicated by re-emitting itself.
+Name mobility (sending channel names)
+What: channels themselves can be sent as message payloads.
+Why: enables dynamic topology and delegation (very useful in distributed multiparty protocols).
+Time and failure handling 16. Timeouts & interrupts
+
+What: allow reactions to abort or take alternate actions if participants do not arrive within time.
+Why: practical systems must handle missing participants and avoid deadlock.
+Why these are a natural fit
+
+Join patterns + atomic consumption give direct, race‑free multi‑party sync primitives (you write “wait for this exact set of messages”).
+Asynchrony + continuations/futures keep producers non‑blocking while letting consumers coordinate.
+Resource tokens and replication encode common coordination idioms (mutexes, pools, buffers) in a message‑centric way that composes.
+Scoping and name mobility make protocols modular and distributable: you can hand out private channels to particular parties and reason locally.
+Short examples (how to build patterns)
+
+Multi‑party rendezvous (3‑way) def a(x) & b(y) & c(k) => k〈combine(x,y)〉 Parties send a〈v1〉, b〈v2〉 and provide a reply channel c.
+
+Barrier (wait for N participants) Represent each arrival by arrive(). Reaction when N tokens present triggers release(). def arrive() & arrive() & ... N times => release()
+
+Leader election style choice Overlapping join patterns give natural competitive choice: whichever full pattern completes first wins and atomically consumes the inputs.
+
+Implementation mapping
+
+Runtime: maintain a multiset (or per‑channel queues) of pending messages + efficient join dispatch (pattern indices/hashing).
+Optimization: represent common patterns (binary rendezvous) specially; compile join definitions to dispatch tables.
+If you want, I can:
+
+show concrete encodings in Join Calculus pseudo‑syntax or JoCaml,
+give an efficient dispatch strategy (how to compile join patterns),
+or provide examples mapping these primitives to Scala/Akka or Erlang. Which would help you most?
+You said: this join patterns could also be expressed
+this join patterns could also be expressed with: When...And...Do
+Copilot said: Yes — that’s a natural and common
+Yes — that’s a natural and common surface syntax for join patterns. “When … And … Do …” (or “When … And … Then …”) is an intuitive way to state a join: wait for the listed events/messages, then execute the body. Below I map the idea to semantics, show short examples (generic, Reactive Extensions and join‑calculus style), list important caveats, and suggest next steps.
+
+What it means (mapping)
+
+When A And B Do P ≈ a join pattern that waits until there is a message/event on A and on B, then atomically runs P, using the payloads from A and B.
+Key semantics implied by this phrasing:
+nonblocking sends: senders post messages and return immediately;
+atomic match/consume: the rule fires only when all components are present and consumes them together;
+parameters: payloads from the matched events are passed into P;
+repetition: the pattern can match repeatedly (like a reaction that can fire many times) unless explicitly one‑shot.
+Generic pseudo syntax
+
+Join calculus style: def a(x) & b(y) => P(x,y) in a〈1〉 | b〈2〉
+When/And/Do style (pseudo): When a(x) And b(y) Do { P(x,y) } // senders Send a(1); Send b(2);
+Concrete example — 2‑way rendezvous (pseudo)
+
+When a(x) And b(y) Do print(x,y)
+Send a(1)
+Send b(2)
+Effect: prints "1 2" once, and both messages are consumed.
+Reactive Extensions (Rx) join patterns (C# style)
+
+Rx has an explicit join API with And/Then/When:
+var plan = obsA.And(obsB).Then((x,y) => /* combine */);
+var result = Observable.When(plan); // result is an IObservable of combined outputs
+Example (C# Rx-like): var plan = a.And(b).Then((x,y) => (x,y)); var joined = Observable.When(plan); joined.Subscribe(tuple => Console.WriteLine(tuple));
+This is essentially When/And/Then over streams: the pattern can match repeatedly as events arrive.
+Producer/consumer with continuation (When/And/Do)
+
+Join calculus: def put(x) & get(reply) => reply〈x〉
+When-style: When put(x) And get(reply) Do { reply(x) }
+Producers do Send put(42); Consumers do Send get(myReplyChannel);
+Important semantic points / caveats
+
+Atomic consumption: the whole pattern is matched and consumed in one step — no partial consumption races.
+Non‑determinism / choice: if several patterns overlap and multiple full matches are possible, one will fire nondeterministically (or according to implementation-specific scheduling). That yields natural competitive choice.
+Persistence / replication:
+In many implementations patterns are persistent (can fire multiple times) as events keep arriving.
+If you want a one-shot, you must arrange the implementation to not re-arm.
+Guards / conditions: you often augment When/And/Do with guards (When a(x) And b(y) If cond(x,y) Do …).
+Continuations & replies: to return results, join bodies commonly send on a reply channel that a caller provided.
+Scoping & name mobility: in join calculi you can create fresh channels and pass them to control who participates; When/And/Do syntaxes should support local scopes or passing channels.
+Streams vs. messages: in Rx, inputs are streams — patterns match particular elements from streams (a streaming flavor). In join calculus, the abstraction is usually a multiset of messages (more like queued messages).
+Examples of idioms in When/And/Do form
+
+Mutex token: When acquire(reply) And avail() Do { reply(ok); /* avail consumed */ } // initially Send avail() Send acquire(myReply); // waits for avail, then receives ok
+Barrier for N parties (concept): When arrive() And arrive() And ... N times Do { releaseAll() }
+Choice between patterns: When a(x) And b(y) Do A(x,y) When a(x) And c(z) Do B(x,z) // whichever full combination becomes available first fires.
+When/And/Do vs join calculus subtleties
+
+Join calculus has lexical scoping, atomic substitution semantics, and name mobility as part of its calculus; a When/And/Do surface should preserve those if used to model distributed protocols.
+Implementations vary: Rx’s join works over Observables (streams) and produces sequences; a message‑oriented When/And/Do models message tokens and their consumption.
+If you want
+
+I can show a concrete When/And/Do example in:
+JoCaml / join-calculus pseudo-code,
+C# Reactive Extensions (full compilable example),
+Scala (using a join library) or Akka-style alternative. Which one would you like to see?
+You said: Rx.net implemented Join patterns with the help
+Rx.net implemented Join patterns with the help of Erik Meijer and with Rx.net Rxjs inherited these join patterns implemented in Rxjs operator behavior
+Copilot said: Yes — that’s correct in spirit. Brief history
+Yes — that’s correct in spirit.
+
+Brief history / provenance
+
+The Join Patterns idea (from the join calculus / join patterns literature) influenced the Reactive Extensions design. Erik Meijer was a key designer of Rx and he and collaborators brought join‑style pattern APIs into Rx.NET as a first‑class feature (the And/Then/When API / join patterns).
+RxJS (and other Rx ports) adopted that API early on, so you’ll find the same When/And/Then join‑pattern surface in earlier RxJS releases (and in many Rx tutorials from that era).
+What the Rx join API is
+
+The API exposes a way to declaratively wait for particular combinations of events from multiple Observables:
+obsA.And(obsB).Then((a,b) => result)
+Observable.When(plan1, plan2, ...)
+A plan encodes a join pattern; When turns plans into an Observable that emits whenever a plan’s pattern is matched.
+Internally it buffers events and performs atomic matches across streams, so it realizes true multi‑party synchronization over streams.
+How that relates to common Rx operators
+
+Join patterns are more general than most single operators:
+zip(obsA, obsB) is like repeatedly matching the i‑th element of A with the i‑th of B (a simple two‑way join).
+combineLatest emits whenever any source emits, combining with the latest from others (a different synchronization semantics — not atomic consumption of distinct tokens).
+forkJoin waits for each source to complete and emits their last values once (a “one‑shot barrier”).
+The And/Then/When facility can express many of these behaviors and many more complex multi‑party syncs that are awkward to write with only zip/combineLatest/etc.
+Status in implementations
+
+Rx.NET retains the joins API (System.Reactive.Linq.Joins) as part of the library. It is a well‑supported feature there.
+RxJS historically included the when/and/then API in older versions (and many learning resources show it), but newer idiomatic RxJS code more often uses the standard combination operators or other higher‑order techniques. Some RxJS distributions removed or deprecated the join API over time or left it out of the v5+ core to reduce surface area — but the conceptual feature was definitely inherited from Rx.NET.
+Small examples
+
+Rx.NET style (conceptual)
+
+Build a plan that triggers when both A and B have produced an element: var plan = A.And(B).Then((a,b) => Tuple.Create(a,b)); var joined = Observable.When(plan); joined.Subscribe(t => Console.WriteLine(t));
+RxJS (older style / earlier versions)
+
+Equivalent idea in older RxJS releases: var plan = A.and(B).then(function(a,b){ return [a,b]; }); Rx.Observable.when(plan).subscribe(function(t){ console.log(t); });
+If you want
+
+I can show a concrete runnable Rx.NET example (C#) that uses And/Then/When and explain its internal buffering, or
+show how to emulate a particular join pattern with modern RxJS operators (zip, buffer, combineLatest, or custom buffering) if you’re using a newer RxJS where when/and/then isn’t available. Which would you prefer?
+You said: could we formulate this behavior also as
+could we formulate this behavior also as a BDD Specification:
+A.And(B).Then((a,b) => Tuple.Create(a,b)); var joined = Observable.When(plan); joined.Subscribe(t => Console.WriteLine(t));
+Copilot said: Yes — you can express the join/When‑And‑Then
+Yes — you can express the join/When‑And‑Then behavior as BDD-style specifications (Given / When / Then). That gives a clear, executable specification of observable behavior (what combinations produce outputs, when tokens are consumed, how buffering and completion behave). Below I give:
+
+a set of Gherkin scenarios (BDD) describing the important behaviors, and
+concrete Rx.NET unit tests (using TestScheduler) that implement those scenarios so they can be run as automated specs.
+Gherkin (BDD) scenarios for a two‑way join plan
+
+Code
+Feature: Two‑stream join (A.And(B).Then(...))
+
+  Scenario: Basic join — A emits then B emits
+    Given observable A will emit value 1 at time T1
+    And observable B will emit value "x" at time T2 (T2 > T1)
+    When I create plan = A.And(B).Then((a,b) => (a,b))
+    And I subscribe to joined = Observable.When(plan)
+    Then the subscriber receives (1, "x") at time T2
+    And both values are consumed (no longer available for other matches)
+
+  Scenario: Basic join — B emits then A emits (reverse order)
+    Given observable B will emit "x" at time T1
+    And observable A will emit 1 at time T2 (T2 > T1)
+    When I create and subscribe to the plan as above
+    Then the subscriber receives (1, "x") at time T2
+
+  Scenario: Queueing / multiple values (pairwise matching)
+    Given observable A emits 1 at T1 and 2 at T3 (T1 < T3)
+    And observable B emits "x" at T2 and "y" at T4 (T2 < T4, and T1 < T2 < T3 < T4)
+    When I subscribe to the join plan
+    Then the subscriber receives (1,"x") at time T2
+    And the subscriber receives (2,"y") at time T4
+
+  Scenario: Excess tokens on one side (buffering)
+    Given A emits 1 at T1 and 2 at T3
+    And B emits "x" at T2
+    When I subscribe
+    Then the subscriber receives (1,"x") at time T2
+    And value 2 remains buffered until B emits another value
+
+  Scenario: Completion with no further matches
+    Given A emits 1 at T1 and then completes at Tc
+    And B emits nothing before Tc and then completes at Tc
+    When I subscribe
+    Then no matches occur
+    And joined completes at time Tc
+
+  Scenario: Error propagation
+    Given A emits 1 at T1
+    And B raises an error at Te
+    When I subscribe
+    Then joined propagates the error at Te
+    And no further matches are produced after the error
+Notes on the expected semantics implicit in these scenarios
+
+Atomic consumption: When a join fires it atomically consumes one token from each participating stream.
+Emission time: the join result is produced at the time the second token for the pair arrives (i.e., at the time the last required event is received that completes the pattern).
+FIFO per stream: tokens are matched in arrival order on each stream (the oldest unmatched tokens are used first).
+Determinism: given deterministic timing (TestScheduler), matching order is deterministic; the runtime implements buffering/queues per source.
+Completion & errors: joined completes when no further matches are possible (all sources completed and no queued tokens form a full pattern); errors are propagated.
+Executable Rx.NET tests implementing the BDD scenarios (Requires package System.Reactive and Microsoft.Reactive.Testing)
+
+Example: basic and multi‑value scenarios implemented with TestScheduler
+
+C#
+using System;
+using System.Reactive;
+using System.Reactive.Linq;
+using Microsoft.Reactive.Testing;
+using Microsoft.VisualStudio.TestTools.UnitTesting; // or use your test framework
+using static Microsoft.Reactive.Testing.ReactiveTest;
+
+[TestClass]
+public class JoinPatternSpecs : ReactiveTest
+{
+    [TestMethod]
+    public void BasicJoin_A_before_B_ProducesTupleAtB()
+    {
+        var scheduler = new TestScheduler();
+
+        var a = scheduler.CreateHotObservable(
+            OnNext(210, 1),
+            OnCompleted<int>(1000)
+        );
+
+        var b = scheduler.CreateHotObservable(
+            OnNext(220, "x"),
+            OnCompleted<string>(1000)
+        );
+
+        var plan = a.And(b).Then((x, y) => Tuple.Create(x, y));
+        var joined = Observable.When(plan);
+
+        var results = scheduler.Start(() => joined);
+
+        results.Messages.AssertEqual(
+            OnNext(220, Tuple.Create(1, "x")),
+            OnCompleted<Tuple<int, string>>(1000)
+        );
+    }
+
+    [TestMethod]
+    public void MultipleValues_PairwiseMatching()
+    {
+        var scheduler = new TestScheduler();
+
+        var a = scheduler.CreateHotObservable(
+            OnNext(210, 1),
+            OnNext(250, 2),
+            OnCompleted<int>(1000)
+        );
+
+        var b = scheduler.CreateHotObservable(
+            OnNext(220, "x"),
+            OnNext(260, "y"),
+            OnCompleted<string>(1000)
+        );
+
+        var plan = a.And(b).Then((x, y) => Tuple.Create(x, y));
+        var joined = Observable.When(plan);
+
+        var results = scheduler.Start(() => joined);
+
+        results.Messages.AssertEqual(
+            OnNext(220, Tuple.Create(1, "x")), // second arrival for first pair
+            OnNext(260, Tuple.Create(2, "y")),
+            OnCompleted<Tuple<int, string>>(1000)
+        );
+    }
+
+    [TestMethod]
+    public void ExcessTokens_BufferingBehavior()
+    {
+        var scheduler = new TestScheduler();
+
+        var a = scheduler.CreateHotObservable(
+            OnNext(210, 1),
+            OnNext(230, 2),
+            OnCompleted<int>(1000)
+        );
+
+        var b = scheduler.CreateHotObservable(
+            OnNext(220, "x"),
+            OnCompleted<string>(1000)
+        );
+
+        var plan = a.And(b).Then((x, y) => Tuple.Create(x, y));
+        var joined = Observable.When(plan);
+
+        var results = scheduler.Start(() => joined);
+
+        results.Messages.AssertEqual(
+            OnNext(220, Tuple.Create(1, "x")), // (1,x) matched
+            // (2,?) not emitted since B had no second token
+            OnCompleted<Tuple<int,string>>(1000)
+        );
+    }
+
+    [TestMethod]
+    public void ErrorPropagation()
+    {
+        var scheduler = new TestScheduler();
+
+        var a = scheduler.CreateHotObservable(
+            OnNext(210, 1)
+        );
+
+        var ex = new Exception("boom");
+        var b = scheduler.CreateHotObservable(
+            OnError<string>(220, ex)
+        );
+
+        var plan = a.And(b).Then((x, y) => Tuple.Create(x, y));
+        var joined = Observable.When(plan);
+
+        var results = scheduler.Start(() => joined);
+
+        results.Messages.AssertEqual(
+            OnError<Tuple<int,string>>(220, ex)
+        );
+    }
+}
+How these tests map to the BDD scenarios
+
+Each test's setup corresponds to the Given (hot observables with timed events).
+The creation of the plan + subscription are the When steps.
+The AssertEqual on results.Messages corresponds to Then: the exact sequence (OnNext / OnCompleted / OnError) and their times.
+If you want to make these specs more human-readable (for a non‑developer stakeholder) you can keep the Gherkin text and then map each Gherkin scenario to a unit test like those above.
+
+If you want I can:
+
+produce a complete Gherkin feature file and an automated runner that maps scenarios to the TestScheduler code,
+show how to express the same BDD scenarios in RxJS (modern v6+) using combinators (since when/and/then is not in core RxJS), or
+add more scenarios (timeouts, guards, multi‑plan competition / choice among overlapping plans). Which would you like next?
+You said: give me the sample in Rxjs
+give me the sample in Rxjs
+Copilot said: Below is a practical RxJS implementation that
+Below is a practical RxJS implementation that emulates the simple two‑way join pattern semantics:
+
+nonblocking producers (Subjects/Observables),
+per‑source FIFO buffering,
+atomic consumption: whenever each source has at least one buffered value, emit a tuple built from the oldest values (one from each source),
+emission occurs at the arrival of the second (completing) token for that pair,
+immediate error propagation,
+completion when both sources have completed and no queued tokens remain.
+You can adapt the same idea to N sources (example included).
+
+JavaScript (RxJS v6+)
+
+JavaScript
+// join.js
+// Run with Node + rxjs installed (npm install rxjs) or in a browser bundler.
+// Uses ES module style—adjust imports for CommonJS if needed.
+
+import { Observable, Subject } from "rxjs";
+
+/**
+ * joinTwo: returns Observable that emits [a, b] whenever both sources
+ * have at least one buffered value (oldest-from-each consumed atomically).
+ */
+export function joinTwo(a$, b$) {
+  return new Observable(subscriber => {
+    const qa = [];
+    const qb = [];
+    let aComplete = false;
+    let bComplete = false;
+
+    const sa = a$.subscribe({
+      next: v => { qa.push(v); tryEmit(); },
+      error: err => subscriber.error(err),
+      complete: () => { aComplete = true; checkComplete(); }
+    });
+
+    const sb = b$.subscribe({
+      next: v => { qb.push(v); tryEmit(); },
+      error: err => subscriber.error(err),
+      complete: () => { bComplete = true; checkComplete(); }
+    });
+
+    function tryEmit() {
+      // While both queues non-empty, emit pair(s).
+      while (qa.length > 0 && qb.length > 0) {
+        const aVal = qa.shift();
+        const bVal = qb.shift();
+        subscriber.next([aVal, bVal]);
+      }
+      checkComplete();
+    }
+
+    function checkComplete() {
+      // Complete only when both sources completed and no possible matches remain.
+      if (aComplete && bComplete && qa.length === 0 && qb.length === 0) {
+        subscriber.complete();
+      }
+    }
+
+    return () => {
+      sa.unsubscribe();
+      sb.unsubscribe();
+    };
+  });
+}
+
+/**
+ * joinN: generalization for an array of sources -> emits arrays [v0, v1, ..., vN-1]
+ */
+export function joinN(sources) {
+  return new Observable(subscriber => {
+    const queues = sources.map(() => []);
+    const completed = sources.map(() => false);
+    const subs = sources.map((src, i) => src.subscribe({
+      next: v => { queues[i].push(v); tryEmit(); },
+      error: err => subscriber.error(err),
+      complete: () => { completed[i] = true; checkComplete(); }
+    }));
+
+    function tryEmit() {
+      // If every queue has at least one item, shift one from each and emit array.
+      while (queues.every(q => q.length > 0)) {
+        const values = queues.map(q => q.shift());
+        subscriber.next(values);
+      }
+      checkComplete();
+    }
+
+    function checkComplete() {
+      // If all sources completed and there is no full tuple possible, complete.
+      if (completed.every(c => c) && queues.every(q => q.length === 0)) {
+        subscriber.complete();
+      }
+    }
+
+    return () => subs.forEach(s => s.unsubscribe());
+  });
+}
+Usage examples (node/browser console)
+
+JavaScript
+// examples.js
+import { Subject } from "rxjs";
+import { joinTwo } from "./join.js";
+
+const A = new Subject();
+const B = new Subject();
+
+const joined = joinTwo(A, B);
+
+joined.subscribe({
+  next: t => console.log("joined", t),
+  error: e => console.error("joined error", e),
+  complete: () => console.log("joined complete")
+});
+
+// Example 1: A then B -> emits at B arrival
+setTimeout(() => A.next(1), 100);    // A emits at 100ms
+setTimeout(() => B.next('x'), 200);  // B emits at 200ms -> joined [1,'x'] at 200ms
+
+// Example 2: reverse order (B then A)
+setTimeout(() => {
+  const A2 = new Subject(), B2 = new Subject();
+  joinTwo(A2, B2).subscribe(x => console.log("joined2", x));
+  B2.next('first');    // B2 at t0 -> buffered
+  A2.next(10);         // A2 -> emits [10, 'first'] right away
+}, 500);
+
+// Example 3: multiple pairwise values
+setTimeout(() => {
+  const A3 = new Subject(), B3 = new Subject();
+  joinTwo(A3, B3).subscribe(x => console.log("joined3", x));
+  A3.next(1);          // queued
+  B3.next('x');        // emits [1,'x']
+  A3.next(2);          // queued
+  B3.next('y');        // emits [2,'y']
+}, 800);
+
+// Example 4: buffering (A emits twice, B only once)
+setTimeout(() => {
+  const A4 = new Subject(), B4 = new Subject();
+  joinTwo(A4, B4).subscribe(x => console.log("joined4", x), e => console.error(e), () => console.log("joined4 complete"));
+  A4.next(1);
+  A4.next(2);   // second remains buffered until B emits again
+  B4.next('x'); // emits [1,'x']
+  // B4 has no second emit so [2, ?] never emitted until B4.next(...)
+  A4.complete(); B4.complete(); // joined completes since no full pairs remain
+}, 1200);
+
+// Example 5: error propagation
+setTimeout(() => {
+  const A5 = new Subject(), B5 = new Subject();
+  joinTwo(A5, B5).subscribe({
+    next: v => console.log('joined5', v),
+    error: e => console.error('joined5 error', e),
+    complete: () => console.log('joined5 complete')
+  });
+  A5.next(42);
+  B5.error(new Error('boom')); // joined errors immediately
+}, 1600);
+Notes and caveats
+
+This is a straightforward buffered FIFO implementation that matches the common semantics of Rx join plans in the simple case.
+Differences from full Rx Join API:
+The true Rx.NET And/Then/When supports arbitrary plans (multiple patterns, overlapping patterns, complex scheduling) and compiles them to efficient dispatch machinery. The simple implementation above supports a single two‑way or N‑way atomic pattern.
+No guards/conditions are supported here; you can filter payloads before passing them to the join or add predicate logic in tryEmit.
+Overlapping plans & choice: if you need multiple competing plans you must implement plan selection logic (which gets nontrivial). The Rx.NET join planner handles that for you.
+Completion semantics: this implementation completes only when all sources have completed and no complete tuple remains possible.
+Performance: for many streams or many patterns you would implement optimized dispatch tables rather than checking all queues on every push.
+If you want next:
+
+I can show a marble/TestScheduler-based unit test suite that asserts exact virtual times (like the Rx.NET TestScheduler examples earlier) for these RxJS examples.
+Or I can extend the code to implement arbitrary And/Then/When plans (multiple patterns) — that is more involved but doable; I can sketch a planner/engine for it. Which would you like?
+You said: - produce a complete Gherkin feature file
+- produce a complete Gherkin feature file and an automated runner that maps scenarios to the TestScheduler code
+- use the Javascript version of Gherkin
+Copilot said: ```gherkin name=features/join.feature Feature: Two-stream join (When A And B
+features/join.feature
+Feature: Two-stream join (When A And B Then emit pair)
+
+  Background:
+    Given an empty test scenario
+
+  Scenario: Basic join — A emits then B emits
+package.json
+{
+  "name": "rxjs-join-bdd",
+  "version": "1.0.0",
+  "description": "Cucumber.js + RxJS TestScheduler BDD specs for a two-way join pattern",
+  "scripts": {
+    "test": "cucumber-js --require-module @babel/register --require features/step_definitions/**/*.js features/**/*.feature"
+src/join.js
+// A simple joinTwo implementation that works with Observables driven by TestScheduler.
+// It buffers FIFO per source and emits a pair [a,b] whenever both queues are non-empty.
+// Errors are forwarded immediately; completion occurs when both sources complete and no full pair remains.
+const { Observable } = require('rxjs');
+
+function joinTwo(a$, b$) {
+features/step_definitions/join_steps.js
+const { Given, When, Then, Before } = require('@cucumber/cucumber');
+const { TestScheduler } = require('rxjs/testing');
+const { joinTwo } = require('../../src/join');
+const { expect } = require('chai');
+
+/**
+README.md
+```text
+RxJS join BDD (Cucumber.js) - README
+
+Setup
+1. Ensure Node.js >= 16 is installed.
+2. Clone/download this project files into a directory.
+Instructions / explanation
+
+The feature file (features/join.feature) contains the Gherkin scenarios.
+The Cucumber step definitions are in features/step_definitions/join_steps.js. They build hot observables from the Given lines and run the scheduler assertions in the Then steps.
+The join implementation is in src/join.js (joinTwo).
+Run the scenarios with npm test. Cucumber will execute the scenarios and the TestScheduler assertions will pass or fail accordingly.
+If you'd like:
+
+I can extend the step definitions to support N-way joins (joinN) and more complex plans (overlapping patterns / competing plans), or
+provide a variant of the tests that uses RxJS marble diagrams directly in the feature file for more concise time specs.s

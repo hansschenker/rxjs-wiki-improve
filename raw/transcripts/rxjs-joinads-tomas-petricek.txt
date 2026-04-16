@@ -1,0 +1,234 @@
+/**
+ * Core Async implementation to support F# Async<'T> behavior.
+ * In F#, Async<'T> is a delayed (cold) computation.
+ */
+export type Async<T> = () => Promise<T>;
+
+export class Async {
+    /**
+     * Creates an asynchronous workflow that non-deterministically returns the 
+     * result of one of the two specified workflows (the one that completes first). 
+     * This is similar to Task.WhenAny, but modified for Joinads:
+     * It fails only when all computations fail.
+     */
+    static whenAny<T>(...works: Async<T>[]): Async<T> {
+        return () => new Promise((resolve, reject) => {
+            let failedCount = 0;
+            let lastError: any = null;
+            if (works.length === 0) {
+                reject(new Error("No tasks provided to WhenAny"));
+                return;
+            }
+            works.forEach(work => {
+                work().then(resolve).catch(err => {
+                    lastError = err;
+                    failedCount++;
+                    if (failedCount === works.length) {
+                        reject(lastError);
+                    }
+                });
+            });
+        });
+    }
+
+    /**
+     * Standard F# Async.Parallel equivalent
+     */
+    static parallel<T>(works: Async<T>[]): Async<T[]> {
+        return () => Promise.all(works.map(w => w()));
+    }
+
+    /**
+     * Standard F# Async.Sleep equivalent
+     */
+    static sleep(milliseconds: number): Async<void> {
+        return () => new Promise(resolve => setTimeout(resolve, milliseconds));
+    }
+
+    /**
+     * Returns a computation that, when started, runs the workflow 
+     * given as an argument and returns a new computation that 
+     * can be used to wait for the result of the started workflow.
+     * Equivalent to F# Async.StartChild.
+     */
+    static startChild<T>(work: Async<T>): Async<Async<T>> {
+        return async () => {
+            const promise = work(); // Start the work immediately (hot)
+            return () => promise;   // Return a way to wait for that specific promise
+        };
+    }
+}
+
+/**
+ * Extend the standard F# 'async' builder with 
+ * additional operations to support joinads
+ */
+export class AsyncBuilder {
+    /** Standard monadic return */
+    returnVal<T>(v: T): Async<T> {
+        return () => Promise.resolve(v);
+    }
+
+    /** Standard monadic bind */
+    bind<T, U>(work: Async<T>, f: (v: T) => Async<U>): Async<U> {
+        return () => work().then(v => f(v)());
+    }
+
+    /** Standard delay for computation expressions */
+    delay<T>(f: () => Async<T>): Async<T> {
+        return () => f()();
+    }
+
+    /**
+     * Non-deterministically choose the first computation
+     * that succeeds; fails only when both computations fail
+     */
+    choose<T>(a: Async<T>, b: Async<T>): Async<T> {
+        return Async.whenAny(a, b);
+    }
+
+    /**
+     * Represents a failed computation. It holds that:
+     * async.Choose(work, async.Fail()) = work
+     */
+    fail<T>(): Async<T> {
+        return this.delay(() => {
+            throw new Error("failed!");
+        });
+    }
+
+    /**
+     * Run the specified two computations in parallel and
+     * return their results as a tuple
+     */
+    merge<T1, T2>(a: Async<T1>, b: Async<T2>): Async<[T1, T2]> {
+        return this.delay(() => {
+            const map = <T>(v: Async<T>): Async<any> => 
+                this.bind(v, (res) => this.returnVal(res as any));
+            
+            const works: Async<any>[] = [map(a), map(b)];
+            return this.bind(Async.parallel(works), (res) => {
+                return this.returnVal([res[0] as T1, res[1] as T2]);
+            });
+        });
+    }
+
+    /**
+     * Returns a computation that, when started, runs the workflow 
+     * given as an argument and returns a new computation that 
+     * can be used to wait for the result of the started workflow
+     */
+    alias<T>(a: Async<T>): Async<Async<T>> {
+        return Async.startChild(a);
+    }
+
+    /** Start the async workflow */
+    start(work: Async<any>): void {
+        work().catch(err => {
+            // Exceptions in Async.Start are typically swallowed or 
+            // sent to a global handler if not caught.
+            if (err.message !== "failed!") {
+                console.error("Unhandled Async Error:", err);
+            }
+        });
+    }
+}
+
+export const asyncBuilder = new AsyncBuilder();
+
+/**
+ * Returns the specified value 'v' after 'time' milliseconds
+ */
+export const after = <T>(time: number, v: T): Async<T> => {
+    return asyncBuilder.delay(() => 
+        asyncBuilder.bind(Async.sleep(time), () => {
+            // Print when returning to show how many 
+            // times the function is being executed
+            console.log(`Returning: ${JSON.stringify(v)}`);
+            return asyncBuilder.returnVal(v);
+        })
+    );
+};
+
+// --- Example: The initial attempt (Demonstrating lack of Alias) ---
+
+const runInitialAttempt = () => {
+    const after1000 = after(1000, false);
+    const after2000 = after(2000, false);
+
+    // Manual translation of the Joinad match! logic:
+    // match! after 1000 false, after 2000 false with
+    // | true, ? -> printfn "First true"
+    // | ?, true -> printfn "Second true"
+    // | a, b -> printfn "Final: %b" (a || b)
+
+    const clause1 = asyncBuilder.bind(after1000, (v) => 
+        v === true ? (console.log("First true"), asyncBuilder.returnVal(undefined)) : asyncBuilder.fail());
+
+    const clause2 = asyncBuilder.bind(after2000, (v) => 
+        v === true ? (console.log("Second true"), asyncBuilder.returnVal(undefined)) : asyncBuilder.fail());
+
+    const clause3 = asyncBuilder.bind(asyncBuilder.merge(after1000, after2000), ([a, b]) => {
+        console.log(`Final: ${a || b}`);
+        return asyncBuilder.returnVal(undefined);
+    });
+
+    const workflow = asyncBuilder.choose(clause1, 
+                        asyncBuilder.choose(clause2, clause3));
+
+    console.log("--- Starting Initial Attempt (Expect 4 returns) ---");
+    asyncBuilder.start(workflow);
+};
+
+// --- Example: Adding computation aliasing ---
+
+const runAliasedAttempt = () => {
+    const after1000Raw = after(1000, false);
+    const after2000Raw = after(2000, false);
+
+    // Manual translation of the Joinad match! logic with Alias:
+    // async.Bind(async.Alias(after 1000 false), fun after1000 -> ...
+    const workflow = asyncBuilder.bind(asyncBuilder.alias(after1000Raw), (after1000) => 
+        asyncBuilder.bind(asyncBuilder.alias(after2000Raw), (after2000) => {
+            
+            const clause1 = asyncBuilder.bind(after1000, (v) => 
+                v === true ? (console.log("First true"), asyncBuilder.returnVal(undefined)) : asyncBuilder.fail());
+
+            const clause2 = asyncBuilder.bind(after2000, (v) => 
+                v === true ? (console.log("Second true"), asyncBuilder.returnVal(undefined)) : asyncBuilder.fail());
+
+            const clause3 = asyncBuilder.bind(asyncBuilder.merge(after1000, after2000), ([a, b]) => {
+                console.log(`Final: ${a || b}`);
+                return asyncBuilder.returnVal(undefined);
+            });
+
+            return asyncBuilder.choose(clause1, 
+                        asyncBuilder.choose(clause2, clause3));
+        })
+    );
+
+    // The delay ensures the first example logs finish before the second starts
+    setTimeout(() => {
+        console.log("--- Starting Aliased Attempt (Expect 2 returns) ---");
+        asyncBuilder.start(workflow);
+    }, 4000);
+};
+
+// To run the examples:
+// runInitialAttempt();
+// runAliasedAttempt();
+
+1.  **Async Representation**: F# `Async<'T>` is a "cold" computation (it does nothing until started). JavaScript `Promise` is "hot" (it starts immediately upon creation). To preserve exact F# semantics, I defined `Async<T>` as a function `() => Promise<T>`. This ensures that every time the "workflow" is called, a new execution starts, matching the "four returns" behavior described in the F# text.
+
+2.  **Async.WhenAny Implementation**: The F# snippet omitted the implementation but specified that `Choose` should only fail if *both* computations fail. Standard `Promise.race` rejects as soon as the *first* promise rejects. I implemented a custom `whenAny` that tracks failure counts and only rejects when the total count reaches the number of inputs.
+
+3.  **AsyncBuilder Extension**: TypeScript does not have computation expressions or the ability to extend existing classes with new methods via external code in the exact same syntax (though module augmentation exists, for a standalone translation, a class-based approach is clearer). I implemented `Choose`, `Fail`, `Merge`, and `Alias` as methods on an `AsyncBuilder` class.
+
+4.  **Fail Implementation**: In F#, `failwith` throws an exception. In the TypeScript `AsyncBuilder`, `fail()` returns a computation that, when executed, throws/rejects. This works with the `choose` logic because the `catch` block in `whenAny` handles the rejection and waits for the other branch.
+
+5.  **Merge Implementation**: F# `Async.Parallel` takes an array and `Merge` converts it back to a tuple. I used `Promise.all` and mapped the resulting array to a TypeScript tuple `[T1, T2]`.
+
+6.  **Alias / Async.StartChild**: `Async.StartChild` in F# starts the workflow and returns an object to wait for it. In the JS translation, this means invoking the `Async<T>` function to get a `Promise` (making it "hot") and then returning that promise wrapped in a new `Async<T>` function. This ensures that subsequent calls to the same aliased workflow return the *same* promise result without re-executing the logic.
+7.  **Match! Translation**: Since TypeScript does not have `match!` syntax, I manually implemented the "de-sugared" version provided in the F# text (using `bind`, `choose`, and `merge`) to demonstrate that the behavior (calling `after` 4 times vs 2 times) is preserved exactly.
+8.  **Generics**: I used TypeScript generics (`<T>`, `<T1, T2>`) to maintain the type safety present in the original F# signatures.
+

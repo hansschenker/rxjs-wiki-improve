@@ -1,0 +1,54 @@
+Async seems Hard
+-Race Conditions
+.Memory Leaks
+.Complex State Machines
+.Uncaught Async Errors
+
+---------
+
+Playing a Movie Asynchronously
+
+function play(movieId, cancelButton, callback) {
+var movieTicket,
+playError,
+tryFinish = function() {
+if (playError) {
+callback(null, playError);
+
+else if (movieTicket && player.initialized) {
+callback(null, ticket);
+
+cancelButton.addEventListener("click", function() { playError = "cancelled"; }
+if (!player.initialized) {
+player.init(function(error) {
+playError = error;
+tryFinish();
+
+}
+
+}
+
+authorizeMovie(function(error, ticket) {
+playError = error;
+movieTicket = ticket;
+tryFinish();
+
+});
+
+-------------
+
+Iterator - is a protocol for sequentially iterate through a collection
+
+MVU
+  update/ observe view (model in) is the inverse of view/observe model ( model out)
+
+So Many Push APIs
+DOM Events
+Websockets
+Server-sent Events
+Node Streams
+Service Workers
+jQuery Events
+XMLHttpRequest
+setInterval
+

@@ -1,0 +1,7 @@
+https://github.com/fantasyland/fantasy-land
+
+github.com/afirdousi/learn-functional-javascript
+
+bit.ly/frp-javascript-101-ngconf
+
+http://reactivex.io/learnrx/
