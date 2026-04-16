@@ -18,7 +18,7 @@
     "ai": "^6.0.146",
     "archiver": "^7.0.1",
     "linkedom": "^0.18.12",
-    "next": "15.5.14",
+    "next": "^15.5.15",
     "ollama-ai-provider-v2": "^3.5.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
